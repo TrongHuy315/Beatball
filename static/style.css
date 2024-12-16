@@ -1,0 +1,186 @@
+/* Định dạng chung */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    font-family: Arial, sans-serif;
+    background-color: #ffffff;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    text-align: center;
+}
+
+.title {
+    font-size: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 40px;
+}
+
+.icon .ball {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 2px;
+    width: 60px; /* Kích thước quả bóng */
+    height: 60px; /* Chiều cao khớp với dòng chữ */
+}
+
+/* Lớp div chứa nút Anonymous và Login Menu */
+.buttons {
+    display: flex;
+    flex-direction: row; /* Nút 'Anonymous' và 'Login Menu' nằm ngang */
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* Đảm bảo các nút có kiểu giống nhau */
+.btn {
+    background-color: #87ceeb;
+    border: 1px solid #ff4f4f;
+    padding: 15px 30px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #000;
+    transition: all 0.2s ease;
+    border-radius: 10px;
+}
+
+.btn:hover {
+    background-color: #00bfff;
+    color: #fff;
+}
+
+/* Đảm bảo ô username nằm dưới nút Anonymous */
+.username-container {
+    margin-top: 10px; /* Khoảng cách giữa ô username và nút Anonymous */
+    margin-right: 204px;
+}
+
+/* Các phần tử khác vẫn giữ nguyên */
+.bottom {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100px;
+}
+
+/* Đường nét đứt */
+.dashed-line {
+    width: 80%;
+    height: 5px;
+    border-top: 3px dashed black;
+    position: absolute;
+    bottom: 20px;
+}
+
+/* Animation cho bóng */
+.rolling-ball {
+    position: absolute;
+    bottom: 10px;
+    left: 2px;
+    font-size: 50px; /* Kích thước icon */
+    color: #ff4500;
+    animation: roll 5s linear infinite, move 5s linear infinite;
+}
+
+@keyframes roll {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes move {
+    from {
+        left: 2px;
+    }
+    to {
+        left: 90%;
+    }
+}
+
+/* Modal styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* Làm mờ background */
+    display: none; /* Ẩn modal mặc định */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    width: 300px;
+}
+
+.modal h2 {
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.modal input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.modal-btn {
+    background-color: #00bfff;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.modal-btn:hover {
+    background-color: #007acc;
+}
+
+/* Định dạng cho ô nhập username */
+.username-input {
+    width: 80%;
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.username-input:focus {
+    border-color: #00bfff;
+    box-shadow: 0 0 5px rgba(0, 191, 255, 0.5);
+}

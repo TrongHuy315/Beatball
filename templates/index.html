@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatBall.io</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">
+            BeatBall.i 
+            <span class="icon">
+                <img src="{{ url_for('static', filename='ball.png') }}" alt="Soccer Ball" class="ball">
+            </span>
+        </h1>
+        <div class="buttons">
+            <button class="btn" id="anonymous-btn">Anonymous</button>
+            <button class="btn">Login Menu</button>
+        </div>
+
+        <!-- Div chứa ô nhập username dưới nút Anonymous -->
+        <div class="username-container">
+            <input type="text" id="username-field" placeholder="Enter your username" class="username-input">
+        </div>
+    </div>
+
+    <!-- Đường nét đứt và bóng lăn -->
+    <div class="bottom">
+        <div class="dashed-line"></div>
+        <i class="fas fa-futbol rolling-ball"></i>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+

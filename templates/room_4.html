@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4 Player Room</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='room_4_style.css') }}">
+</head>
+<body>
+    <!-- Ký hiệu quay lại ở góc trái trên cùng -->
+    <div class="back-button">
+        <a href="{{ url_for('home') }}">
+            <img src="{{ url_for('static', filename='back-icon.png') }}" alt="Back" class="back-icon">
+        </a>
+    </div>
+
+    <div class="container">
+        <!-- Phần card player với chữ VS ở giữa, tất cả trên một hàng -->
+        <div class="player-cards">
+            <div class="player-card">
+                <div class="avatar"></div>
+                <p class="player-name">Player 1</p>
+                <p class="player-score">1000</p>
+            </div>
+            <div class="player-card">
+                <div class="avatar"></div>
+                <p class="player-name">Player 2</p>
+                <p class="player-score">1200</p>
+            </div>
+
+            <!-- Chữ VS ở giữa -->
+            <div class="vs-divider">
+                <img src="{{ url_for('static', filename='vs-icon.png') }}" alt="VS" class="vs-icon">
+            </div>
+
+            <div class="player-card">
+                <div class="avatar"></div>
+                <p class="player-name">Player 3</p>
+                <p class="player-score">900</p>
+            </div>
+            <div class="player-card">
+                <div class="avatar"></div>
+                <p class="player-name">Player 4</p>
+                <p class="player-score">1100</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Room ID và Find Match nằm trên khung chat -->
+    <div class="room-options">
+        <div class="room-id">
+            <span>Room ID:</span>
+            <input type="text" value="{{ room_id }}" readonly>
+        </div>
+        <button class="find-match-btn" id="find-match-btn">Find Match</button>
+    </div>
+    
+    <!-- Phần chat box -->
+    <div class="chat-box">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input">
+            <input type="text" id="chat-input" placeholder="Type a message..." />
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const chatInput = document.getElementById("chat-input");
+            const sendBtn = document.getElementById("send-btn");
+            const chatMessages = document.getElementById("chat-messages");
+            const findMatchBtn = document.getElementById("find-match-btn");
+
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (message) {
+                    const messageElement = document.createElement("div");
+                    messageElement.textContent = message;
+                    messageElement.classList.add("message");
+                    chatMessages.appendChild(messageElement);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    chatInput.value = "";
+                }
+            }
+
+            sendBtn.addEventListener("click", sendMessage);
+            chatInput.addEventListener("keypress", (event) => {
+                if (event.key === "Enter") {
+                    sendMessage();
+                }
+            });
+
+            // Chuyển sang trang Find Match với Flask
+            findMatchBtn.addEventListener("click", () => {
+                window.location.href = "{{ url_for('find_match') }}"; // Dùng Flask url_for để tạo URL động
+            });
+        });
+    </script>
+</body>
+</html>
