@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 
 app.secret_key = 'BeatBall@xyz'
 
@@ -24,6 +26,11 @@ def find_match():
     # Logic xử lý nếu cần
     return "Redirected to Find Match page!"
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# Sự kiện socket.io để nhận và phát tin nhắn
+@socketio.on('send_message')
+def handle_message(data):
+    # Phát lại tin nhắn cho tất cả các client
+    emit('receive_message', data, broadcast=True)
 
+if __name__ == "__main__":
+    socketio.run(app, debug=True)

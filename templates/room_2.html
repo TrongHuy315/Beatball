@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2 vs 2 Room</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='room_2_style.css') }}">
+    <script src="https://cdn.socket.io/4.1.3/socket.io.min.js"></script>
 </head>
 <body>
     <!-- Ký hiệu quay lại ở góc trái trên cùng -->
@@ -55,35 +56,45 @@
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const chatInput = document.getElementById("chat-input");
-            const sendBtn = document.getElementById("send-btn");
-            const chatMessages = document.getElementById("chat-messages");
-            const findMatchBtn = document.getElementById("find-match-btn");
-    
-            function sendMessage() {
-                const message = chatInput.value.trim();
+        // Kết nối với server socket.io
+        const socket = io.connect("http://" + document.domain + ":" + location.port);
+
+        // Lắng nghe sự kiện "receive_message" từ server và hiển thị tin nhắn
+        socket.on("receive_message", function(data) {
+            const messageElement = document.createElement("div");
+            messageElement.textContent = data.username + ": " + data.message;
+            messageElement.classList.add("message");
+            document.getElementById("chat-messages").appendChild(messageElement);
+            document.getElementById("chat-messages").scrollTop = document.getElementById("chat-messages").scrollHeight;
+        });
+
+        // Gửi tin nhắn khi người dùng nhấn nút gửi
+        document.getElementById("send-btn").addEventListener("click", () => {
+            const message = document.getElementById("chat-input").value.trim();
+            const username = "User"; // Thay đổi tên người dùng nếu cần
+            if (message) {
+                // Gửi tin nhắn qua socket
+                socket.emit("send_message", { username: username, message: message });
+                document.getElementById("chat-input").value = ""; // Xóa ô nhập
+            }
+        });
+
+        // Gửi tin nhắn khi người dùng nhấn Enter
+        document.getElementById("chat-input").addEventListener("keypress", (event) => {
+            if (event.key === "Enter") {
+                const message = document.getElementById("chat-input").value.trim();
+                const username = "User"; // Thay đổi tên người dùng nếu cần
                 if (message) {
-                    const messageElement = document.createElement("div");
-                    messageElement.textContent = message;
-                    messageElement.classList.add("message");
-                    chatMessages.appendChild(messageElement);
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                    chatInput.value = "";
+                    // Gửi tin nhắn qua socket
+                    socket.emit("send_message", { username: username, message: message });
+                    document.getElementById("chat-input").value = ""; // Xóa ô nhập
                 }
             }
-    
-            sendBtn.addEventListener("click", sendMessage);
-            chatInput.addEventListener("keypress", (event) => {
-                if (event.key === "Enter") {
-                    sendMessage();
-                }
-            });
-    
-            // Chuyển sang trang Find Match với Flask
-            findMatchBtn.addEventListener("click", () => {
-                window.location.href = "{{ url_for('find_match') }}"; // Dùng Flask url_for để tạo URL động
-            });
+        });
+
+        // Chuyển sang trang Find Match với Flask
+        document.getElementById("find-match-btn").addEventListener("click", () => {
+            window.location.href = "{{ url_for('find_match') }}"; // Dùng Flask url_for để tạo URL động
         });
     </script>    
 </body>
