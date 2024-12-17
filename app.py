@@ -4,6 +4,8 @@ from flask_socketio import SocketIO, emit
 app = Flask(__name__)
 socketio = SocketIO(app)
 
+socketio = SocketIO(app, async_mode='eventlet')
+
 app.secret_key = 'BeatBall@xyz'
 
 @app.route("/")
