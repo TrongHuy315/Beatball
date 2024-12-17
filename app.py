@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import send_from_directory
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
@@ -33,6 +34,16 @@ def find_match():
 def handle_message(data):
     # Phát lại tin nhắn cho tất cả các client
     emit('receive_message', data, broadcast=True)
+
+# Route to render the leaderboard HTML
+@app.route("/leaderboard")
+def leaderboard():
+    return render_template("leaderboard.html")
+
+# Route to serve UserData.txt dynamically
+@app.route("/data")
+def fetch_data():
+    return send_from_directory("static", "UserData.txt")
 
 if __name__ == "__main__":
     socketio.run(app, debug=True)

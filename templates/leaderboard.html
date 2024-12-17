@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Leaderboard </title>
+    <!-- Kết nối file CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='leaderboard_style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Cột trái -->
+        <div class="left-section">
+            <!-- Heading Elo -->
+            <p class="section-heading"><strong>ELO</strong></p>
+            <!-- Nút button cho 3 vs 3 và 4 vs 4 -->
+            <div class="button-group">
+                <button> 2 vs 2 </button>
+            </div>
+        
+            <!-- Heading Stats -->
+            <p class="section-heading"><strong>STATS</strong></p>
+            <!-- Nút button cho các phần phụ -->
+            <div class="button-group">
+                <button>Goal Ratio</button>
+                <button>Winrate</button>
+                <button>Assist Ratio</button>
+                <button>G/A</button>
+            </div>
+        </div>
+        <!-- Đường kẻ ngăn cách -->
+        <div class="divider"></div>
+
+        <!-- Bảng thống kê -->
+        <div class="table-section">
+            <table>
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Match</th>
+                    <th>Winrate</th>
+                    <th>Stats_Score</th>
+                </tr>
+                <tr>
+                    <td>...</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="exit-button">
+        <a href="{{ url_for('home') }}">
+            <img src="{{ url_for('static', filename='back-icon.png') }}" alt="Exit">
+        </a>
+    </div>
+    <script src="{{ url_for('static', filename='leaderboard_script.js') }}"></script>
+</body> 
+</html>
