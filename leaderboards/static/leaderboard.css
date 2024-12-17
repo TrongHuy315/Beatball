@@ -1,0 +1,146 @@
+/* Tổng thể */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #384ce84d;
+    margin: 0;
+}
+/* Khung chính */
+.container {
+    box-sizing: border-box; /* Đảm bảo viền nằm trong kích thước */
+    position: relative; 
+    display: flex;
+    align-items: stretch; /* Giãn các phần tử con theo chiều cao của container */
+    border: 2px solid #7e66b5;
+    width: 80%;
+    margin: 0 auto;
+    background-color: #ffffff;
+    padding: 0px;
+    border-radius: 8px;
+    box-sizing: border-box;
+	height: 2000px;
+}
+
+/* Cột trái */
+.left-section {
+    position: sticky;
+    top: 10px;
+    height: fit-content;
+    background-color: white;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    border-left: 2px solid #7e66b5; /* Thêm border trái */
+    margin-left: -2px; /* Bù trừ border của container */
+}
+
+.left-section .heading {
+	font-weight: bold;
+	font-size: 18px; 
+    text-align: center; /* Căn giữa theo chiều ngang */
+    margin: 10px 0; /* Khoảng cách trên dưới */
+}
+
+.left-section p {
+    margin: 15px 0;
+}
+
+
+/* Thiết kế cho heading */
+.section-heading {
+    font-size: 1.5em; /* Cỡ chữ lớn hơn */
+    text-align: center; /* Canh giữa */
+    margin: 10px 0; /* Khoảng cách trên và dưới */
+    color: white; /* Màu chữ trắng */
+    background-color: #4a69bd; /* Màu nền xanh dương đậm */
+    padding: 5px; /* Khoảng cách bên trong */
+    border-radius: 5px; /* Bo góc nhẹ */
+}
+
+/* Thiết kế cho nhóm button */
+.button-group {
+    display: flex; /* Các nút nằm ngang */
+    flex-direction: column; /* Các nút nằm dọc */
+    align-items: center; /* Canh giữa theo chiều ngang */
+    gap: 10px; /* Khoảng cách giữa các nút */
+    margin-bottom: 20px; /* Khoảng cách dưới cùng */
+}
+
+.button-group button {
+    width: 100%; /* Độ rộng bằng với container cha */
+    padding: 10px 20px; /* Thụt vào trong ngang */
+    background-color: transparent; /* Không có màu nền mặc định */
+    color: #333; /* Màu chữ */
+    border: none; /* Loại bỏ viền */
+    text-align: left; /* Căn lề chữ sang trái */
+    cursor: pointer; /* Con trỏ chuột thành bàn tay */
+    transition: all 0.3s ease; /* Hiệu ứng khi hover và active */
+    box-sizing: border-box; /* Tính padding vào width */
+}
+
+.button-group button:hover {
+    background-color: #f0f0f0; /* Màu nền sáng khi hover */
+    color: #333; /* Màu chữ giữ nguyên */
+}
+
+.button-group button:active,
+.button-group button.active { /* Trạng thái khi button được bấm */
+    background-color: #d1e7fd; /* Màu xanh nhạt */
+    color: #333; /* Màu chữ giữ nguyên */
+    font-weight: bold; /* Làm đậm chữ */
+}
+
+
+
+/* Đường ngăn cách */
+.divider {
+    width: 3px;
+    height: 100%;
+    background-color: black;
+}
+
+/* Cột phải (Bảng thống kê) */
+.table-section {
+    flex: 1;
+    padding: 5px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table th, table td {
+    border: none;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    font-weight: bold;
+    border-bottom: 2px solid black;
+}
+
+tr:nth-child(even) {
+    background-color: #eaffea; /* Màu xanh nhạt */
+}
+
+tr:nth-child(odd) {
+    background-color: white;
+}
+.exit-button {
+    position: absolute; /* Đặt vị trí góc trái trên cùng */
+    top: 10px; /* Cách đỉnh 10px */
+    left: 10px; /* Cách trái 10px */
+    z-index: 1000; /* Đảm bảo nằm trên các phần khác */
+}
+
+.exit-button img {
+    width: 80px; /* Đặt chiều rộng ảnh */
+    height: 40px; /* Đặt chiều cao ảnh */
+    cursor: pointer; /* Hiển thị con trỏ tay khi hover */
+    transition: transform 0.3s ease; /* Hiệu ứng khi hover */
+}
+
+.exit-button img:hover {
+    transform: scale(1.1); /* Phóng to nhẹ khi hover */
+}
