@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login and Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='login_style.css') }}">
+    <!-- Firebase SDK -->
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">
+            BeatBall.i 
+            <span class="icon">
+                <img src="{{ url_for('static', filename='ball.png') }}" alt="Soccer Ball" class="ball">
+            </span>
+        </h1>
+
+        <div class="buttons">
+            <!-- Nút Login -->
+            <div class="form-wrapper">
+                <button class="btn" id="login-btn">Login</button>
+                <form class="form-popup" id="login-form" style="display: none;">
+                    <input type="text" placeholder="Username" id="login-username" class="input-field">
+                    <input type="password" placeholder="Password" id="login-password" class="input-field">
+                    <button type="submit" class="btn submit-btn">Submit</button>
+                </form>
+            </div>
+
+            <!-- Nút Register -->
+            <div class="form-wrapper">
+                <button class="btn" id="register-btn">Register</button>
+                <form class="form-popup" id="register-form" style="display: none;">
+                    <input type="text" placeholder="Username" id="register-username" class="input-field">
+                    <input type="email" placeholder="Email" id="register-email" class="input-field">
+                    <input type="password" placeholder="Password" id="register-password" class="input-field">
+                    <button type="submit" class="btn submit-btn">Register</button>
+                </form>
+            </div>
+        </div>
+
+        <p class="alternative-text">
+            Or you can register or login with <span class="emoji">📧</span>
+        </p>
+
+        <a href="#" class="forgot-password"><strong>Forgot Password?</strong></a>
+    </div>
+
+    <!-- JavaScript -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getDatabase, ref, set, get, child, push} from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnLivuERcg2mUavvq5T_x94DdKRwlcWBg",
+            authDomain: "beatball-18492.firebaseapp.com",
+            databaseURL: "https://beatball-18492-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "beatball-18492",
+            storageBucket: "beatball-18492.firebasestorage.app",
+            messagingSenderId: "35306778162",
+            appId: "1:35306778162:web:42080ca10631dabf56562b",
+            measurementId: "G-61Y7JC5TF7"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // DOM Elements
+        const loginBtn = document.getElementById('login-btn');
+        const loginForm = document.getElementById('login-form');
+        const registerBtn = document.getElementById('register-btn');
+        const registerForm = document.getElementById('register-form');
+
+        // Hiển thị form và ẩn form còn lại
+        function toggleForm(formToShow, formToHide) {
+            formToShow.style.display = 'block'; // Hiển thị form
+            formToHide.style.display = 'none';  // Ẩn form còn lại
+        }
+
+        // Sự kiện click cho nút Login
+        loginBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Ngăn sự kiện lan ra ngoài
+            toggleForm(loginForm, registerForm);
+        });
+
+        // Sự kiện click cho nút Register
+        registerBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleForm(registerForm, loginForm);
+        });
+
+        // Ẩn form khi click ra ngoài vùng form
+        document.addEventListener('click', (e) => {
+            if (!loginForm.contains(e.target) && e.target !== loginBtn) {
+                loginForm.style.display = 'none';
+            }
+            if (!registerForm.contains(e.target) && e.target !== registerBtn) {
+                registerForm.style.display = 'none';
+            }
+        });
+
+        // Ngăn form bị ẩn khi click vào bên trong form
+        loginForm.addEventListener('click', (e) => e.stopPropagation());
+        registerForm.addEventListener('click', (e) => e.stopPropagation());
+
+        // Đảm bảo form vẫn hiển thị nếu người dùng click vào nút nhưng form đã bị ẩn
+        loginBtn.addEventListener('click', (e) => {
+            if (loginForm.style.display === 'none') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            }
+        });
+
+        registerBtn.addEventListener('click', (e) => {
+            if (registerForm.style.display === 'none') {
+                registerForm.style.display = 'block';
+                loginForm.style.display = 'none';
+            }
+        });
+
+        // Xử lý Register Form
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();  // Ngừng hành động mặc định của form (submit)
+        
+            const username = document.getElementById('register-username').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value.trim();
+        
+            // Kiểm tra nếu tất cả các trường đều có giá trị
+            if (username && email && password) {
+                // Tham chiếu đến node 'users' trong Firebase
+                const usersRef = ref(database, 'users');
+        
+                // Kiểm tra nếu username đã tồn tại
+                get(usersRef).then((snapshot) => {
+                    let usernameExists = false;
+                    let emailExists = false;
+        
+                    if (snapshot.exists()) {
+                        const usersData = snapshot.val();
+        
+                        // Kiểm tra nếu username đã tồn tại
+                        for (let userId in usersData) {
+                            const user = usersData[userId];
+                            if (user.username === username) {
+                                usernameExists = true;
+                            }
+                            if (user.email === email) {
+                                emailExists = true;
+                            }
+                        }
+                    }
+        
+                    if (usernameExists) {
+                        alert("Username already exists. Please choose another one.");
+                    } else if (emailExists) {
+                        alert("Email already exists. Please use another email.");
+                    } else {
+                        // Tạo khóa ngẫu nhiên cho người dùng mới
+                        const newUserRef = push(usersRef);
+        
+                        // Dữ liệu người dùng với các cột mặc định
+                        const userData = {
+                            username: username,
+                            email: email,
+                            password: password,
+                            point: 1000,  // Điểm mặc định là 1000
+                            createdAt: new Date().toISOString(),  // Thời gian tạo tài khoản
+                            lastLogin: new Date().toISOString(),  // Thời gian đăng nhập lần cuối
+                            isActive: true,  // Người dùng có hoạt động hay không
+                            profilePicture: "",  // Cột mặc định cho ảnh đại diện
+                            role: "user",  // Cột mặc định cho vai trò người dùng
+                        };
+        
+                        // Lưu thông tin người dùng vào Firebase dưới khóa ngẫu nhiên
+                        set(newUserRef, userData).then(() => {
+                            alert("Registration successful!");
+                            window.location.href = "/home"; // Chuyển hướng đến trang home
+                        }).catch((error) => {
+                            console.error("Error saving to Firebase:", error);
+                            alert("An error occurred. Please try again.");
+                        });
+                    }
+                }).catch((error) => {
+                    console.error("Error checking users:", error);
+                    alert("An error occurred while checking the users.");
+                });
+            } else {
+                alert("Please fill in all fields.");
+            }
+        });        
+
+        // Xử lý Login Form
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();  // Ngừng hành động mặc định của form (submit)
+        
+            const username = document.getElementById('login-username').value.trim();  // Sử dụng username
+            const password = document.getElementById('login-password').value.trim();
+        
+            // Kiểm tra nếu tất cả các trường đều có giá trị
+            if (username && password) {
+                // Tham chiếu đến node 'users' trong Firebase
+                const usersRef = ref(database, 'users');
+        
+                // Kiểm tra tất cả người dùng trong Firebase để tìm người có username trùng khớp
+                get(usersRef).then((snapshot) => {
+                    let userFound = false;
+                    let correctPassword = false;
+        
+                    if (snapshot.exists()) {
+                        const usersData = snapshot.val();
+        
+                        // Lặp qua tất cả người dùng để tìm username
+                        for (let userId in usersData) {
+                            const user = usersData[userId];
+                            if (user.username === username) {
+                                userFound = true;
+                                if (user.password === password) {
+                                    correctPassword = true;
+                                    break; // Nếu tìm thấy username và mật khẩu đúng, thoát khỏi vòng lặp
+                                }
+                            }
+                        }
+        
+                        if (userFound && correctPassword) {
+                            alert("Login successful!");
+                            window.location.href = "/home"; // Chuyển hướng đến trang home
+                        } else if (userFound && !correctPassword) {
+                            alert("Incorrect password. Please try again.");
+                        } else {
+                            alert("Username not found. Please register first.");
+                        }
+                    } else {
+                        alert("An error occurred while retrieving user data.");
+                    }
+                }).catch((error) => {
+                    console.error("Error checking username:", error);
+                    alert("An error occurred while checking the username.");
+                });
+            } else {
+                alert("Please fill in all fields.");
+            }
+        });        
+    </script>
+</body>
+</html>

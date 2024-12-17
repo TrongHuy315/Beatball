@@ -22,4 +22,12 @@ document.addEventListener("DOMContentLoaded", () => {
             anonymousBtn.click();
         }
     });
+
+    // Lấy nút Login Menu
+    const loginMenuBtn = document.getElementById('login-menu-btn');
+
+    // Thêm sự kiện click để chuyển hướng người dùng tới trang /login
+    loginMenuBtn.addEventListener('click', () => {
+        window.location.href = "/login";  // Chuyển hướng tới trang /login
+    });
 });

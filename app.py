@@ -17,6 +17,10 @@ def main():
 def home():
     return render_template("home.html")
 
+@app.route("/login")
+def login():
+    return render_template("login.html")
+
 @app.route("/room/<room_id>")
 def room(room_id):
     if int(room_id) < 550000:
