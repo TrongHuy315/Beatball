@@ -57,7 +57,8 @@
 
     <script>
         // Kết nối với server socket.io
-        const socket = io.connect("http://" + document.domain + ":" + location.port);
+        const protocol = location.protocol === "https:" ? "https://" : "http://";
+        const socket = io.connect(protocol + document.domain + ":" + location.port);
 
         // Lắng nghe sự kiện "receive_message" từ server và hiển thị tin nhắn
         socket.on("receive_message", function(data) {
