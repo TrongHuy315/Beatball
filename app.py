@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()  # Monkey patch phải được gọi trước tất cả các import khác
+
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import send_from_directory
 from flask_socketio import SocketIO, emit
