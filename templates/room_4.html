@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>4 Player Room</title>
+    <title>4 Players Room</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='room_4_style.css') }}">
     <script src="https://cdn.socket.io/4.1.3/socket.io.min.js"></script>
 </head>
@@ -67,7 +67,13 @@
 
     <script>
         // Kết nối với server socket.io
-        const socket = io.connect("http://" + document.domain + ":" + location.port);
+        const socket = io(window.location.origin, {
+            transports: ["websocket"], // Ưu tiên WebSocket          
+            reconnection: true, // Tự động tái kết nối
+            reconnectionAttempts: 5, // Số lần thử tái kết nối
+            reconnectionDelay: 1000, // Thời gian chờ giữa mỗi lần thử tái kết nối
+            timeout: 20000, // Thời gian chờ kết nối (ms)
+        });
 
         // Lắng nghe sự kiện "receive_message" từ server và hiển thị tin nhắn
         socket.on("receive_message", function(data) {
