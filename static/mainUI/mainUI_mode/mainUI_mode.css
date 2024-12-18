@@ -1,0 +1,104 @@
+/* Căn chỉnh container */
+#mode-box {
+    display: flex;
+    flex-direction: column; /* Xếp các phần tử theo chiều dọc */
+    justify-content: center; /* Căn giữa theo chiều dọc */
+    align-items: center; /* Căn giữa theo chiều ngang */
+    gap: 40px; /* Khoảng cách giữa các button */
+    padding: 20px;
+}
+
+/* Thiết lập kiểu cho button */
+.custom-button {
+    background-color: #3fa9b1ad; /* Màu nền xanh lá */
+    color: white; /* Màu chữ trắng */
+    border: none; /* Loại bỏ viền */
+    border-radius: 4px; /* Bo góc */
+	width:85%; 
+	height:30%; 
+    padding: 10px 20px; /* Khoảng cách trong button */
+    font-size: 16px; /* Cỡ chữ */
+    font-family: 'Arial', sans-serif; /* Kiểu chữ */
+    font-weight: bold; /* Chữ đậm */
+    cursor: pointer; /* Biến con trỏ chuột thành hình bàn tay */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Hiệu ứng bóng */
+    transition: all 0.3s ease; /* Hiệu ứng mượt khi hover */
+}
+
+/* Hiệu ứng hover khi di chuột vào button */
+.custom-button:hover {
+    background-color: #45a049; /* Màu nền tối hơn một chút */
+    transform: translateY(-3px); /* Nổi lên một chút */
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Hiệu ứng khi nhấn button */
+.custom-button:active {
+    transform: translateY(2px); /* Nhấn xuống một chút */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#room-options {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Khoảng cách giữa các phần tử */
+    align-items: center;
+    padding: 15px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 220px; /* Chiều rộng cố định */
+}
+
+/* Các button chung */
+.room-button {
+    width: 100%; /* Chiều rộng bằng container */
+    padding: 10px 0; /* Khoảng cách trên dưới */
+    font-size: 14px;
+    border: none;
+    border-radius: 5px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.room-button:hover {
+    opacity: 0.9;
+}
+
+/* Button Cancel */
+#input-box {
+    width: 100%; /* Chiều rộng chiếm toàn bộ container */
+    padding: 8px;
+    margin-bottom: 10px; /* Tạo khoảng cách với nút Cancel */
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    text-align: center;
+}
+#input-box:focus {
+    border: 1px solid #4CAF50; /* Màu viền khi focus */
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5); /* Hiệu ứng bóng khi focus */
+}
+
+/* Button Cancel */
+#cancel-button {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 0; /* Khoảng cách trên dưới */
+    width: 100%; /* Chiều rộng bằng với container */
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#cancel-button:hover {
+    background-color: #c0392b; /* Màu tối hơn khi hover */
+}

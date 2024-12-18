@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title> Leaderboard </title>
     <!-- Kết nối file CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='leaderboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='leaderboard/leaderboard.css') }}">
 </head>
 <body>
     <div class="container">
@@ -52,9 +52,9 @@
     </div>
     <div class="exit-button">
         <a href="{{ url_for('exit_page') }}">
-            <img src="{{ url_for('static', filename='ExitIcon.png') }}" alt="Exit">
+            <img src="{{ url_for('static', filename='leaderboard/ExitIcon.png') }}" alt="Exit">
         </a>
     </div>
-    <script src="{{ url_for('static', filename='leaderboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='leaderboard/leaderboard.js') }}"></script>
 </body> 
 </html>

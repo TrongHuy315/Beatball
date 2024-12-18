@@ -1,0 +1,27 @@
+#leaderboard-box {
+    display: flex; /* Kích hoạt flexbox */
+    justify-content: center; /* Canh giữa theo chiều ngang */
+    align-items: center; /* Canh giữa theo chiều dọc */
+}
+
+#leaderboard-btn {
+	display: inline-block;
+	padding: 10px 20px;
+	background-color: #56c6e2e0; /* Màu vàng nâu nhạt */
+	color: #fff; /* Màu chữ trắng */
+	border: none;
+	border-radius: 4px; /* Bo tròn các góc */
+	font-size: 16px;
+	font-weight: bold;
+	text-align: center;
+	width: 80%; 
+	height: 50%; 
+	cursor: pointer; /* Hiệu ứng con trỏ */
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Đổ bóng */
+	transition: background-color 0.3s ease;
+}
+
+/* Hover Effect */
+#leaderboard-btn:hover {
+	background-color: #49c1d4; /* Màu hover nhạt hơn */
+}
