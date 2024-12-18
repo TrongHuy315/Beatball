@@ -1,11 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import send_from_directory
 from flask_socketio import SocketIO, emit
+import os
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-socketio = SocketIO(app, async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'])
 
 app.secret_key = 'BeatBall@xyz'
 
@@ -50,4 +51,6 @@ def fetch_data():
     return send_from_directory("static", "UserData.txt")
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
+    port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
+    socketio.run(app, host='0.0.0.0', port=port)
+    #socketio.run(app, debug=True)
