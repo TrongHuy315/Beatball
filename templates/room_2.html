@@ -57,7 +57,12 @@
 
     <script>
         // Kết nối với server socket.io
-        const socket = io(window.location.origin);
+        const socket = io(window.location.origin, {
+            reconnection: true, // Tự động tái kết nối
+            reconnectionAttempts: 5, // Số lần thử tái kết nối
+            reconnectionDelay: 1000, // Thời gian chờ giữa mỗi lần thử tái kết nối
+            timeout: 20000, // Thời gian chờ kết nối (ms)
+        });
 
         // Lắng nghe sự kiện "receive_message" từ server và hiển thị tin nhắn
         socket.on("receive_message", function(data) {

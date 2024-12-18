@@ -9,7 +9,7 @@ import os
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'])
+socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
 
 app.secret_key = 'BeatBall@xyz'
 
