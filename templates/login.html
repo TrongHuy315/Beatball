@@ -22,9 +22,9 @@
             <!-- Nút Login -->
             <div class="form-wrapper">
                 <button class="btn" id="login-btn">Login</button>
-                <form class="form-popup" id="login-form" style="display: none;">
-                    <input type="text" placeholder="Username" id="login-username" class="input-field">
-                    <input type="password" placeholder="Password" id="login-password" class="input-field">
+                <form class="form-popup" id="login-form" style="display: none;" method="POST">
+                    <input type="text" placeholder="Username" id="login-username" class="input-field" name="username">
+                    <input type="password" placeholder="Password" id="login-password" class="input-field" name="password">
                     <button type="submit" class="btn submit-btn">Submit</button>
                 </form>
             </div>
@@ -50,6 +50,24 @@
 
     <!-- JavaScript -->
     <script type="module">
+        let inactivityTimeout;
+        const logoutWarningTime = 4 * 60 * 1000; // 4 phút (để cảnh báo trước)
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimeout);
+            inactivityTimeout = setTimeout(() => {
+                alert("You will be logged out due to inactivity.");
+                window.location.href = "/logout";
+            }, logoutWarningTime);
+        }
+
+        // Reset timer khi người dùng tương tác
+        document.addEventListener("mousemove", resetInactivityTimer);
+        document.addEventListener("keypress", resetInactivityTimer);
+
+        // Khởi động timer khi tải trang
+        resetInactivityTimer();
+
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getDatabase, ref, set, get, child, push} from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
 
@@ -198,55 +216,71 @@
 
         // Xử lý Login Form
         loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();  // Ngừng hành động mặc định của form (submit)
-        
-            const username = document.getElementById('login-username').value.trim();  // Sử dụng username
+            e.preventDefault();  // Ngăn hành động mặc định của form
+    
+            const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value.trim();
-        
-            // Kiểm tra nếu tất cả các trường đều có giá trị
+    
             if (username && password) {
-                // Tham chiếu đến node 'users' trong Firebase
                 const usersRef = ref(database, 'users');
-        
-                // Kiểm tra tất cả người dùng trong Firebase để tìm người có username trùng khớp
+    
                 get(usersRef).then((snapshot) => {
                     let userFound = false;
                     let correctPassword = false;
-        
+                    let userId = null;
+    
                     if (snapshot.exists()) {
                         const usersData = snapshot.val();
-        
-                        // Lặp qua tất cả người dùng để tìm username
-                        for (let userId in usersData) {
-                            const user = usersData[userId];
+    
+                        for (let id in usersData) {
+                            const user = usersData[id];
                             if (user.username === username) {
                                 userFound = true;
                                 if (user.password === password) {
                                     correctPassword = true;
-                                    break; // Nếu tìm thấy username và mật khẩu đúng, thoát khỏi vòng lặp
+                                    userId = id;
+                                    break;
                                 }
                             }
                         }
-        
+    
                         if (userFound && correctPassword) {
-                            alert("Login successful!");
-                            window.location.href = "/home"; // Chuyển hướng đến trang home
-                        } else if (userFound && !correctPassword) {
+                            // Gửi yêu cầu POST tới server
+                            fetch('/login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    username: username,
+                                    user_id: userId
+                                })
+                            }).then(response => {
+                                if (response.redirected) {
+                                    window.location.href = response.url;
+                                } else {
+                                    response.text().then(alert);
+                                }
+                            }).catch(err => {
+                                console.error("Error during server communication:", err);
+                                alert("Error during login. Please try again.");
+                            });
+                        } else if (userFound) {
                             alert("Incorrect password. Please try again.");
                         } else {
                             alert("Username not found. Please register first.");
                         }
                     } else {
-                        alert("An error occurred while retrieving user data.");
+                        alert("Error retrieving user data.");
                     }
                 }).catch((error) => {
-                    console.error("Error checking username:", error);
-                    alert("An error occurred while checking the username.");
+                    console.error("Firebase error:", error);
+                    alert("Error checking user data.");
                 });
             } else {
                 alert("Please fill in all fields.");
             }
-        });        
+        });    
     </script>
 </body>
 </html>
