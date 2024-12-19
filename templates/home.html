@@ -28,15 +28,28 @@
             <div class="rating-change">+47</div>
         </div>
 
-        <!-- Mode Selection Section -->
-        <div class="box mode-box">
-            <button class="custom-button">Lobby</button>
-            <button class="custom-button">2 vs 2</button>
+        <!-- Room Options Section -->
+        <div class="box room-options-box">
+            <button id="create-room-btn" class="custom-button">Create Room</button>
+            <div class="find-room-section">
+                <input type="text" id="room-id-input" class="room-id-input" placeholder="Enter Room ID">
+                <button id="find-room-btn" class="custom-button">Find Match</button>
+            </div>
+        </div>
+
+        <!-- Modal for Room Creation -->
+        <div class="modal" id="create-room-modal" style="display: none;">
+            <div class="modal-content">
+                <h2>Choose Room Type</h2>
+                <button id="create-lobby-btn" class="modal-button">Lobby Room</button>
+                <button id="create-vs-btn" class="modal-button">2 vs 2 Room</button>
+                <button id="close-room-modal" class="modal-close">Close</button>
+            </div>
         </div>
 
         <!-- Leaderboard Section -->
         <div class="box leaderboard-box">
-            <button class="leaderboard-button">Leaderboard</button>
+            <button class="leaderboard-button" id="leaderboard-btn">Leaderboard</button>
         </div>
 
         <!-- Stats Section -->
@@ -54,6 +67,6 @@
         </div>
     </div>
 
-    <script src="scripts.js"></script>
+    <script src="{{ url_for('static', filename='home_script.js') }}"></script>
 </body>
 </html>

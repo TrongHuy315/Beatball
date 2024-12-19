@@ -2,11 +2,13 @@ import eventlet
 eventlet.monkey_patch()  # Monkey patch phải được gọi trước tất cả các import khác
 
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask import send_from_directory, session
+from flask import send_from_directory, session, jsonify
 from flask_socketio import SocketIO, emit
+from functools import wraps
 import os
 import time
-from functools import wraps
+import  uuid
+import random
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10) #['https://beatball.onrender.com']
@@ -20,6 +22,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Bảo vệ chống tấn công 
 
 # Firebase URL (thay thế bằng URL Firebase của bạn)
 FIREBASE_URL = "https://beatball-18492-default-rtdb.asia-southeast1.firebasedatabase.app/users.json"
+
+rooms = {}
 
 # Middleware kiểm tra đăng nhập và thời gian không hoạt động
 def login_required(f):
@@ -49,6 +53,81 @@ def home():
     username = session.get("username")  # Lấy username từ session
     return render_template("home.html", user_id=user_id, username=username)
 
+@app.route("/create-room", methods=["POST"])
+@login_required
+def create_room():
+    data = request.get_json()
+    room_type = data.get("room_type")  # Loại phòng: "lobby" hoặc "vs"
+
+    # Kiểm tra loại phòng
+    if room_type not in ["lobby", "vs"]:
+        return jsonify({"error": "Invalid room type."}), 400
+
+    # Xác định giới hạn ID theo loại phòng
+    if room_type == "lobby":
+        id_min, id_max = 100000, 549999
+        max_players = 2
+    else:  # room_type == "vs"
+        id_min, id_max = 550000, 999999
+        max_players = 4
+
+    # Tạo ID phòng ngẫu nhiên trong giới hạn
+    while True:
+        room_id = str(random.randint(id_min, id_max))
+        if room_id not in rooms:  # Đảm bảo ID không bị trùng
+            break
+
+    # Thêm thông tin phòng vào danh sách `rooms`
+    rooms[room_id] = {
+        "created_by": session.get("user_id"),
+        "max_players": max_players,
+        "current_players": [session.get("username")],
+        "is_active": True,
+        "room_type": room_type,
+    }
+
+    return jsonify({"message": "Room created successfully.", "room_id": room_id}), 201
+
+@app.route("/join-room/<room_id>", methods=["POST"])
+@login_required
+def join_room(room_id):
+    if room_id not in rooms:
+        return jsonify({"error": "Room does not exist."}), 404
+
+    room = rooms[room_id]
+
+    # Check if the room is full
+    if len(room["current_players"]) >= room["max_players"]:
+        return jsonify({"error": "Room is full."}), 403
+
+    username = session.get("username")
+
+    # Add the user to the room if not already present
+    if username not in room["current_players"]:
+        room["current_players"].append(username)
+
+    return jsonify({"message": f"Successfully joined room {room_id}.", "room_id": room_id}), 200
+
+@app.route("/leave-room/<room_id>", methods=["POST"])
+@login_required
+def leave_room(room_id):
+    if room_id not in rooms:
+        return jsonify({"error": "Room does not exist."}), 404
+
+    room = rooms[room_id]
+    username = session.get("username")
+
+    # Remove the user from the room
+    if username in room["current_players"]:
+        room["current_players"].remove(username)
+
+    # If no players are left, delete the room
+    if not room["current_players"]:
+        print(f"Room {room_id} is empty. Deleting the room.")  # Debugging log
+        del rooms[room_id]
+
+    return jsonify({"message": f"Successfully left room {room_id}.", "room_id": room_id}), 200
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -76,13 +155,36 @@ def logout():
     return redirect(url_for("main"))
 
 @app.route("/room/<room_id>")
+@login_required
 def room(room_id):
+    if room_id not in rooms:
+        flash("Room does not exist.", "danger")
+        return redirect(url_for("home"))
+
+    room = rooms[room_id]
     if int(room_id) < 550000:
-        return render_template("room_2.html", room_id=room_id)
+        return render_template("room_2.html", room_id=room_id, room=room)
     else:
-        return render_template("room_4.html", room_id=room_id)
+        return render_template("room_4.html", room_id=room_id, room=room)
+    
+@app.route("/check-room/<room_id>", methods=["GET"])
+@login_required
+def check_room(room_id):
+    if room_id not in rooms:
+        return jsonify({"exists": False}), 404
+
+    room = rooms[room_id]
+
+    # Kiểm tra phòng có người chơi không
+    if not room["current_players"]:
+        print(f"Room {room_id} has no players. Deleting the room.")  # Debugging log
+        del rooms[room_id]
+        return jsonify({"exists": False}), 404
+
+    return jsonify({"exists": True}), 200
 
 @app.route("/find-match")
+@login_required
 def find_match():
     # Logic xử lý nếu cần
     return "Redirected to Find Match page!"
@@ -95,6 +197,7 @@ def handle_message(data):
 
 # Route to render the leaderboard HTML
 @app.route("/leaderboard")
+@login_required
 def leaderboard():
     return render_template("leaderboard.html")
 
