@@ -8,6 +8,7 @@
     <!-- Firebase SDK -->
     <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
     <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <script src="../static/crypto-js.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -70,9 +71,18 @@
 
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getDatabase, ref, set, get, child, push} from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
-
-        // Firebase Configuration
         
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnLivuERcg2mUavvq5T_x94DdKRwlcWBg",
+            authDomain: "beatball-18492.firebaseapp.com",
+            databaseURL: "https://beatball-18492-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "beatball-18492",
+            storageBucket: "beatball-18492.firebasestorage.app",
+            messagingSenderId: "35306778162",
+            appId: "1:35306778162:web:42080ca10631dabf56562b",
+            measurementId: "G-61Y7JC5TF7"
+        };
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -134,27 +144,25 @@
         });
 
         // Xử lý Register Form
-        registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();  // Ngừng hành động mặc định của form (submit)
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Ngừng hành động mặc định của form (submit)
         
             const username = document.getElementById('register-username').value.trim();
             const email = document.getElementById('register-email').value.trim();
             const password = document.getElementById('register-password').value.trim();
         
-            // Kiểm tra nếu tất cả các trường đều có giá trị
             if (username && email && password) {
-                // Tham chiếu đến node 'users' trong Firebase
                 const usersRef = ref(database, 'users');
         
-                // Kiểm tra nếu username đã tồn tại
-                get(usersRef).then((snapshot) => {
+                try {
+                    const snapshot = await get(usersRef);
                     let usernameExists = false;
                     let emailExists = false;
         
                     if (snapshot.exists()) {
                         const usersData = snapshot.val();
         
-                        // Kiểm tra nếu username đã tồn tại
+                        // Kiểm tra nếu username hoặc email đã tồn tại
                         for (let userId in usersData) {
                             const user = usersData[userId];
                             if (user.username === username) {
@@ -174,104 +182,127 @@
                         // Tạo khóa ngẫu nhiên cho người dùng mới
                         const newUserRef = push(usersRef);
         
+                        // Băm mật khẩu bằng Crypto-JS (SHA256)
+                        const hashedPassword = CryptoJS.SHA256(password).toString();
+        
                         // Dữ liệu người dùng với các cột mặc định
                         const userData = {
                             username: username,
                             email: email,
-                            password: password,
-                            point: 1000,  // Điểm mặc định là 1000
-                            createdAt: new Date().toISOString(),  // Thời gian tạo tài khoản
-                            lastLogin: new Date().toISOString(),  // Thời gian đăng nhập lần cuối
-                            isActive: true,  // Người dùng có hoạt động hay không
-                            profilePicture: "",  // Cột mặc định cho ảnh đại diện
-                            role: "user",  // Cột mặc định cho vai trò người dùng
+                            password: hashedPassword, // Lưu mật khẩu đã băm
+                            createdAt: new Date().toISOString(), // Thời gian tạo tài khoản
+                            lastLogin: new Date().toISOString(), // Thời gian đăng nhập lần cuối
+                            isActive: true, // Người dùng có hoạt động hay không
+                            profilePicture: "", // Cột mặc định cho ảnh đại diện
+                            role: "user", // Cột mặc định cho vai trò người dùng
+                            stats: {
+                                point: 1000, // Điểm mặc định là 1000
+                                matches: 0,
+                                win_matches: 0,
+                                goals: 0,
+                                assists: 0,
+                                rating_change: 0,
+                            },
                         };
         
                         // Lưu thông tin người dùng vào Firebase dưới khóa ngẫu nhiên
-                        set(newUserRef, userData).then(() => {
-                            alert("Registration successful!");
-                            window.location.href = "/home"; // Chuyển hướng đến trang home
-                        }).catch((error) => {
-                            console.error("Error saving to Firebase:", error);
-                            alert("An error occurred. Please try again.");
+                        await set(newUserRef, userData);
+        
+                        // Gửi request đến route register để tạo session
+                        const response = await fetch('/register', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                username: username,
+                                user_id: newUserRef.key,
+                            }),
                         });
+        
+                        const data = await response.json();
+                        if (data.success) {
+                            alert("Registration successful!");
+                            window.location.href = data.redirect;
+                        } else {
+                            throw new Error(data.error);
+                        }
                     }
-                }).catch((error) => {
-                    console.error("Error checking users:", error);
-                    alert("An error occurred while checking the users.");
-                });
+                } catch (error) {
+                    console.error("Error during registration:", error);
+                    alert("An error occurred. Please try again.");
+                }
             } else {
                 alert("Please fill in all fields.");
             }
-        });        
+        });                        
 
         // Xử lý Login Form
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();  // Ngăn hành động mặc định của form
-    
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Ngăn hành động mặc định của form
+        
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value.trim();
-    
+        
             if (username && password) {
                 const usersRef = ref(database, 'users');
-    
-                get(usersRef).then((snapshot) => {
+        
+                try {
+                    const snapshot = await get(usersRef);
                     let userFound = false;
-                    let correctPassword = false;
                     let userId = null;
-    
+        
                     if (snapshot.exists()) {
                         const usersData = snapshot.val();
-    
+        
+                        // Tìm người dùng trong Firebase
                         for (let id in usersData) {
                             const user = usersData[id];
                             if (user.username === username) {
                                 userFound = true;
-                                if (user.password === password) {
-                                    correctPassword = true;
-                                    userId = id;
-                                    break;
+                                userId = id;
+        
+                                // So sánh mật khẩu đã băm
+                                const hashedInputPassword = CryptoJS.SHA256(password).toString();
+                                if (hashedInputPassword === user.password) {
+                                    // Mật khẩu đúng, gửi yêu cầu POST tới server
+                                    const response = await fetch('/login', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                            username: username,
+                                            user_id: userId,
+                                        }),
+                                    });
+        
+                                    if (response.redirected) {
+                                        window.location.href = response.url;
+                                    } else {
+                                        const responseText = await response.text();
+                                        alert(responseText);
+                                    }
+                                } else {
+                                    alert("Incorrect password. Please try again.");
                                 }
+        
+                                break; // Thoát vòng lặp khi tìm thấy người dùng
                             }
                         }
-    
-                        if (userFound && correctPassword) {
-                            // Gửi yêu cầu POST tới server
-                            fetch('/login', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    username: username,
-                                    user_id: userId
-                                })
-                            }).then(response => {
-                                if (response.redirected) {
-                                    window.location.href = response.url;
-                                } else {
-                                    response.text().then(alert);
-                                }
-                            }).catch(err => {
-                                console.error("Error during server communication:", err);
-                                alert("Error during login. Please try again.");
-                            });
-                        } else if (userFound) {
-                            alert("Incorrect password. Please try again.");
-                        } else {
-                            alert("Username not found. Please register first.");
-                        }
-                    } else {
-                        alert("Error retrieving user data.");
                     }
-                }).catch((error) => {
-                    console.error("Firebase error:", error);
-                    alert("Error checking user data.");
-                });
+        
+                    if (!userFound) {
+                        alert("Username not found. Please register first.");
+                    }
+                } catch (error) {
+                    console.error("Error during login:", error);
+                    alert("An error occurred during login. Please try again.");
+                }
             } else {
                 alert("Please fill in all fields.");
             }
-        });    
+        });            
     </script>
 </body>
 </html>

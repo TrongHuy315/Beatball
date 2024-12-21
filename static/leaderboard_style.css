@@ -1,107 +1,71 @@
 /* Tổng thể */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #384ce84d;
     margin: 0;
-}
-/* Khung chính */
-.container {
-    box-sizing: border-box; /* Đảm bảo viền nằm trong kích thước */
-    position: relative; 
+    font-family: Arial, sans-serif;
     display: flex;
-    align-items: stretch; /* Giãn các phần tử con theo chiều cao của container */
-    border: 2px solid #7e66b5;
+    justify-content: center;
+    align-items: center;
+    background-color: #f4f4f9;
+    min-height: 100vh;
+}
+
+/* Container */
+.container {
+    display: flex;
     width: 80%;
-    margin: 0 auto;
-    background-color: #ffffff;
-    padding: 0px;
-    border-radius: 8px;
-    box-sizing: border-box;
-	height: 2000px;
+    max-width: 1200px;
+    background: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
-/* Cột trái */
-.left-section {
-    position: sticky;
-    top: 10px;
-    height: fit-content;
-    background-color: white;
+/* Sidebar */
+.sidebar {
+    background: #007bff;
+    color: white;
+    padding: 20px;
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sidebar h2 {
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+
+.filter-btn {
     padding: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-    border-left: 2px solid #7e66b5; /* Thêm border trái */
-    margin-left: -2px; /* Bù trừ border của container */
+    background: white;
+    color: #007bff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
 }
 
-.left-section .heading {
-	font-weight: bold;
-	font-size: 18px; 
-    text-align: center; /* Căn giữa theo chiều ngang */
-    margin: 10px 0; /* Khoảng cách trên dưới */
+.filter-btn:hover {
+    background: #0056b3;
+    color: white;
 }
 
-.left-section p {
-    margin: 15px 0;
-}
-
-
-/* Thiết kế cho heading */
-.section-heading {
-    font-size: 1.5em; /* Cỡ chữ lớn hơn */
-    text-align: center; /* Canh giữa */
-    margin: 10px 0; /* Khoảng cách trên và dưới */
-    color: white; /* Màu chữ trắng */
-    background-color: #4a69bd; /* Màu nền xanh dương đậm */
-    padding: 5px; /* Khoảng cách bên trong */
-    border-radius: 5px; /* Bo góc nhẹ */
-}
-
-/* Thiết kế cho nhóm button */
-.button-group {
-    display: flex; /* Các nút nằm ngang */
-    flex-direction: column; /* Các nút nằm dọc */
-    align-items: center; /* Canh giữa theo chiều ngang */
-    gap: 10px; /* Khoảng cách giữa các nút */
-    margin-bottom: 20px; /* Khoảng cách dưới cùng */
-}
-
-.button-group button {
-    width: 100%; /* Độ rộng bằng với container cha */
-    padding: 10px 20px; /* Thụt vào trong ngang */
-    background-color: transparent; /* Không có màu nền mặc định */
-    color: #333; /* Màu chữ */
-    border: none; /* Loại bỏ viền */
-    text-align: left; /* Căn lề chữ sang trái */
-    cursor: pointer; /* Con trỏ chuột thành bàn tay */
-    transition: all 0.3s ease; /* Hiệu ứng khi hover và active */
-    box-sizing: border-box; /* Tính padding vào width */
-}
-
-.button-group button:hover {
-    background-color: #f0f0f0; /* Màu nền sáng khi hover */
-    color: #333; /* Màu chữ giữ nguyên */
-}
-
-.button-group button:active,
-.button-group button.active { /* Trạng thái khi button được bấm */
-    background-color: #d1e7fd; /* Màu xanh nhạt */
-    color: #333; /* Màu chữ giữ nguyên */
-    font-weight: bold; /* Làm đậm chữ */
-}
-
-
-
-/* Đường ngăn cách */
-.divider {
-    width: 3px;
-    height: 100%;
-    background-color: black;
-}
-
-/* Cột phải (Bảng thống kê) */
-.table-section {
+/* Main Content */
+.main-content {
     flex: 1;
-    padding: 5px;
+    padding: 20px;
+}
+
+.header h1 {
+    font-size: 28px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+/* Table */
+.table-container {
+    overflow-x: auto;
 }
 
 table {
@@ -110,37 +74,52 @@ table {
 }
 
 table th, table td {
-    border: none;
-    padding: 8px;
     text-align: center;
+    padding: 10px;
+    border: 1px solid #ddd;
 }
 
-th {
-    font-weight: bold;
-    border-bottom: 2px solid black;
+table th {
+    background-color: #007bff;
+    color: white;
 }
 
-tr:nth-child(even) {
-    background-color: #eaffea; /* Màu xanh nhạt */
+table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
 }
 
-tr:nth-child(odd) {
-    background-color: white;
-}
-.exit-button {
-    position: absolute; /* Đặt vị trí góc trái trên cùng */
-    top: 10px; /* Cách đỉnh 10px */
-    left: 10px; /* Cách trái 10px */
-    z-index: 1000; /* Đảm bảo nằm trên các phần khác */
+table tbody tr:hover {
+    background-color: #f1f1f1;
 }
 
-.exit-button img {
-    width: 80px; /* Đặt chiều rộng ảnh */
-    height: 40px; /* Đặt chiều cao ảnh */
-    cursor: pointer; /* Hiển thị con trỏ tay khi hover */
-    transition: transform 0.3s ease; /* Hiệu ứng khi hover */
+/* Back Button */
+.back-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
 }
 
-.exit-button img:hover {
-    transform: scale(1.1); /* Phóng to nhẹ khi hover */
+.back-button img {
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.back-button img:hover {
+    transform: scale(1.1);
+}
+
+/* Tên người chơi với avatar */
+.player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.player img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
 }

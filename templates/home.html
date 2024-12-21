@@ -3,70 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Main UI</title>
+    <title>BeatBall - Home</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='home_style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnLivuERcg2mUavvq5T_x94DdKRwlcWBg",
+            authDomain: "beatball-18492.firebaseapp.com",
+            databaseURL: "https://beatball-18492-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "beatball-18492",
+            storageBucket: "beatball-18492.firebasestorage.app",
+            messagingSenderId: "35306778162",
+            appId: "1:35306778162:web:42080ca10631dabf56562b",
+            measurementId: "G-61Y7JC5TF7"
+        };
+        firebase.initializeApp(firebaseConfig);
+    </script>
 </head>
 <body>
     <div class="container">
-        <!-- Profile Section -->
-        <div class="box profile-box">
-            <div class="avatar">
-                <img src="{{ url_for('static', filename='lion.jpg') }}" alt="Avatar">
+        <!-- Trong phần profile-box -->
+        <div class="profile-box">
+            <div class="avatar-container">
+                <img id="profilePicture" src="{{ profile_picture }}" alt="Avatar">
+                <div class="avatar-upload">
+                    <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                    <button id="uploadButton">Upload Photo</button>
+                </div>
             </div>
-            <div class="user-info">
-                <div class="username">PhBaoThang</div>
-                <div class="user-id">23120416</div>
-            </div>
+            <span class="username">{{ username }}</span>
         </div>
 
-        <!-- Rating Section -->
+        <!-- Rating Box -->
         <div class="box rating-box">
-            <div class="rating-heading">RATING</div>
-            <div class="rating-value">2866</div>
-            <div class="rating-change">+47</div>
+            <h3 class="rating-heading">RATING</h3>
+            <div class="rating-value">{{ stats.rating }}</div>
+            {% if stats.rating_change %}
+                <div class="rating-change {{ 'positive' if stats.rating_change > 0 else 'negative' }}">
+                    {{ '+' if stats.rating_change > 0 }}{{ stats.rating_change }}
+                </div>
+            {% endif %}
         </div>
 
-        <!-- Room Options Section -->
-        <div class="box room-options-box">
-            <button id="create-room-btn" class="custom-button">Create Room</button>
-            <div class="find-room-section">
-                <input type="text" id="room-id-input" class="room-id-input" placeholder="Enter Room ID">
-                <button id="find-room-btn" class="custom-button">Find Match</button>
+        <!-- Mode Box -->
+        <div class="box mode-box">
+            <div class="button-group">
+                <button id="create-room-btn" class="custom-button">Create Room</button>
+                <div class="find-match-container">
+                    <input type="text" id="room-id-input" class="room-id-input" placeholder="Enter Room ID">
+                    <button id="find-room-btn" class="custom-button">Find Match</button>
+                </div>
+                <button id="leaderboard-btn" class="custom-button leaderboard-button">Leaderboard</button>
             </div>
         </div>
 
-        <!-- Modal for Room Creation -->
-        <div class="modal" id="create-room-modal" style="display: none;">
-            <div class="modal-content">
-                <h2>Choose Room Type</h2>
-                <button id="create-lobby-btn" class="modal-button">Lobby Room</button>
-                <button id="create-vs-btn" class="modal-button">2 vs 2 Room</button>
-                <button id="close-room-modal" class="modal-close">Close</button>
-            </div>
-        </div>
-
-        <!-- Leaderboard Section -->
-        <div class="box leaderboard-box">
-            <button class="leaderboard-button" id="leaderboard-btn">Leaderboard</button>
-        </div>
-
-        <!-- Stats Section -->
+        <!-- Stats Box -->
         <div class="box stats-box">
-            <div class="stats-heading">STATS</div>
-            <ul class="stats-list">
-                <li>MATCHES: 485</li>
-                <li>WINRATE: 89%</li>
-                <li>GOAL: 223</li>
-                <li>ASSIST: 150</li>
-                <li>GOAL RATIO: 1.34</li>
-                <li>ASSIST RATIO: 1.59</li>
-                <li>G/A RATIO: 1.88</li>
-            </ul>
+            <h3 class="stats-heading">STATS</h3>
+            <div class="stats-list">
+                <div class="stats-item" data-stat="matches">
+                    <span class="stats-label">MATCHES</span>
+                    <span class="stats-value">{{ stats.matches }}</span>
+                </div>
+                <div class="stats-item" data-stat="winrate">
+                    <span class="stats-label">WIN RATE</span>
+                    <span class="stats-value">{{ stats.winrate }}%</span>
+                </div>
+                <div class="stats-item" data-stat="goals">
+                    <span class="stats-label">GOAL</span>
+                    <span class="stats-value">{{ stats.goals }}</span>
+                </div>
+                <div class="stats-item" data-stat="assists">
+                    <span class="stats-label">ASSIST</span>
+                    <span class="stats-value">{{ stats.assists }}</span>
+                </div>
+                <div class="stats-item" data-stat="goal_ratio">
+                    <span class="stats-label">GOAL RATIO</span>
+                    <span class="stats-value">{{ "%.2f"|format(stats.goal_ratio) }}</span>
+                </div>
+                <div class="stats-item" data-stat="assist_ratio">
+                    <span class="stats-label">ASSIST RATIO</span>
+                    <span class="stats-value">{{ "%.2f"|format(stats.assist_ratio) }}</span>
+                </div>
+                <div class="stats-item" data-stat="ga_ratio">
+                    <span class="stats-label">G/A RATIO</span>
+                    <span class="stats-value">{{ "%.2f"|format(stats.ga_ratio) }}</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='home_script.js') }}"></script>
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Choose Room Type</h3>
+            <div class="modal-buttons">
+                <button id="create-lobby-btn" class="modal-button">Lobby Room</button>
+                <button id="create-vs-btn" class="modal-button">2 vs 2 Room</button>
+                <button id="close-room-modal" class="modal-button modal-close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="{{ url_for('static', filename='home_script.js') }}"></script>
 </body>
 </html>

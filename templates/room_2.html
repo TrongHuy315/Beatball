@@ -24,11 +24,6 @@
                 <p class="player-score">2005</p>
             </div>
 
-            <!-- Chữ VS ở giữa -->
-            <div class="vs-divider">
-                <img src="{{ url_for('static', filename='vs-icon.png') }}" alt="VS" class="vs-icon">
-            </div>
-
             <div class="player-card">
                 <div class="avatar"></div>
                 <p class="player-name">Pham Bao Thang</p>
@@ -58,6 +53,7 @@
     <script>
         // Kết nối với server socket.io
         const socket = io(window.location.origin, {
+            transports: ["websocket"], // Ưu tiên WebSocket
             reconnection: true, // Tự động tái kết nối
             reconnectionAttempts: 5, // Số lần thử tái kết nối
             reconnectionDelay: 1000, // Thời gian chờ giữa mỗi lần thử tái kết nối
@@ -66,62 +62,154 @@
 
         // Lắng nghe sự kiện "receive_message" từ server và hiển thị tin nhắn
         socket.on("receive_message", function(data) {
+            const chatMessages = document.getElementById("chat-messages");
+    
+            // Tạo thẻ div cho tin nhắn
             const messageElement = document.createElement("div");
-            messageElement.textContent = data.username + ": " + data.message;
             messageElement.classList.add("message");
-            document.getElementById("chat-messages").appendChild(messageElement);
-            document.getElementById("chat-messages").scrollTop = document.getElementById("chat-messages").scrollHeight;
+    
+            // Phân biệt tin nhắn của chính bạn và người khác
+            const isOwnMessage = data.username === "{{ session.username }}";
+            messageElement.classList.add(isOwnMessage ? "user" : "other");
+    
+            // Thêm username và tin nhắn
+            const usernameElement = document.createElement("span");
+            usernameElement.textContent = `${data.username}: `;
+            usernameElement.classList.add("username");
+    
+            const textElement = document.createElement("span");
+            textElement.textContent = data.message;
+    
+            // Gắn các phần tử vào khung tin nhắn
+            messageElement.appendChild(usernameElement);
+            messageElement.appendChild(textElement);
+    
+            chatMessages.appendChild(messageElement);
+    
+            // Tự động cuộn xuống cuối
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         });
 
         // Gửi tin nhắn khi người dùng nhấn nút gửi
-        document.getElementById("send-btn").addEventListener("click", () => {
-            const message = document.getElementById("chat-input").value.trim();
-            const username = "User"; // Thay đổi tên người dùng nếu cần
-            if (message) {
-                // Gửi tin nhắn qua socket
-                socket.emit("send_message", { username: username, message: message });
-                document.getElementById("chat-input").value = ""; // Xóa ô nhập
+        document.getElementById("send-btn").addEventListener("click", sendMessage);
+        document.getElementById("chat-input").addEventListener("keypress", (event) => {
+            if (event.key === "Enter") {
+                sendMessage();
             }
         });
 
-        // Gửi tin nhắn khi người dùng nhấn Enter
-        document.getElementById("chat-input").addEventListener("keypress", (event) => {
-            if (event.key === "Enter") {
-                const message = document.getElementById("chat-input").value.trim();
-                const username = "User"; // Thay đổi tên người dùng nếu cần
-                if (message) {
-                    // Gửi tin nhắn qua socket
-                    socket.emit("send_message", { username: username, message: message });
-                    document.getElementById("chat-input").value = ""; // Xóa ô nhập
-                }
+        function sendMessage() {
+            const message = document.getElementById("chat-input").value.trim();
+            if (message) {
+                // Gửi tin nhắn qua socket
+                socket.emit("send_message", { message: message });
+                document.getElementById("chat-input").value = ""; // Xóa ô nhập
             }
-        });
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
             const backButton = document.querySelector(".back-button a");
-    
+            const roomId = "{{ room_id }}";
+
+            if (!history.state || history.state.page !== "room") {
+                history.replaceState({ page: "room", roomId: currentRoomId }, "", window.location.href);
+            }
+        
+            // Hàm xử lý rời phòng
+            const handleLeaveRoom = async () => {
+                if (!window.performance || window.performance.navigation.type !== 1) { // 1 = Reload
+                    try {
+                        const response = await fetch(`/leave-room/${currentRoomId}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                        });
+            
+                        if (response.ok) {
+                            window.location.replace('/home');
+                        } else {
+                            console.error("Failed to leave room:", response.status);
+                            window.location.replace('/home');
+                        }
+                    } catch (error) {
+                        console.error("Error leaving room:", error);
+                        window.location.replace('/home');
+                    }
+                }
+            };
+        
+            // Xử lý khi click nút back
             backButton.addEventListener("click", (event) => {
-                event.preventDefault(); // Ngăn việc chuyển trang ngay lập tức
-                const roomId = "{{ room_id }}"; // Lấy ID phòng từ server
+                event.preventDefault();
+                handleLeaveRoom();
+            });
+        
+            // Xử lý khi bấm back-button của trình duyệt
+            window.addEventListener("popstate", (event) => {
+                event.preventDefault();
+                handleLeaveRoom();
+            });
+        
+            // Thêm state cho trang hiện tại
+            if (history.state === null) {
+                history.replaceState({ page: "room" }, "", window.location.href);
+            }
+        
+            // Xử lý khi user đóng tab/window
+            window.addEventListener("beforeunload", (event) => {
                 fetch(`/leave-room/${roomId}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                })
-                    .then((response) => {
-                        if (response.ok) {
-                            window.location.href = backButton.href; // Chuyển hướng về trang chủ
-                        } else {
-                            console.error("Failed to leave room:", response.status);
-                        }
-                    })
-                    .catch((error) => console.error("Error leaving room:", error));
+                    // Using keepalive to ensure the request completes
+                    keepalive: true
+                });
             });
+        
+            // Nếu đang dùng Socket.IO, thêm xử lý disconnect
+            if (typeof io !== 'undefined') {
+                const socket = io();
+                socket.on('disconnect', () => {
+                    handleLeaveRoom();
+                });
+            }
         });
 
         // Chuyển sang trang Find Match với Flask
         document.getElementById("find-match-btn").addEventListener("click", () => {
             window.location.href = "{{ url_for('find_match') }}"; // Dùng Flask url_for để tạo URL động
         });
-    </script>    
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const currentRoomId = "{{ room_id }}";  // Lấy room_id từ Flask template
+        const currentUsername = "{{ session.username }}";  // Lấy username từ session
+
+        // Lắng nghe sự kiện người chơi rời phòng
+        socket.on('player_left', function(data) {
+            if (data.room_id === currentRoomId && data.username === currentUsername) {
+                // Nếu chính người dùng này rời phòng ở tab khác
+                alert("You have left the room in another tab.");
+                window.location.href = "/home";
+            }
+        });
+
+        // Lắng nghe sự kiện phòng bị xóa
+        socket.on('room_deleted', function(data) {
+            if (data.room_id === currentRoomId) {
+                alert("The room has been closed.");
+                window.location.href = "/home";
+            }
+        });
+
+        // Xử lý khi người dùng rời trang
+        window.addEventListener('beforeunload', function(e) {
+            // Gửi request để rời phòng khi người dùng thoát trang
+            fetch(`/leave-room/${roomId}`, {
+                method: 'POST',
+                keepalive: true // Đảm bảo request được gửi ngay cả khi trang đóng
+            });
+        });
+    </script>
 </body>
 </html>

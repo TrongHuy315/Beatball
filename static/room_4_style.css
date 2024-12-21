@@ -167,3 +167,22 @@ body {
 .chat-input button:hover {
     background-color: #0056b3;
 }
+
+/* Tin nhắn trong chat box */
+.message {
+    margin: 5px 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.message.user {
+    background-color: #d1e7dd; /* Màu nhấn cho tin nhắn của chính bạn */
+    align-self: flex-end;
+}
+
+.message.other {
+    background-color: #f8f9fa; /* Màu cho tin nhắn từ người khác */
+    align-self: flex-start;
+}
