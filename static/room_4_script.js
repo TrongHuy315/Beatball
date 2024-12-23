@@ -82,13 +82,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Xử lý các sự kiện Socket.IO
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
-        fetchPlayerData(); // Cập nhật lại dữ liệu khi có người chơi mới
-    });
+        const { username, avatar, score } = data;
+    
+        // Tìm card trống đầu tiên và cập nhật
+        const playerCards = document.querySelectorAll(".player-card");
+        for (const card of playerCards) {
+            const playerName = card.querySelector(".player-name");
+            if (playerName && playerName.textContent === "Waiting...") {
+                card.innerHTML = `
+                    <div class="avatar" style="background-image: url('${avatar || "/static/images/default-avatar.png"}')"></div>
+                    <p class="player-name">${username}</p>
+                    <p class="player-score">${score ? `Rating: ${score}` : ""}</p>
+                `;
+                break;
+            }
+        }
+    });    
 
     socket.on("player_left", (data) => {
         console.log("Player left:", data);
-        fetchPlayerData(); // Cập nhật lại dữ liệu khi có người chơi rời đi
-    });
+        const { username } = data;
+    
+        // Tìm tất cả các player cards
+        const playerCards = document.querySelectorAll(".player-card");
+        playerCards.forEach(card => {
+            const playerName = card.querySelector(".player-name");
+            if (playerName && playerName.textContent === username) {
+                // Làm trống card của người chơi vừa rời phòng
+                card.innerHTML = `
+                    <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
+                    <p class="player-name">Waiting...</p>
+                    <p class="player-score"></p>
+                `;
+            }
+        });
+    });    
 
     socket.on("update_room", (data) => {
         console.log("Room updated:", data);

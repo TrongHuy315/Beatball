@@ -19,7 +19,8 @@ import redis
 import json
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10) #['https://beatball.onrender.com']
+socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
+# socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
 
 app.secret_key = 'BeatBall@xyz'
 
@@ -39,7 +40,8 @@ FIREBASE_URL = "https://beatball-18492-default-rtdb.asia-southeast1.firebasedata
 # Kết nối Redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
-# redis_client = redis.StrictRedis("localhost", port=6379, db=0, decode_responses=True)
+# redis_client = redis.StrictRedis("127.0.0.1", port=6379, db=0)
+# redis_client.ping()  # Kiểm tra kết nối
 
 # Middleware kiểm tra đăng nhập và thời gian không hoạt động
 def login_required(f):
@@ -233,6 +235,9 @@ def end_match():
 @app.route("/create-room", methods=["POST"])
 @login_required
 def create_room():
+    redis_client.ping()  # Kiểm tra kết nối Redis
+    print("Connected to Redis")  # Log kết nối thành công
+
     data = request.get_json()
     room_type = data.get("room_type")  # Loại phòng: "lobby" hoặc "vs"
 
@@ -279,11 +284,12 @@ def join_room(room_id):
     room = json.loads(room_data)
     username = session.get("username")
 
-    # Kiểm tra giới hạn người chơi
+    # Kiểm tra và thêm người chơi vào danh sách nếu chưa có
     if username not in room["current_players"]:
-        if len(room["current_players"]) >= room["max_players"]:
+        if len(room["current_players"]) < room["max_players"]:
+            room["current_players"].append(username)  # Thêm vào cuối danh sách
+        else:
             return jsonify({"error": "Room is full."}), 403
-        room["current_players"].append(username)
 
     # Cập nhật số tab cho mỗi người dùng trong phòng
     user_tabs = room.get("user_tabs", {})
@@ -328,24 +334,26 @@ def leave_room(room_id):
                 room["current_players"].remove(username)
                 del user_tabs[username]
 
-                # Xóa phòng nếu không còn người chơi
-                if len(room["current_players"]) == 0:
-                    redis_client.delete(f"room:{room_id}")
-                    socketio.emit('room_deleted', {
-                        'room_id': room_id,
-                        'message': 'Room has been deleted'
-                    }, broadcast=True)
-                    return jsonify({
-                        "message": "Room deleted successfully.",
-                        "redirect": url_for("home")
-                    }), 200
-
-                # Thông báo cho các người chơi còn lại
+                # Phát sự kiện player_left để thông báo tới các client khác
                 socketio.emit('player_left', {
                     'room_id': room_id,
                     'username': username,
                     'remaining_players': room["current_players"]
                 }, room=room_id)
+
+                # Nếu người rời đi là người tạo phòng, chuyển quyền trưởng phòng
+                if room["created_by"] == session.get("user_id"):
+                    if room["current_players"]:
+                        # Chuyển quyền trưởng phòng cho người chơi đầu tiên trong danh sách
+                        room["created_by"] = room["current_players"][0]
+                    else:
+                        # Xóa phòng nếu không còn ai trong phòng
+                        redis_client.delete(f"room:{room_id}")
+                        socketio.emit('room_deleted', {
+                            'room_id': room_id,
+                            'message': 'Room has been deleted'
+                        }, broadcast=True)
+                        return jsonify({"message": f"Room {room_id} has been deleted"}), 200
 
         # Cập nhật thông tin phòng vào Redis
         room["user_tabs"] = user_tabs
@@ -431,12 +439,12 @@ def google_login():
 
     # Lấy Access Token từ Google
     token_url = "https://oauth2.googleapis.com/token"
-    redirect_uri = url_for('google_login', _external=True, _scheme='https')
+    # redirect_uri = url_for('google_login', _external=True, _scheme='https')
     token_data = {
         "code": authorization_code,
         "client_id": "35306778162-6i3q4jiron35lefs2t03fi82vd3i23or.apps.googleusercontent.com",
         "client_secret": "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",
-        "redirect_uri": redirect_uri,
+        "redirect_uri": "http://127.0.0.1:5000/google-login", # redirect_uri,
         "grant_type": "authorization_code"
     }
 
@@ -707,6 +715,7 @@ def room(room_id):
 @app.route("/room-data/<room_id>", methods=["GET"])
 @login_required
 def get_room_data(room_id):
+    # Lấy dữ liệu phòng từ Redis
     room_data = redis_client.get(f"room:{room_id}")
     if not room_data:
         return jsonify({"error": "Room does not exist."}), 404
@@ -714,37 +723,32 @@ def get_room_data(room_id):
     room = json.loads(room_data)
     player_data = []
 
+    # Duyệt qua danh sách người chơi theo thứ tự tham gia
     for username in room["current_players"]:
-        # Thay đổi cách query để lấy user_id trực tiếp
-        user_found = False
-        firebase_query_url = FIREBASE_URL
-        response = requests.get(firebase_query_url)
+        try:
+            # Lấy thông tin người chơi từ Firebase
+            firebase_query_url = f"{FIREBASE_URL[:-5]}.json"  # Truy vấn tất cả người dùng
+            response = requests.get(firebase_query_url)
+            if response.status_code == 200:
+                users = response.json()
+                if users:
+                    for user_id, user_info in users.items():
+                        if user_info.get("username") == username:
+                            profile_picture = user_info.get('profilePicture', '/static/images/default-avatar.png')
 
-        if response.status_code == 200:
-            users = response.json()
-            if users:
-                for user_id, user_info in users.items():
-                    if user_info.get("username") == username:
-                        profile_picture = user_info.get('profilePicture', '/static/images/default-avatar.png')
-                        
-                        # Xử lý đường dẫn avatar
-                        if profile_picture.startswith(('http://', 'https://')):
-                            # Giữ nguyên URL từ Google
-                            avatar_url = profile_picture
-                        else:
-                            # Đảm bảo đường dẫn local đúng
-                            avatar_url = profile_picture if profile_picture.startswith('/static/') else f"/static/uploads/avatars/{profile_picture}"
+                            # Thêm dữ liệu người chơi vào danh sách
+                            player_data.append({
+                                "username": username,
+                                "avatar": profile_picture,
+                                "score": user_info.get("stats", {}).get("point", 1000)
+                            })
+                            break
+            else:
+                print(f"Error fetching data from Firebase: {response.status_code}")
 
-                        player_data.append({
-                            "username": username,
-                            "avatar": avatar_url,
-                            "score": user_info.get("stats", {}).get("point", 1000)
-                        })
-                        user_found = True
-                        break
-
-        if not user_found:
-            # Nếu không tìm thấy user hoặc có lỗi
+        except Exception as e:
+            print(f"Error processing user {username}: {e}")
+            # Nếu có lỗi, thêm thông tin mặc định cho người chơi
             player_data.append({
                 "username": username,
                 "avatar": "/static/images/default-avatar.png",
@@ -752,7 +756,7 @@ def get_room_data(room_id):
             })
 
     return jsonify(player_data)
-    
+
 @app.route("/check-room/<room_id>", methods=["GET"])
 @login_required
 def check_room(room_id):

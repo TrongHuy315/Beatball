@@ -1,0 +1,6 @@
+* Khi chuyển từ localhost sang render để chạy thì cần thay:
+    + REDIS_URL trong file app.py
+    + Tham số "cors_allowed_origins" trong biến socketio trong file app.py
+    + Lệnh run bằng socketio để chạy ứng dụng trong file app.py
+    + Thay đổi authURL bên file login.html
+    + Thay đổi Authorized Redirect URIs trên Google Cloud Console
