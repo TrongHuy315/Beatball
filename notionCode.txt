@@ -4,3 +4,4 @@
     + Lệnh run bằng socketio để chạy ứng dụng trong file app.py
     + Thay đổi authURL bên file login.html
     + Thay đổi Authorized Redirect URIs trên Google Cloud Console
+    + Thay đổi redirect_uri trong file app.py chỗ token_data

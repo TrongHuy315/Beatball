@@ -439,12 +439,12 @@ def google_login():
 
     # Lấy Access Token từ Google
     token_url = "https://oauth2.googleapis.com/token"
-    # redirect_uri = url_for('google_login', _external=True, _scheme='https')
+    redirect_uri = url_for('google_login', _external=True, _scheme='https')
     token_data = {
         "code": authorization_code,
         "client_id": "35306778162-6i3q4jiron35lefs2t03fi82vd3i23or.apps.googleusercontent.com",
         "client_secret": "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",
-        "redirect_uri": "http://127.0.0.1:5000/google-login", # redirect_uri,
+        "redirect_uri": redirect_uri, # "http://127.0.0.1:5000/google-login",
         "grant_type": "authorization_code"
     }
 
