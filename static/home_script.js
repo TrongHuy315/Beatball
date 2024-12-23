@@ -8,7 +8,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // Lấy reference đến các elements
     const uploadButton = document.querySelector(".avatar-upload button");
     const avatarInput = document.querySelector(".avatar-upload input[type='file']");
+    const logoutButton = document.getElementById("logout-btn");
     const profilePicture = document.querySelector(".avatar-container img");
+
+    if (sessionStorage.getItem("is_anonymous") === "true") {
+        uploadButton.style.display = "none"; // Ẩn nút Upload Photo
+    }
 
     uploadButton?.addEventListener("click", () => {
         avatarInput?.click();
@@ -57,7 +62,22 @@ document.addEventListener("DOMContentLoaded", () => {
             uploadButton.disabled = false;
             uploadButton.textContent = "Upload Photo";
         }
-    });    
+    });
+    
+    // Xử lý sự kiện click cho nút Logout
+    logoutButton?.addEventListener("click", async () => {
+        try {
+            const response = await fetch("/logout", { method: "GET" });
+            if (response.ok) {
+                window.location.href = "/"; // Quay lại trang chủ
+            } else {
+                alert("Failed to log out. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error during logout:", error);
+            alert("An unexpected error occurred during logout.");
+        }
+    });
 });
 
 document.addEventListener("DOMContentLoaded", () => {

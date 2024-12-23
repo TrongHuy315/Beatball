@@ -1,0 +1,32 @@
+<form id="google-register-form">
+    <img src="{{ photo }}" alt="Profile Picture" class="profile-picture">
+    <input type="text" id="username" placeholder="Enter your username" required>
+    <button type="submit">Register</button>
+</form>
+
+<script>
+    document.getElementById("google-register-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("username").value.trim();
+        const email = "{{ email }}";
+        const photo = "{{ photo }}";
+
+        if (!username) {
+            alert("Username is required.");
+            return;
+        }
+
+        const response = await fetch("/google-register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, photo }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            window.location.href = result.redirect;
+        } else {
+            alert(result.error || "Failed to register.");
+        }
+    });
+</script>

@@ -8,9 +8,18 @@
     <!-- Firebase SDK -->
     <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
     <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <!-- Google Sign-In SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="../static/crypto-js.min.js"></script>
 </head>
 <body>
+    <!-- Nút Back ở góc trái trên cùng -->
+    <div class="back-icon-container">
+        <a href="/" id="back-button">
+            <img src="{{ url_for('static', filename='back-icon.png') }}" alt="Back" class="back-icon">
+        </a>
+    </div>
+
     <div class="container">
         <h1 class="title">
             BeatBall.i 
@@ -43,14 +52,35 @@
         </div>
 
         <p class="alternative-text">
-            Or you can register or login with <span class="emoji">📧</span>
-        </p>
+            Or you can register or login with 
+            <span class="emoji email-icon" id="google-login-icon">📧</span>
+        </p>        
 
-        <a href="#" class="forgot-password"><strong>Forgot Password?</strong></a>
+        <a href="#" class="forgot-password" id="forgot-password-link"><strong>Forgot Password?</strong></a>
+
+        <!-- Thêm overlay -->
+        <div id="overlay" class="overlay"></div>
+
+        <!-- Form Forgot Password -->
+        <div id="forgot-password-form" class="form-popup">
+            <button type="button" class="close-btn" onclick="closeForgotPasswordForm()">&times;</button>
+            <h2 style="margin-bottom: 20px;">Forgot Password</h2>
+            <form id="resetPasswordForm">
+                <input type="email" class="input-field" placeholder="Enter your email" required>
+                <button type="submit" class="submit-btn">Reset Password</button>
+            </form>
+        </div>       
     </div>
 
     <!-- JavaScript -->
     <script type="module">
+        const backButton = document.getElementById("back-button");
+        backButton.addEventListener("click", (e) => {
+            e.preventDefault(); // Ngăn hành động mặc định
+            window.location.href = "/"; // Chuyển hướng về trang /
+        });
+
+        //
         let inactivityTimeout;
         const logoutWarningTime = 4 * 60 * 1000; // 4 phút (để cảnh báo trước)
 
@@ -143,26 +173,42 @@
             }
         });
 
-        // Xử lý Register Form
+        async function validateEmail(email) {
+            try {
+                const response = await fetch(`https://emailvalidation.abstractapi.com/v1/?api_key=19e711b3ffc9421590f77650d28e4365&email=${email}`);
+                const data = await response.json();
+                return data.deliverability === 'DELIVERABLE'; // Trả về true nếu email tồn tại
+            } catch (error) {
+                console.error("Error validating email:", error);
+                return false;
+            }
+        }
+        
         registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Ngừng hành động mặc định của form (submit)
+            e.preventDefault(); // Ngăn hành động mặc định của form
         
             const username = document.getElementById('register-username').value.trim();
             const email = document.getElementById('register-email').value.trim();
             const password = document.getElementById('register-password').value.trim();
         
             if (username && email && password) {
-                const usersRef = ref(database, 'users');
-        
                 try {
+                    // Kiểm tra email có hợp lệ không
+                    const emailValid = await validateEmail(email);
+                    if (!emailValid) {
+                        alert("The email address is not valid. Please use a real email.");
+                        return;
+                    }
+        
+                    // Kiểm tra xem username và email có tồn tại trong Firebase
+                    const usersRef = ref(database, 'users');
                     const snapshot = await get(usersRef);
+        
                     let usernameExists = false;
                     let emailExists = false;
         
                     if (snapshot.exists()) {
                         const usersData = snapshot.val();
-        
-                        // Kiểm tra nếu username hoặc email đã tồn tại
                         for (let userId in usersData) {
                             const user = usersData[userId];
                             if (user.username === username) {
@@ -176,8 +222,10 @@
         
                     if (usernameExists) {
                         alert("Username already exists. Please choose another one.");
+                        return;
                     } else if (emailExists) {
                         alert("Email already exists. Please use another email.");
+                        return;
                     } else {
                         // Tạo khóa ngẫu nhiên cho người dùng mới
                         const newUserRef = push(usersRef);
@@ -189,14 +237,14 @@
                         const userData = {
                             username: username,
                             email: email,
-                            password: hashedPassword, // Lưu mật khẩu đã băm
-                            createdAt: new Date().toISOString(), // Thời gian tạo tài khoản
-                            lastLogin: new Date().toISOString(), // Thời gian đăng nhập lần cuối
-                            isActive: true, // Người dùng có hoạt động hay không
-                            profilePicture: "", // Cột mặc định cho ảnh đại diện
-                            role: "user", // Cột mặc định cho vai trò người dùng
+                            password: hashedPassword,
+                            createdAt: new Date().toISOString(),
+                            lastLogin: new Date().toISOString(),
+                            isActive: true,
+                            profilePicture: "/static/images/default-avatar.png",
+                            role: "user",
                             stats: {
-                                point: 1000, // Điểm mặc định là 1000
+                                point: 1000,
                                 matches: 0,
                                 win_matches: 0,
                                 goals: 0,
@@ -211,9 +259,7 @@
                         // Gửi request đến route register để tạo session
                         const response = await fetch('/register', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 username: username,
                                 user_id: newUserRef.key,
@@ -302,7 +348,91 @@
             } else {
                 alert("Please fill in all fields.");
             }
-        });            
+        });
+
+        //
+        document.getElementById("google-login-icon").addEventListener("click", () => {
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=35306778162-6i3q4jiron35lefs2t03fi82vd3i23or.apps.googleusercontent.com&redirect_uri=http://127.0.0.1:5000/google-login&scope=email profile openid&prompt=consent`;
+            window.location.href = authUrl;
+        });
+        
+        //        
+        // Lấy các phần tử DOM
+        const forgotPasswordForm = document.getElementById('forgot-password-form');
+        const overlay = document.getElementById('overlay');
+        const closeBtn = document.querySelector('.close-btn');
+        const forgotPasswordLink = document.querySelector('.forgot-password');
+
+        // Hàm mở form
+        function showForgotPasswordForm() {
+            forgotPasswordForm.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+
+        // Hàm đóng form
+        function closeForgotPasswordForm() {
+            forgotPasswordForm.style.display = 'none';
+            overlay.style.display = 'none';
+            // Xóa nội dung trong ô nhập email
+            const emailInput = forgotPasswordForm.querySelector('input[type="email"]');
+            if (emailInput) {
+                emailInput.value = ''; // Đặt giá trị ô nhập email về chuỗi rỗng
+            }
+        }
+
+        // Sự kiện click vào link Forgot Password
+        forgotPasswordLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            showForgotPasswordForm();
+        });
+
+        // Sự kiện click vào nút đóng
+        closeBtn.addEventListener('click', closeForgotPasswordForm);
+
+        // Sự kiện click vào overlay (bên ngoài form)
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                closeForgotPasswordForm();
+            }
+        });
+
+        // Đóng form khi nhấn ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeForgotPasswordForm();
+            }
+        });
+
+        // Sự kiện submit form
+        document.getElementById('resetPasswordForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = this.querySelector('input[type="email"]').value.trim();
+        
+            if (!email) {
+                alert("Please enter your email.");
+                return;
+            }
+        
+            try {
+                const response = await fetch('/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+        
+                const result = await response.json();
+        
+                if (response.ok && result.success) {
+                    alert(result.message || 'Reset password link has been sent to your email!');
+                    closeForgotPasswordForm();
+                } else {
+                    alert(result.error || 'Failed to reset password.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again later.');
+            }
+        });                
     </script>
 </body>
 </html>

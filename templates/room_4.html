@@ -16,37 +16,15 @@
     </div>
 
     <div class="container">
-        <!-- Phần card player với chữ VS ở giữa, tất cả trên một hàng -->
-        <div class="player-cards">
-            <div class="player-card">
-                <div class="avatar"></div>
-                <p class="player-name">Player 1</p>
-                <p class="player-score">1000</p>
-            </div>
-            <div class="player-card">
-                <div class="avatar"></div>
-                <p class="player-name">Player 2</p>
-                <p class="player-score">1200</p>
-            </div>
-
-            <!-- Chữ VS ở giữa -->
-            <div class="vs-divider">
-                <img src="{{ url_for('static', filename='vs-icon.png') }}" alt="VS" class="vs-icon">
-            </div>
-
-            <div class="player-card">
-                <div class="avatar"></div>
-                <p class="player-name">Player 3</p>
-                <p class="player-score">900</p>
-            </div>
-            <div class="player-card">
-                <div class="avatar"></div>
-                <p class="player-name">Player 4</p>
-                <p class="player-score">1100</p>
-            </div>
+        <!-- Hidden input for room ID -->
+        <input type="hidden" id="room-id" value="{{ room_id }}">
+        
+        <!-- Player Cards Container -->
+        <div id="player-cards" class="player-cards">
+            <!-- Player cards will be dynamically added here -->
         </div>
     </div>
-
+    
     <!-- Room ID và Find Match nằm trên khung chat -->
     <div class="room-options">
         <div class="room-id">
@@ -169,12 +147,18 @@
                 history.replaceState({ page: "room" }, "", window.location.href);
             }
         
-            // Xử lý khi user đóng tab/window
-            window.addEventListener("beforeunload", (event) => {
+            // Xử lý khi người dùng rời trang
+            window.addEventListener("beforeunload", function (e) {
+                const navigationEntries = performance.getEntriesByType("navigation")[0];
+            
+                if (navigationEntries && navigationEntries.type === "reload") {
+                    // Nếu trang được reload, không gửi yêu cầu rời phòng
+                    return;
+                }
+            
+                // Gửi yêu cầu rời phòng nếu không phải reload
                 fetch(`/leave-room/${roomId}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    // Using keepalive to ensure the request completes
+                    method: 'POST',
                     keepalive: true
                 });
             });
@@ -196,7 +180,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        const socket = io();
         const currentRoomId = "{{ room_id }}";  // Lấy room_id từ Flask template
         const currentUsername = "{{ session.username }}";  // Lấy username từ session
 
@@ -215,16 +198,9 @@
                 alert("The room has been closed.");
                 window.location.href = "/home";
             }
-        });
-
-        // Xử lý khi người dùng rời trang
-        window.addEventListener('beforeunload', function(e) {
-            // Gửi request để rời phòng khi người dùng thoát trang
-            fetch(`/leave-room/${roomId}`, {
-                method: 'POST',
-                keepalive: true // Đảm bảo request được gửi ngay cả khi trang đóng
-            });
-        });
+        });       
     </script>
+
+    <script src="{{ url_for('static', filename='room_4_script.js') }}"></script>
 </body>
 </html>

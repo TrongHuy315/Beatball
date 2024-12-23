@@ -3,15 +3,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const usernameField = document.getElementById("username-field");
 
     // Xử lý khi nhấn nút Anonymous
-    anonymousBtn.addEventListener("click", () => {
+    anonymousBtn.addEventListener("click", async () => {
         const username = usernameField.value.trim();
-        if (username) {
-            window.location.href = `/home`;
-        } else {
-            // Cảnh báo nếu không nhập username
+        if (!username) {
             alert("Please enter a username before proceeding!");
-            // Đặt lại focus vào ô nhập username
             usernameField.focus();
+            return;
+        }
+
+        try {
+            const response = await fetch("/anonymous-login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ username }),
+            });
+
+            if (response.ok) {
+                window.location.href = "/home";
+            } else {
+                const errorData = await response.json();
+                alert(errorData.error || "Failed to log in as anonymous.");
+            }
+        } catch (error) {
+            console.error("Error logging in as anonymous:", error);
+            alert("An unexpected error occurred.");
         }
     });
 

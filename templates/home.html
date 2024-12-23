@@ -6,10 +6,11 @@
     <title>BeatBall - Home</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='home_style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-    <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+        import { getStorage } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+
         const firebaseConfig = {
             apiKey: "AIzaSyAnLivuERcg2mUavvq5T_x94DdKRwlcWBg",
             authDomain: "beatball-18492.firebaseapp.com",
@@ -20,19 +21,31 @@
             appId: "1:35306778162:web:42080ca10631dabf56562b",
             measurementId: "G-61Y7JC5TF7"
         };
-        firebase.initializeApp(firebaseConfig);
+        // Initialize Firebase App
+        const app = initializeApp(firebaseConfig);
+
+        // Initialize Firebase Services
+        const database = getDatabase(app);
+        const storage = getStorage(app);
     </script>
 </head>
 <body>
+    <!-- Nút Logout nằm ngoài vùng chính -->
+    <div class="logout-container">
+        <button id="logout-btn" class="custom-button">Logout</button>
+    </div>
+
     <div class="container">
         <!-- Trong phần profile-box -->
         <div class="profile-box">
             <div class="avatar-container">
-                <img id="profilePicture" src="{{ profile_picture }}" alt="Avatar">
+                <img id="profilePicture" src="{{ profilePicture or '/static/images/default-avatar.png' }}" alt="Avatar">
+                {% if not session['is_anonymous'] %}
                 <div class="avatar-upload">
                     <input type="file" id="avatarInput" accept="image/*" style="display: none;">
                     <button id="uploadButton">Upload Photo</button>
                 </div>
+                {% endif %}
             </div>
             <span class="username">{{ username }}</span>
         </div>
