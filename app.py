@@ -39,6 +39,7 @@ FIREBASE_URL = "https://beatball-18492-default-rtdb.asia-southeast1.firebasedata
 # Kết nối Redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
+# redis_client = redis.StrictRedis("localhost", port=6379, db=0, decode_responses=True)
 
 # Middleware kiểm tra đăng nhập và thời gian không hoạt động
 def login_required(f):
@@ -434,9 +435,12 @@ def google_login():
         "code": authorization_code,
         "client_id": "35306778162-6i3q4jiron35lefs2t03fi82vd3i23or.apps.googleusercontent.com",
         "client_secret": "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",
-        "redirect_uri": "http://127.0.0.1:5000/google-login",
+        "redirect_uri": "https://beatball.onrender.com/google-login",
         "grant_type": "authorization_code"
     }
+
+    # http://127.0.0.1:5000
+    # https://beatball.onrender.com
 
     token_response = requests.post(token_url, data=token_data)
     if token_response.status_code != 200:
@@ -893,4 +897,4 @@ def on_disconnect():
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
     socketio.run(app, host='0.0.0.0', port=port)
-    #socketio.run(app, debug=True)
+    # socketio.run(app, debug=True)
