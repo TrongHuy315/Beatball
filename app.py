@@ -19,7 +19,7 @@ import redis
 import json
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10) #['https://beatball.onrender.com']
+socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10) #['https://beatball.onrender.com']
 
 app.secret_key = 'BeatBall@xyz'
 
@@ -891,6 +891,6 @@ def on_disconnect():
                         }, room=room_id)
 
 if __name__ == "__main__":
-    # port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
-    # socketio.run(app, host='0.0.0.0', port=port)
-    socketio.run(app, debug=True)
+    port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
+    socketio.run(app, host='0.0.0.0', port=port)
+    #socketio.run(app, debug=True)
