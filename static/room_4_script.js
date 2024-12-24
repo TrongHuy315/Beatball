@@ -54,28 +54,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {
         console.log("Rendering player slots:", playerSlots);
-        const playerCards = document.querySelectorAll(".player-card");
-
-        playerSlots.forEach((player, index) => {
-            const card = playerCards[index];
-            if (player) {
-                const username = player.username || "Unknown User";
-                const point = player.score || "Waiting stats";
-                const avatar = player.avatar || "/static/images/default-avatar.png";
-
+        playerCardsContainer.innerHTML = "";
+    
+        const team1 = document.createElement("div");
+        team1.className = "team";
+        const team2 = document.createElement("div");
+        team2.className = "team";
+    
+        const vsDiv = document.createElement("div");
+        vsDiv.className = "vs-divider";
+        vsDiv.innerHTML = '<img src="/static/images/vs.png" class="vs-icon" alt="VS">';
+    
+        // Render mỗi slot theo vị trí cố định
+        for (let i = 0; i < 4; i++) {
+            const card = document.createElement("div");
+            card.className = "player-card";
+            
+            const playerData = playerSlots[i];
+            
+            if (playerData) {
+                // Nếu có thông tin người chơi ở slot này
                 card.innerHTML = `
-                    <div class="avatar" style="background-image: url('${avatar}')"></div>
-                    <p class="player-name">${username}</p>
-                    <p class="player-score">${point}</p>
+                    <div class="avatar" style="background-image: url('${playerData.avatar}')"></div>
+                    <p class="player-name">${playerData.username}</p>
+                    <p class="player-score">Rating: ${playerData.score}</p>
                 `;
             } else {
+                // Slot trống
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
                     <p class="player-name">Waiting...</p>
                     <p class="player-score"></p>
                 `;
             }
-        });
+    
+            // Phân chia team theo vị trí
+            if (i < 2) {
+                team1.appendChild(card);
+            } else {
+                team2.appendChild(card);
+            }
+        }
+    
+        playerCardsContainer.appendChild(team1);
+        playerCardsContainer.appendChild(vsDiv);
+        playerCardsContainer.appendChild(team2);
     }
 
     // Xử lý các sự kiện Socket.IO
