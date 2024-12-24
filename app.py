@@ -384,17 +384,12 @@ def leave_room(room_id):
             # Xóa username khỏi user_tabs
             user_tabs.pop(username, None)
 
-            # Phát sự kiện player_left để cập nhật client
-            socketio.emit('player_left', {
-                'room_id': room_id,
-                'player_slots': room["player_slots"]
-            }, room=room_id)
-
-            # Nếu người rời đi là người tạo phòng
+            # Nếu người rời đi là trưởng phòng
             if room["created_by"] == session.get("user_id"):
-                if any(slot is not None for slot in room["player_slots"]):
+                remaining_players = [slot for slot in room["player_slots"] if slot is not None]
+                if remaining_players:
                     # Chuyển quyền trưởng phòng cho người chơi đầu tiên còn lại
-                    room["created_by"] = next(slot["username"] for slot in room["player_slots"] if slot is not None)
+                    room["created_by"] = remaining_players[0]["username"]
                 else:
                     # Xóa phòng nếu không còn ai
                     redis_client.delete(f"room:{room_id}")
@@ -403,6 +398,12 @@ def leave_room(room_id):
                         'message': 'Room has been deleted'
                     }, broadcast=True)
                     return jsonify({"message": f"Room {room_id} has been deleted"}), 200
+
+            # Phát sự kiện player_left để cập nhật client
+            socketio.emit('player_left', {
+                'room_id': room_id,
+                'player_slots': room["player_slots"]
+            }, room=room_id)
 
         # Cập nhật lại thông tin phòng trong Redis
         room["user_tabs"] = user_tabs
@@ -766,47 +767,55 @@ def room(room_id):
 @app.route("/room-data/<room_id>", methods=["GET"])
 @login_required
 def get_room_data(room_id):
-    # Lấy dữ liệu phòng từ Redis
-    room_data = redis_client.get(f"room:{room_id}")
-    if not room_data:
-        return jsonify({"error": "Room does not exist."}), 404
+    try:
+        # Lấy dữ liệu phòng từ Redis
+        room_data = redis_client.get(f"room:{room_id}")
+        if not room_data:
+            return jsonify({"error": "Room does not exist."}), 404
 
-    room = json.loads(room_data)
-    player_data = []
+        room = json.loads(room_data)
+        player_data = []
 
-    # Duyệt qua danh sách người chơi theo thứ tự tham gia
-    for username in room["current_players"]:
+        # Lấy dữ liệu người dùng từ Firebase (truy vấn tất cả người dùng một lần)
         try:
-            # Lấy thông tin người chơi từ Firebase
-            firebase_query_url = f"{FIREBASE_URL[:-5]}.json"  # Truy vấn tất cả người dùng
+            firebase_query_url = f"{FIREBASE_URL[:-5]}.json"
             response = requests.get(firebase_query_url)
             if response.status_code == 200:
                 users = response.json()
-                if users:
-                    for user_id, user_info in users.items():
-                        if user_info.get("username") == username:
-                            profile_picture = user_info.get('profilePicture', '/static/images/default-avatar.png')
-
-                            # Thêm dữ liệu người chơi vào danh sách
-                            player_data.append({
-                                "username": username,
-                                "avatar": profile_picture,
-                                "score": user_info.get("stats", {}).get("point", 1000)
-                            })
-                            break
             else:
                 print(f"Error fetching data from Firebase: {response.status_code}")
-
+                users = {}
         except Exception as e:
-            print(f"Error processing user {username}: {e}")
-            # Nếu có lỗi, thêm thông tin mặc định cho người chơi
-            player_data.append({
-                "username": username,
-                "avatar": "/static/images/default-avatar.png",
-                "score": 1000
-            })
+            print(f"Error connecting to Firebase: {e}")
+            users = {}
 
-    return jsonify(player_data)
+        # Duyệt qua danh sách người chơi theo thứ tự tham gia
+        for username in room["current_players"]:
+            user_info = next(
+                (user for user in users.values() if user.get("username") == username),
+                None
+            )
+
+            if user_info:
+                profile_picture = user_info.get("profilePicture", "/static/images/default-avatar.png")
+                player_data.append({
+                    "username": username,
+                    "avatar": profile_picture,
+                    "score": user_info.get("stats", {}).get("point", 1000)
+                })
+            else:
+                # Thêm thông tin mặc định nếu không tìm thấy user
+                player_data.append({
+                    "username": username,
+                    "avatar": "/static/images/default-avatar.png",
+                    "score": 1000
+                })
+
+        return jsonify(player_data)
+
+    except Exception as e:
+        print(f"Error in get_room_data: {e}")
+        return jsonify({"error": "Failed to retrieve room data."}), 500
 
 @app.route("/check-room/<room_id>", methods=["GET"])
 @login_required

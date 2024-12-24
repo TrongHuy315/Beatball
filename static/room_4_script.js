@@ -17,22 +17,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Lấy dữ liệu người chơi từ server
     async function fetchPlayerData() {
         try {
-            const response = await fetch(`/room-data/${roomId}`);
-            if (response.ok) {
-                const players = await response.json();
-                console.log("Fetched players:", players);
-                currentPlayers = players;
-                renderPlayerCards(players);
-                return players;
-            } else {
-                console.error("Failed to fetch player data");
+            // Kiểm tra roomId có tồn tại
+            if (!roomId) {
+                console.error("roomId is not defined.");
                 return [];
             }
+    
+            // Gửi yêu cầu tới server
+            const response = await fetch(`/room-data/${roomId}`);
+            if (!response.ok) {
+                console.error(`Failed to fetch player data: ${response.status} ${response.statusText}`);
+                return [];
+            }
+    
+            // Phân tích dữ liệu JSON
+            const players = await response.json();
+            console.log("Fetched players:", players);
+    
+            // Kiểm tra dữ liệu trả về
+            if (!Array.isArray(players)) {
+                console.error("Invalid player data received:", players);
+                return [];
+            }
+    
+            // Gán dữ liệu và render giao diện
+            currentPlayers = players; // Giả định currentPlayers là biến toàn cục
+            renderPlayerCards(players);
+            return players;
+    
         } catch (error) {
             console.error("Error fetching player data:", error);
             return [];
         }
-    }
+    }    
 
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {
