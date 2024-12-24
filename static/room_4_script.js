@@ -35,80 +35,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Hiển thị player cards
-    function renderPlayerCards(players) {
-        console.log("Rendering players:", players);
-        playerCardsContainer.innerHTML = "";
-
-        const team1 = document.createElement("div");
-        team1.className = "team";
-        const team2 = document.createElement("div");
-        team2.className = "team";
-
-        const vsDiv = document.createElement("div");
-        vsDiv.className = "vs-divider";
-        vsDiv.innerHTML = '<img src="/static/vs-icon.png" class="vs-icon" alt="VS">';
-
-        // Tạo 4 card trống
-        for (let i = 0; i < 4; i++) {
-            const card = document.createElement("div");
-            card.className = "player-card";
-            
-            // Kiểm tra xem vị trí này có người chơi không
-            const player = players[i];
-            
-            card.innerHTML = player ? `
-                <div class="avatar" style="background-image: url('${player.avatar || "/static/images/default-avatar.png"}')"></div>
-                <p class="player-name">${player.username}</p>
-                <p class="player-score">${player.score ? `Rating: ${player.score}` : ""}</p>
-            ` : `
-                <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
-                <p class="player-name">Waiting...</p>
-                <p class="player-score"></p>
-            `;
-
-            // Phân chia vào các team
-            if (i < 2) {
-                team1.appendChild(card);
-            } else {
-                team2.appendChild(card);
-            }
-        }
-
-        playerCardsContainer.appendChild(team1);
-        playerCardsContainer.appendChild(vsDiv);
-        playerCardsContainer.appendChild(team2);
-    }
-
-    // Xử lý các sự kiện Socket.IO
-    socket.on("player_joined", (data) => {
-        console.log("Player joined:", data);
-        const { username, avatar, score } = data;
-    
-        // Tìm card trống đầu tiên và cập nhật
+    function renderPlayerCards(playerSlots) {
+        console.log("Rendering player slots:", playerSlots);
         const playerCards = document.querySelectorAll(".player-card");
-        for (const card of playerCards) {
-            const playerName = card.querySelector(".player-name");
-            if (playerName && playerName.textContent === "Waiting...") {
+
+        playerSlots.forEach((player, index) => {
+            const card = playerCards[index];
+            if (player) {
+                const username = player.username || "Unknown User";
+                const point = player.score || "Waiting stats";
+                const avatar = player.avatar || "/static/images/default-avatar.png";
+
                 card.innerHTML = `
-                    <div class="avatar" style="background-image: url('${avatar || "/static/images/default-avatar.png"}')"></div>
+                    <div class="avatar" style="background-image: url('${avatar}')"></div>
                     <p class="player-name">${username}</p>
-                    <p class="player-score">${score ? `Rating: ${score}` : ""}</p>
+                    <p class="player-score">${point}</p>
                 `;
-                break;
-            }
-        }
-    });    
-
-    socket.on("player_left", (data) => {
-        console.log("Player left:", data);
-        const { username } = data;
-    
-        // Tìm tất cả các player cards
-        const playerCards = document.querySelectorAll(".player-card");
-        playerCards.forEach(card => {
-            const playerName = card.querySelector(".player-name");
-            if (playerName && playerName.textContent === username) {
-                // Làm trống card của người chơi vừa rời phòng
+            } else {
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
                     <p class="player-name">Waiting...</p>
@@ -116,6 +59,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 `;
             }
         });
+    }
+
+    // Xử lý các sự kiện Socket.IO
+    socket.on("player_joined", (data) => {
+        console.log("Player joined:", data);
+        renderPlayerCards(data.player_slots);
+    });    
+
+    socket.on("player_left", (data) => {
+        console.log("Player left:", data);
+        renderPlayerCards(data.player_slots);
     });    
 
     socket.on("update_room", (data) => {

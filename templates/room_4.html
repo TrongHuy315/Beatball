@@ -21,8 +21,33 @@
         
         <!-- Player Cards Container -->
         <div id="player-cards" class="player-cards">
-            <!-- Player cards will be dynamically added here -->
-        </div>
+            <!-- Đội 1 -->
+            <div class="team team-1">
+                {% for i in range(2) %}
+                <div class="player-card" data-slot="{{ i }}">
+                    <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
+                    <p class="player-name">Waiting...</p>
+                    <p class="player-score"></p>
+                </div>
+                {% endfor %}
+            </div>
+        
+            <!-- Biểu tượng VS -->
+            <div class="vs-divider">
+                <img src="/static/vs-icon.png" alt="VS" class="vs-icon">
+            </div>
+        
+            <!-- Đội 2 -->
+            <div class="team team-2">
+                {% for i in range(2, 4) %}
+                <div class="player-card" data-slot="{{ i }}">
+                    <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
+                    <p class="player-name">Waiting...</p>
+                    <p class="player-score"></p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>        
     </div>
     
     <!-- Room ID và Find Match nằm trên khung chat -->

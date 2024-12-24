@@ -5,3 +5,10 @@
     + Thay đổi authURL bên file login.html
     + Thay đổi Authorized Redirect URIs trên Google Cloud Console
     + Thay đổi redirect_uri trong file app.py chỗ token_data
+
+* Vấn đề cần giải quyết:
+    + Xử lý khi có máy khác đăng nhập chung tài khoản
+    + Xử lý vấn đề thứ tự hiển thị player-card trên room
+    + Xử lý anonymous khi vào room
+    + Xử lý room_2
+    + Hiển thị quyền trưởng room
