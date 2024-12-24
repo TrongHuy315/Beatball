@@ -88,11 +88,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             if (playerData && playerData.username) {
                 // Slot có người chơi
+                const isHost = playerData.is_host === true;  // Kiểm tra chính xác giá trị boolean
+                
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
                     <p class="player-name">${playerData.username}</p>
                     <p class="player-score">Rating: ${playerData.score || 1000}</p>
-                    ${playerData.is_host ? '<div class="host-marker">Host</div>' : ''}
+                    ${isHost ? '<div class="host-marker">Host</div>' : ''}
                     ${playerData.is_ready ? '<div class="ready-marker">Ready</div>' : ''}
                 `;
                 
@@ -127,8 +129,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Xử lý các sự kiện Socket.IO
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
-        renderPlayerCards(data.player_slots);
-    });    
+        // Kiểm tra host_id từ server
+        const currentUserId = document.getElementById("user-id").value;
+        const playerSlots = data.player_slots.map(slot => {
+            if (slot) {
+                // Đảm bảo is_host được set đúng dựa trên host_id
+                slot.is_host = slot.user_id === data.host_id;
+            }
+            return slot;
+        });
+        renderPlayerCards(playerSlots);
+    });   
 
     socket.on("player_left", (data) => {
         console.log("Player left event:", data);

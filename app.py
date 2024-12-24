@@ -341,6 +341,9 @@ def join_room(room_id):
         if not user_data:
             return jsonify({"error": "User data not found"}), 404
 
+        # Kiểm tra xem có phải host không dựa vào host_id trong room
+        is_host = room["host_id"] == user_id
+
         # Thêm người chơi vào slot
         player_info = {
             "username": username,
@@ -348,7 +351,7 @@ def join_room(room_id):
             "slot": empty_slot,
             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
             "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": len([p for p in room["player_slots"] if p is not None]) == 0,
+            "is_host": is_host,  # Chỉ set is_host nếu user_id trùng với host_id
             "is_ready": False
         }
 
@@ -363,12 +366,14 @@ def join_room(room_id):
         socketio.emit('player_joined', {
             'room_id': room_id,
             'player_info': player_info,
-            'player_slots': room["player_slots"]
+            'player_slots': room["player_slots"],
+            'host_id': room["host_id"]  # Thêm host_id vào response
         }, room=room_id)
 
         return jsonify({
             "message": "Successfully joined room.",
-            "player_slots": room["player_slots"]
+            "player_slots": room["player_slots"],
+            "host_id": room["host_id"]  # Thêm host_id vào response
         }), 200
 
     except Exception as e:
