@@ -129,12 +129,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             // Cập nhật thông tin chủ phòng nếu có thay đổi
             if (data.new_host_id) {
-                const currentUserId = session.get("user_id"); // Lấy user_id từ session
-                console.log("Current user ID:", currentUserId);
-                console.log("New host ID:", data.new_host_id);
+                const currentUsername = document.getElementById("current-username").value;
+                // Tìm username của host mới
+                let newHostUsername = null;
+                for (const slot of data.player_slots) {
+                    if (slot && slot.user_id === data.new_host_id) {
+                        newHostUsername = slot.username;
+                        break;
+                    }
+                }
                 
                 // Kiểm tra xem người chơi hiện tại có phải là host mới không
-                const isNewHost = data.new_host_id === currentUserId;
+                const isNewHost = currentUsername === newHostUsername;
                 console.log("Is new host:", isNewHost);
     
                 // Cập nhật UI dựa trên vai trò mới
@@ -143,7 +149,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     el.style.display = isNewHost ? 'block' : 'none';
                 });
     
-                // Cập nhật các nút Start/Ready nếu cần
+                // Cập nhật các nút Start/Ready
                 const startButton = document.getElementById('start-game-btn');
                 const readyButton = document.getElementById('ready-btn');
                 
@@ -165,73 +171,35 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             // Cập nhật danh sách người chơi
             if (data.current_players) {
-                // Cập nhật số lượng người chơi
-                const playerCount = document.getElementById('player-count');
-                if (playerCount) {
-                    playerCount.textContent = `${data.current_players.length}/${data.player_slots.length}`;
-                }
-    
-                // Cập nhật danh sách người chơi trong UI
-                const playerList = document.getElementById('player-list');
-                if (playerList) {
-                    playerList.innerHTML = '';
-                    data.current_players.forEach(player => {
-                        const playerElement = document.createElement('div');
-                        playerElement.className = 'player-item';
-                        playerElement.textContent = player;
-                        
-                        // Đánh dấu host nếu có
-                        if (data.new_host_id && player === getCurrentUsername()) {
-                            playerElement.classList.add('host');
-                            playerElement.innerHTML += ' (Chủ phòng)';
-                        }
-                        
-                        playerList.appendChild(playerElement);
-                    });
-                }
-    
-                // Cập nhật trạng thái sẵn sàng của game nếu cần
-                const startButton = document.getElementById('start-game-btn');
-                if (startButton && data.current_players.length >= 2) {
-                    startButton.disabled = false;
-                } else if (startButton) {
-                    startButton.disabled = true;
-                }
+                updatePlayerList(data.current_players, data.new_host_id);
             }
-    
-            // Cập nhật các card slots
-            updatePlayerCards(data.player_slots);
         }
     });
     
-    // Hàm cập nhật card slots
-    function updatePlayerCards(playerSlots) {
-        const cardContainer = document.querySelector('.card-container');
-        if (!cardContainer) return;
+    // Hàm cập nhật danh sách người chơi
+    function updatePlayerList(players, newHostId) {
+        const playerCount = document.getElementById('player-count');
+        if (playerCount) {
+            playerCount.textContent = `${players.length}/4`;
+        }
     
-        playerSlots.forEach((slot, index) => {
-            const cardElement = cardContainer.children[index];
-            if (!cardElement) return;
-    
-            if (slot) {
-                cardElement.querySelector('.player-name').textContent = slot.username;
-                cardElement.classList.add('occupied');
+        const playerList = document.getElementById('player-list');
+        if (playerList) {
+            playerList.innerHTML = '';
+            players.forEach(player => {
+                const playerElement = document.createElement('div');
+                playerElement.className = 'player-item';
+                playerElement.textContent = player;
                 
-                // Đánh dấu host
-                const hostMarker = cardElement.querySelector('.host-marker');
-                if (hostMarker) {
-                    hostMarker.style.display = slot.is_host ? 'block' : 'none';
+                // Đánh dấu host nếu có
+                if (newHostId && player === document.getElementById("current-username").value) {
+                    playerElement.classList.add('host');
+                    playerElement.innerHTML += ' (Chủ phòng)';
                 }
-            } else {
-                cardElement.querySelector('.player-name').textContent = 'Trống';
-                cardElement.classList.remove('occupied');
                 
-                const hostMarker = cardElement.querySelector('.host-marker');
-                if (hostMarker) {
-                    hostMarker.style.display = 'none';
-                }
-            }
-        });
+                playerList.appendChild(playerElement);
+            });
+        }
     }
     
     // Hàm lấy username hiện tại
