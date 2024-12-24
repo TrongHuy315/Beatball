@@ -408,24 +408,36 @@ def leave_room(room_id):
                     new_host["is_host"] = True
                     room["host_id"] = new_host.get("user_id")
                     new_host_id = new_host.get("user_id")
-                else:
-                    new_host_id = None
 
-                # Cập nhật Redis
-                redis_client.set(f"room:{room_id}", json.dumps(room))
-                
-                # Thông báo cho tất cả người chơi
-                socketio.emit('player_left', {
-                    'room_id': room_id,
-                    'username': username,
-                    'player_slots': room["player_slots"],
-                    'current_players': room["current_players"],
-                    'new_host_id': new_host_id
-                }, room=room_id)
+                    # Cập nhật Redis
+                    redis_client.set(f"room:{room_id}", json.dumps(room))
+                    
+                    # Thông báo cho tất cả người chơi
+                    socketio.emit('player_left', {
+                        'room_id': room_id,
+                        'username': username,
+                        'player_slots': room["player_slots"],
+                        'current_players': room["current_players"],
+                        'new_host_id': new_host_id
+                    }, to=room_id)  # Sử dụng to thay vì room
+                else:
+                    # Cập nhật Redis
+                    redis_client.set(f"room:{room_id}", json.dumps(room))
+                    
+                    # Thông báo cho tất cả người chơi
+                    socketio.emit('player_left', {
+                        'room_id': room_id,
+                        'username': username,
+                        'player_slots': room["player_slots"],
+                        'current_players': room["current_players"]
+                    }, to=room_id)  # Sử dụng to thay vì room
             else:
                 # Xóa phòng nếu không còn ai
                 redis_client.delete(f"room:{room_id}")
-                socketio.emit('room_deleted', {'room_id': room_id}, broadcast=True)
+                socketio.emit('room_deleted', {
+                    'room_id': room_id,
+                    'message': 'Room has been deleted'
+                }, to=room_id)  # Sử dụng to thay vì broadcast
 
         return jsonify({"success": True}), 200
 
