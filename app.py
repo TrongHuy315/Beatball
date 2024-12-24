@@ -358,7 +358,6 @@ def join_room(room_id):
 @login_required
 def leave_room(room_id):
     try:
-        # Lấy thông tin phòng từ Redis
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
             return jsonify({"error": "Room does not exist."}), 404
@@ -372,46 +371,51 @@ def leave_room(room_id):
 
         # Nếu không còn tab nào, xóa người chơi khỏi phòng
         if user_tabs[username] <= 0:
-            # Xóa người chơi khỏi player_slots
-            for i, slot in enumerate(room["player_slots"]):
-                if slot and slot.get("username") == username:
-                    room["player_slots"][i] = None  # Đặt lại vị trí thành None
-                    break
+            # Xóa người chơi khỏi current_players
+            if username in room["current_players"]:
+                room["current_players"].remove(username)
 
             # Xóa username khỏi user_tabs
             user_tabs.pop(username, None)
 
-            # Nếu người rời là trưởng phòng
-            if room["created_by"] == session.get("user_id"):
-                remaining_players = [slot for slot in room["player_slots"] if slot is not None]
-                if remaining_players:
-                    # Chuyển quyền trưởng phòng cho người chơi đầu tiên còn lại
-                    room["created_by"] = remaining_players[0]["username"]
-                else:
-                    # Xóa phòng nếu không còn ai
-                    redis_client.delete(f"room:{room_id}")
-                    socketio.emit('room_deleted', {
-                        'room_id': room_id,
-                        'message': 'Room has been deleted'
-                    }, broadcast=True)
-                    return jsonify({"message": f"Room {room_id} has been deleted"}), 200
+            # Nếu không còn người chơi nào
+            if not room["current_players"]:
+                redis_client.delete(f"room:{room_id}")
+                socketio.emit('room_deleted', {
+                    'room_id': room_id,
+                    'message': 'Room has been deleted'
+                }, broadcast=True)
+                return jsonify({"message": "Room deleted successfully."}), 200
+            
+            # Nếu người rời đi là trưởng phòng và còn người khác
+            if room["created_by"] == session.get("user_id") and room["current_players"]:
+                # Chuyển quyền trưởng phòng cho người đầu tiên còn lại
+                first_remaining_user = room["current_players"][0]
+                # Lấy user_id của người được chuyển quyền
+                firebase_response = requests.get(FIREBASE_URL)
+                if firebase_response.status_code == 200:
+                    users = firebase_response.json()
+                    for user_id, user_data in users.items():
+                        if user_data.get("username") == first_remaining_user:
+                            room["created_by"] = user_id
+                            break
 
-            # Phát sự kiện player_left để cập nhật client
+            # Phát sự kiện player_left
             socketio.emit('player_left', {
                 'room_id': room_id,
-                'player_slots': room["player_slots"]
+                'username': username,
+                'current_players': room["current_players"]
             }, room=room_id)
 
-        # Cập nhật lại Redis
+        # Cập nhật lại thông tin phòng trong Redis
         room["user_tabs"] = user_tabs
         redis_client.set(f"room:{room_id}", json.dumps(room))
-        print(f"Updated player_slots after user left: {room['player_slots']}")  # Log kiểm tra
 
         return jsonify({"message": f"Successfully left room {room_id}"}), 200
 
     except Exception as e:
         print(f"Error in leave_room: {e}")
-        return jsonify({"error": "An error occurred while leaving the room."}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -766,7 +770,6 @@ def room(room_id):
 @login_required
 def get_room_data(room_id):
     try:
-        # Lấy dữ liệu phòng từ Redis
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
             return jsonify({"error": "Room does not exist."}), 404
@@ -774,54 +777,45 @@ def get_room_data(room_id):
         room = json.loads(room_data)
         player_data = []
 
-        # Lấy dữ liệu người dùng từ Firebase (truy vấn tất cả người dùng một lần)
-        try:
-            firebase_query_url = f"{FIREBASE_URL[:-5]}.json"
-            response = requests.get(firebase_query_url)
-            if response.status_code == 200:
-                users = response.json()
-            else:
-                print(f"Error fetching data from Firebase: {response.status_code}")
-                users = {}
-        except Exception as e:
-            print(f"Error connecting to Firebase: {e}")
-            users = {}
+        # Chỉ lấy thông tin của những người chơi còn trong phòng
+        current_players = room.get("current_players", [])
+        
+        if current_players:
+            # Lấy thông tin từ Firebase một lần
+            firebase_response = requests.get(FIREBASE_URL)
+            if firebase_response.status_code == 200:
+                users = firebase_response.json()
+                
+                # Xử lý từng người chơi theo thứ tự trong current_players
+                for username in current_players:
+                    user_found = False
+                    for user_info in users.values():
+                        if user_info.get("username") == username:
+                            profile_picture = user_info.get("profilePicture", "/static/images/default-avatar.png")
+                            player_data.append({
+                                "username": username,
+                                "avatar": profile_picture,
+                                "score": user_info.get("stats", {}).get("point", 1000)
+                            })
+                            user_found = True
+                            break
+                    
+                    if not user_found:
+                        player_data.append({
+                            "username": username,
+                            "avatar": "/static/images/default-avatar.png",
+                            "score": 1000
+                        })
 
-        # Duyệt qua player_slots thay vì current_players để đảm bảo thứ tự đúng
-        for slot in room["player_slots"]:
-            if slot:
-                username = slot.get("username", "Unknown User")
-                user_info = next(
-                    (user for user in users.values() if user.get("username") == username),
-                    None
-                )
-                if user_info:
-                    profile_picture = user_info.get("profilePicture", "/static/images/default-avatar.png")
-                    player_data.append({
-                        "username": username,
-                        "avatar": profile_picture,
-                        "score": user_info.get("stats", {}).get("point", 1000)
-                    })
-                else:
-                    # Thêm thông tin mặc định nếu không tìm thấy user
-                    player_data.append({
-                        "username": username,
-                        "avatar": "/static/images/default-avatar.png",
-                        "score": 1000
-                    })
-            else:
-                # Nếu slot trống, thêm thông tin mặc định cho vị trí trống
-                player_data.append({
-                    "username": None,
-                    "avatar": "/static/images/default-avatar.png",
-                    "score": None
-                })
-
+        # Log để debug
+        print(f"Room {room_id} current players: {current_players}")
+        print(f"Returning player data: {player_data}")
+        
         return jsonify(player_data)
 
     except Exception as e:
         print(f"Error in get_room_data: {e}")
-        return jsonify({"error": "Failed to retrieve room data."}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/check-room/<room_id>", methods=["GET"])
 @login_required
@@ -900,13 +894,12 @@ def handle_message(data):
 
 @socketio.on("join_room")
 def handle_join_room(data):
-    room_id = data["room_id"]
+    room_id = data.get("room_id")
     username = session.get("username")
 
     if not username:
         return
 
-    # Lấy thông tin phòng từ Redis
     room_data = redis_client.get(f"room:{room_id}")
     if not room_data:
         emit("error", {"error": "Room does not exist."}, to=request.sid)
@@ -914,21 +907,23 @@ def handle_join_room(data):
 
     room = json.loads(room_data)
 
-    # Kiểm tra nếu username đã có trong phòng
+    # Kiểm tra và thêm người chơi nếu chưa có trong phòng
     if username not in room["current_players"]:
         if len(room["current_players"]) < room["max_players"]:
             room["current_players"].append(username)
-
-            # Cập nhật thông tin phòng vào Redis
             redis_client.set(f"room:{room_id}", json.dumps(room))
-
-            socketio.emit("update_room", {
-                "room_id": room_id,
-                "current_players": room["current_players"]
-            }, to=room_id)
+            
+            # Emit event với danh sách người chơi mới
+            socketio.emit('player_joined', {
+                'room_id': room_id,
+                'username': username,
+                'current_players': room["current_players"]
+            }, room=room_id)
         else:
             emit("error", {"error": "Room is full."}, to=request.sid)
+            return
 
+    # Join socket room
     join_room(room_id)
 
 @socketio.on('disconnect')
