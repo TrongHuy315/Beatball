@@ -167,36 +167,139 @@ body {
 }
 
 /* Room Options */
-.room-options {
+/* Game Controls */
+.game-controls {
     position: absolute;
-    bottom: 33%;
-    right: 20px;
+    bottom: 40%;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: 20px;
+    z-index: 100;
 }
 
-.room-id input {
-    padding: 5px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    text-align: center;
-    background-color: #f2f2f2;
-}
-
-.find-match-btn {
-    background-color: #007bff;
-    color: white;
+.game-btn {
+    padding: 12px 30px;
+    font-size: 16px;
+    font-weight: bold;
     border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
+    border-radius: 25px;
     cursor: pointer;
-    transition: transform 0.2s, background-color 0.3s ease;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.find-match-btn:hover {
-    background-color: #0056b3;
-    transform: scale(1.1);
+.ready-btn {
+    background: linear-gradient(145deg, #32CD32, #228B22);
+    color: white;
+}
+
+.ready-btn:hover {
+    background: linear-gradient(145deg, #228B22, #006400);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ready-btn.active {
+    background: linear-gradient(145deg, #FF4500, #FF6347);
+}
+
+.ready-btn.active:hover {
+    background: linear-gradient(145deg, #FF6347, #FF4500);
+}
+
+.start-btn {
+    background: linear-gradient(145deg, #4169E1, #0000CD);
+    color: white;
+}
+
+.start-btn:hover {
+    background: linear-gradient(145deg, #0000CD, #00008B);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+}
+
+.start-btn:disabled {
+    background: #888;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Animation cho nút */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.ready-btn.active {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .game-controls {
+        bottom: 35%;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .game-btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
+
+/* Hiệu ứng khi nút bị disable */
+.game-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Thêm hiệu ứng ripple khi click */
+.game-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.game-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.5);
+    opacity: 0;
+    border-radius: 100%;
+    transform: scale(1, 1) translate(-50%);
+    transform-origin: 50% 50%;
+}
+
+.game-btn:active::after {
+    animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0, 0);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(40, 40);
+        opacity: 0;
+    }
 }
 
 /* Chat Box */
@@ -265,4 +368,44 @@ body {
 .message.other {
     background-color: #f8f9fa;
     align-self: flex-start;
+}
+
+/* Thêm vào file room_4_style.css */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease;
+}
+
+.loading-content {
+    text-align: center;
+    color: white;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }

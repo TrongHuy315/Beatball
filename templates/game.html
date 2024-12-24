@@ -1,0 +1,34 @@
+<!-- templates/game.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Room {{ room_id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='game.css') }}">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Game UI sẽ được render ở đây -->
+        <div class="game-board"></div>
+        
+        <!-- Thông tin người chơi -->
+        <div class="players-info">
+            {% for player in room_data.player_slots if player %}
+            <div class="player-info" data-player-id="{{ player.user_id }}">
+                <span class="player-name">{{ player.username }}</span>
+                <span class="player-score">Score: <span class="score">0</span></span>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Controls của game -->
+        <div class="game-controls">
+            <!-- Các nút điều khiển game -->
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.1.3/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>

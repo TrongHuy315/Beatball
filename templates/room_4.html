@@ -50,13 +50,14 @@
         </div>        
     </div>
     
-    <!-- Room ID và Find Match nằm trên khung chat -->
-    <div class="room-options">
+    <!-- Thêm vào ngay sau phần player-cards -->
+    <div class="game-controls">
         <div class="room-id">
             <span>Room ID:</span>
             <input type="text" value="{{ room_id }}" readonly>
         </div>
-        <button class="find-match-btn" id="find-match-btn">Find Match</button>
+        <button id="ready-btn" class="game-btn ready-btn">Ready</button>
+        <button id="start-game-btn" class="game-btn start-btn host-only" style="display: none;">Start Game</button>
     </div>
     
     <!-- Phần chat box -->
@@ -197,13 +198,179 @@
             }
         });
 
-        // Chuyển sang trang Find Match với Flask
-        document.getElementById("find-match-btn").addEventListener("click", () => {
-            window.location.href = "{{ url_for('find_match') }}"; // Dùng Flask url_for để tạo URL động
+        // Constants cho trạng thái game
+        const GAME_STATES = {
+            WAITING: 'waiting',
+            READY: 'ready',
+            PLAYING: 'playing'
+        };
+
+        // Các biến theo dõi trạng thái
+        let currentGameState = GAME_STATES.WAITING;
+        let isPlayerReady = false;
+        let readyPlayers = new Set();
+
+        // DOM Elements
+        const readyBtn = document.getElementById('ready-btn');
+        const startBtn = document.getElementById('start-game-btn');
+
+        // Xử lý nút Ready
+        readyBtn.addEventListener('click', () => {
+            isPlayerReady = !isPlayerReady;
+            updateReadyButtonUI(isPlayerReady);
+            
+            // Gửi trạng thái ready lên server
+            socket.emit('player_ready', {
+                room_id: currentRoomId,
+                username: getCurrentUsername(),
+                is_ready: isPlayerReady
+            });
         });
+
+        // Xử lý nút Start
+        startBtn.addEventListener('click', () => {
+            if (canStartGame()) {
+                socket.emit('start_game', {
+                    room_id: currentRoomId
+                });
+            }
+        });
+
+        // Cập nhật UI nút Ready
+        function updateReadyButtonUI(isReady) {
+            if (isReady) {
+                readyBtn.textContent = 'Cancel';
+                readyBtn.classList.add('active');
+            } else {
+                readyBtn.textContent = 'Ready';
+                readyBtn.classList.remove('active');
+            }
+        }
+
+        // Kiểm tra điều kiện để start game
+        function canStartGame() {
+            const minPlayers = 2; // Số người chơi tối thiểu
+            return readyPlayers.size >= minPlayers && allPlayersReady();
+        }
+
+        // Kiểm tra tất cả người chơi đã ready
+        function allPlayersReady() {
+            const currentPlayers = document.querySelectorAll('.player-card:not(:empty)');
+            return readyPlayers.size === currentPlayers.length - 1; // Trừ host
+        }
+
+        // Socket event handlers
+        socket.on('player_ready_update', (data) => {
+            const { username, is_ready } = data;
+            
+            if (is_ready) {
+                readyPlayers.add(username);
+            } else {
+                readyPlayers.delete(username);
+            }
+            
+            // Cập nhật UI cho player card
+            updatePlayerCardReadyStatus(username, is_ready);
+            
+            // Cập nhật nút Start nếu là host
+            if (isHost) {
+                startBtn.disabled = !canStartGame();
+            }
+        });
+
+        socket.on('game_started', (data) => {
+            currentGameState = GAME_STATES.PLAYING;
+            updateUIForGameStart();
+        });
+
+        // Cập nhật UI player card khi có người ready
+        function updatePlayerCardReadyStatus(username, isReady) {
+            const playerCard = document.querySelector(`.player-card[data-username="${username}"]`);
+            if (playerCard) {
+                if (isReady) {
+                    playerCard.classList.add('ready');
+                    // Thêm icon ready
+                    const readyIcon = document.createElement('div');
+                    readyIcon.className = 'ready-icon';
+                    readyIcon.innerHTML = '✓';
+                    playerCard.appendChild(readyIcon);
+                } else {
+                    playerCard.classList.remove('ready');
+                    const readyIcon = playerCard.querySelector('.ready-icon');
+                    if (readyIcon) {
+                        readyIcon.remove();
+                    }
+                }
+            }
+        }
+
+        // Cập nhật UI khi game bắt đầu
+        function updateUIForGameStart() {
+            // Ẩn nút Ready/Start
+            readyBtn.style.display = 'none';
+            startBtn.style.display = 'none';
+            
+            // Hiển thị UI game
+            document.querySelector('.game-container').style.display = 'block';
+            
+            // Animation chuyển cảnh
+            document.querySelector('.room-container').classList.add('fade-out');
+            setTimeout(() => {
+                document.querySelector('.room-container').style.display = 'none';
+                document.querySelector('.game-container').classList.add('fade-in');
+            }, 500);
+        }
+
+        // CSS mới cho trạng thái ready và animations
+        const styles = `
+        .player-card.ready {
+            border: 2px solid #32CD32;
+            box-shadow: 0 0 10px rgba(50, 205, 50, 0.5);
+        }
+
+        .ready-icon {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            background: #32CD32;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            animation: bounce 0.5s ease;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .fade-in {
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .game-container {
+            display: none;
+            opacity: 0;
+        }
+        `;
+
+        // Thêm styles vào document
+        const styleSheet = document.createElement("style");
+        styleSheet.textContent = styles;
+        document.head.appendChild(styleSheet);
     </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
         const currentRoomId = "{{ room_id }}";  // Lấy room_id từ Flask template
         const currentUsername = "{{ session.username }}";  // Lấy username từ session
