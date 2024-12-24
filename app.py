@@ -314,7 +314,7 @@ def join_room(room_id):
 
         # Kiểm tra phòng đã đầy
         if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
-            return jsonify({"error": "Room is full"}), 403
+            return jsonify({"error": "Room is full."}), 403
 
         # Tìm slot trống đầu tiên
         empty_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot is None), None)
@@ -331,10 +331,10 @@ def join_room(room_id):
         if not user_data:
             return jsonify({"error": "User data not found"}), 404
 
-        # Kiểm tra và đảm bảo chỉ có một host
+        # Đảm bảo chỉ có một host trong phòng
         is_host = len([p for p in room["player_slots"] if p and p.get("is_host")]) == 0
         if is_host:
-            room["host_id"] = user_id
+            room["host_id"] = user_id  # Cập nhật host_id nếu chưa có host
 
         # Thêm người chơi vào slot
         player_info = {
@@ -351,7 +351,7 @@ def join_room(room_id):
         if username not in room.get("current_players", []):
             room["current_players"].append(username)
 
-        # Cập nhật Redis
+        # Cập nhật Redis trước khi phát sự kiện
         redis_client.set(f"room:{room_id}", json.dumps(room))
 
         # Phát sự kiện đồng bộ
@@ -398,7 +398,7 @@ def leave_room(room_id):
             remaining_players = [p for p in room["player_slots"] if p is not None]
             if remaining_players:
                 if room.get("host_id") == session.get("user_id"):
-                    # Chọn người chơi đầu tiên còn lại làm host mới
+                    # Chọn người chơi còn lại đầu tiên làm host mới
                     new_host = remaining_players[0]
                     new_host["is_host"] = True
                     room["host_id"] = new_host.get("user_id")

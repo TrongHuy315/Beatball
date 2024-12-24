@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     
         renderPlayerCards(playerSlots);
-    });           
+    });               
 
     socket.on("player_left", (data) => {
         console.log("Player left event:", data);
