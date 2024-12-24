@@ -66,30 +66,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!playerCardsContainer) return;
     
         const currentUsername = document.getElementById("current-username").value;
-        
+    
         playerCardsContainer.innerHTML = "";
-        
+    
         const team1 = document.createElement("div");
         team1.className = "team team-1";
         const team2 = document.createElement("div");
         team2.className = "team team-2";
-        
+    
         const vsDiv = document.createElement("div");
         vsDiv.className = "vs-divider";
         vsDiv.innerHTML = '<img src="/static/vs-icon.png" class="vs-icon" alt="VS">';
     
-        // Render mỗi slot theo vị trí cố định
+        // Duyệt qua playerSlots để hiển thị mỗi slot
         for (let i = 0; i < 4; i++) {
             const card = document.createElement("div");
             card.className = "player-card";
             card.dataset.slot = i;
-            
+    
             const playerData = playerSlots[i];
-            
+    
             if (playerData && playerData.username) {
-                // Slot có người chơi
-                const isHost = playerData.is_host === true;  // Kiểm tra chính xác giá trị boolean
-                
+                // Hiển thị thông tin người chơi trong slot
+                const isHost = playerData.is_host === true; // Đảm bảo kiểm tra chính xác boolean
+    
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
                     <p class="player-name">${playerData.username}</p>
@@ -97,8 +97,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     ${isHost ? '<div class="host-marker">Host</div>' : ''}
                     ${playerData.is_ready ? '<div class="ready-marker">Ready</div>' : ''}
                 `;
-                
-                // Chỉ cho phép kéo thả nếu là người chơi hiện tại
+    
+                // Cho phép kéo thả nếu người chơi hiện tại là user này
                 if (playerData.username === currentUsername) {
                     card.setAttribute('draggable', 'true');
                 }
@@ -111,6 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 `;
             }
     
+            // Thêm card vào team1 hoặc team2
             if (i < 2) {
                 team1.appendChild(card);
             } else {
@@ -118,19 +119,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
     
+        // Thêm các đội và biểu tượng VS vào container
         playerCardsContainer.appendChild(team1);
         playerCardsContainer.appendChild(vsDiv);
         playerCardsContainer.appendChild(team2);
     
         // Khởi tạo lại drag & drop
         initializeDragAndDrop();
-    }
+    }    
 
     // Xử lý các sự kiện Socket.IO
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
     
-        // Đảm bảo chỉ một người chơi có trạng thái host
         const playerSlots = data.player_slots.map(slot => {
             if (slot) {
                 slot.is_host = slot.user_id === data.host_id;
@@ -139,7 +140,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     
         renderPlayerCards(playerSlots);
-    });       
+    });           
 
     socket.on("player_left", (data) => {
         console.log("Player left event:", data);
