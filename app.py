@@ -368,69 +368,46 @@ def leave_room(room_id):
     try:
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            return jsonify({"error": "Room does not exist."}), 404
+            return jsonify({"error": "Room does not exist"}), 404
 
         room = json.loads(room_data)
         username = session.get("username")
 
-        # Tìm slot của người rời phòng và kiểm tra xem có phải host không
+        # Tìm và xóa thông tin người chơi khỏi slot
         slot_index = None
-        was_host = False
         for i, slot in enumerate(room["player_slots"]):
             if slot and slot.get("username") == username:
-                was_host = slot.get("is_host", False)  # Kiểm tra trước khi xóa slot
                 slot_index = i
+                room["player_slots"][i] = None
                 break
 
-        if slot_index is not None and username in room["current_players"]:
-            # Xóa người chơi khỏi current_players
+        if slot_index is not None and username in room.get("current_players", []):
             room["current_players"].remove(username)
-            
-            # Xóa khỏi player_slots sau khi đã kiểm tra host
-            room["player_slots"][slot_index] = None
 
-            # Lấy danh sách người chơi còn lại
+            # Nếu còn người chơi khác trong phòng
             remaining_players = [p for p in room["player_slots"] if p is not None]
-
             if remaining_players:
-                if was_host:
+                if slot_index == 0 or (room.get("host_id") == session.get("user_id")):
                     # Chọn người chơi đầu tiên còn lại làm host mới
                     new_host = remaining_players[0]
                     new_host["is_host"] = True
                     room["host_id"] = new_host.get("user_id")
-                    new_host_id = new_host.get("user_id")
 
-                    print(f"New host assigned: {new_host['username']}")  # Debug log
-
-                    # Cập nhật Redis
-                    redis_client.set(f"room:{room_id}", json.dumps(room))
-                    
-                    # Thông báo cho tất cả người chơi
-                    socketio.emit('player_left', {
-                        'room_id': room_id,
-                        'username': username,
-                        'player_slots': room["player_slots"],
-                        'current_players': room["current_players"],
-                        'new_host_id': new_host_id
-                    }, room=room_id)
-                else:
-                    # Cập nhật Redis
-                    redis_client.set(f"room:{room_id}", json.dumps(room))
-                    
-                    # Thông báo cho tất cả người chơi
-                    socketio.emit('player_left', {
-                        'room_id': room_id,
-                        'username': username,
-                        'player_slots': room["player_slots"],
-                        'current_players': room["current_players"]
-                    }, room=room_id)
+                # Cập nhật Redis và phát sự kiện
+                redis_client.set(f"room:{room_id}", json.dumps(room))
+                socketio.emit('player_left', {
+                    'room_id': room_id,
+                    'username': username,
+                    'player_slots': room["player_slots"],
+                    'current_players': room["current_players"]
+                }, room=room_id)
             else:
                 # Xóa phòng nếu không còn ai
                 redis_client.delete(f"room:{room_id}")
                 socketio.emit('room_deleted', {
                     'room_id': room_id,
                     'message': 'Room has been deleted'
-                }, broadcast=True)
+                }, room=room_id)
 
         return jsonify({"success": True}), 200
 
