@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         const vsDiv = document.createElement("div");
         vsDiv.className = "vs-divider";
-        vsDiv.innerHTML = '<img src="/static/images/vs.png" class="vs-icon" alt="VS">';
+        vsDiv.innerHTML = '<img src="/static/vs-icon.png" class="vs-icon" alt="VS">';
     
         // Render mỗi slot theo vị trí cố định
         for (let i = 0; i < 4; i++) {
@@ -108,9 +108,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     });    
 
     socket.on("player_left", (data) => {
-        console.log("Player left:", data);
-        renderPlayerCards(data.player_slots);
-    });    
+        console.log("Player left event:", data);
+        
+        if (data.player_slots) {
+            renderPlayerCards(data.player_slots);
+            
+            // Cập nhật thông tin chủ phòng nếu có thay đổi
+            if (data.new_host_id) {
+                updateRoomHost(data.new_host_id);
+            }
+            
+            // Cập nhật danh sách người chơi
+            if (data.current_players) {
+                updatePlayerList(data.current_players);
+            }
+        }
+    });
+    
+    function updateRoomHost(newHostId) {
+        // Cập nhật UI để hiển thị chủ phòng mới
+        const currentUserId = getUserId(); // Hàm để lấy ID người dùng hiện tại
+        const isHost = newHostId === currentUserId;
+        
+        // Cập nhật UI dựa trên vai trò mới
+        if (isHost) {
+            // Hiển thị các controls dành cho chủ phòng
+            document.querySelectorAll('.host-only').forEach(el => el.style.display = 'block');
+        } else {
+            // Ẩn các controls dành cho chủ phòng
+            document.querySelectorAll('.host-only').forEach(el => el.style.display = 'none');
+        }
+    }
+    
+    function updatePlayerList(players) {
+        // Cập nhật danh sách người chơi trong UI
+        console.log("Updating player list:", players);
+        // Thêm code cập nhật UI ở đây
+    }   
 
     socket.on("update_room", (data) => {
         console.log("Room updated:", data);

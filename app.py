@@ -364,6 +364,7 @@ def leave_room(room_id):
 
         room = json.loads(room_data)
         username = session.get("username")
+        user_id = session.get("user_id")
 
         # Kiểm tra và xóa người chơi khỏi current_players
         if username in room["current_players"]:
@@ -374,6 +375,21 @@ def leave_room(room_id):
                 if slot and slot.get("username") == username:
                     room["player_slots"][i] = None
                     break
+
+            # Xử lý trường hợp người rời đi là chủ phòng
+            if room.get("host_id") == user_id and room["current_players"]:
+                # Chuyển quyền cho người chơi đầu tiên còn lại
+                new_host_username = room["current_players"][0]
+                
+                # Lấy thông tin người chơi mới từ Firebase
+                firebase_response = requests.get(FIREBASE_URL)
+                if firebase_response.status_code == 200:
+                    users = firebase_response.json()
+                    for user_id, user_data in users.items():
+                        if isinstance(user_data, dict) and user_data.get("username") == new_host_username:
+                            room["host_id"] = user_id
+                            print(f"Room ownership transferred to {new_host_username}")
+                            break
 
             # Nếu không còn người chơi nào
             if not room["current_players"]:
@@ -390,16 +406,22 @@ def leave_room(room_id):
             socketio.emit('player_left', {
                 'room_id': room_id,
                 'username': username,
-                'player_slots': room["player_slots"]
+                'player_slots': room["player_slots"],
+                'new_host_id': room.get("host_id"),  # Thêm thông tin về chủ phòng mới
+                'current_players': room["current_players"]  # Thêm danh sách người chơi hiện tại
             }, room=room_id)
 
             print(f"Player {username} left room {room_id}")
             print(f"Updated player slots: {room['player_slots']}")
+            print(f"New host ID: {room.get('host_id')}")
+            print(f"Remaining players: {room['current_players']}")
 
         return jsonify({"message": f"Successfully left room {room_id}"}), 200
 
     except Exception as e:
         print(f"Error in leave_room: {e}")
+        import traceback
+        traceback.print_exc()  # In ra stack trace đầy đủ
         return jsonify({"error": str(e)}), 500
     
 @app.route("/login", methods=["GET", "POST"])
