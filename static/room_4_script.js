@@ -230,13 +230,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         window.location.href = '/rooms';
     });
 
-    socket.on("room_deleted", (data) => {
-        if (data.room_id === roomId) {
-            alert("Room has been deleted!");
-            window.location.href = "/home"; // Chuyển về trang chủ
-        }
-    });
-
     socket.on("disconnect", () => {
         if (!isReloading) {
             // Chỉ gửi yêu cầu rời phòng khi thực sự rời trang
