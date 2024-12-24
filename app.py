@@ -20,7 +20,7 @@ import json
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
-# socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
+#socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
 
 app.secret_key = 'BeatBall@xyz'
 
@@ -40,8 +40,8 @@ FIREBASE_URL = "https://beatball-18492-default-rtdb.asia-southeast1.firebasedata
 # Kết nối Redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
-# redis_client = redis.StrictRedis("127.0.0.1", port=6379, db=0)
-# redis_client.ping()  # Kiểm tra kết nối
+#redis_client = redis.StrictRedis("127.0.0.1", port=6379, db=0)
+#redis_client.ping()  # Kiểm tra kết nối
 
 # Middleware kiểm tra đăng nhập và thời gian không hoạt động
 def login_required(f):
@@ -366,7 +366,7 @@ def leave_room(room_id):
         room = json.loads(room_data)
         username = session.get("username")
 
-        # Cập nhật số tab của người dùng
+        # Khởi tạo user_tabs nếu chưa tồn tại
         user_tabs = room.get("user_tabs", {})
         user_tabs[username] = user_tabs.get(username, 1) - 1
 
@@ -377,26 +377,26 @@ def leave_room(room_id):
 
             # Xóa người chơi khỏi danh sách player_slots
             for i in range(len(room["player_slots"])):
-                if room["player_slots"][i] == username:
-                    room["player_slots"][i] = None
+                if room["player_slots"][i] and room["player_slots"][i].get("username") == username:
+                    room["player_slots"][i] = None  # Đặt lại vị trí thành None
                     break
 
-            # Cập nhật danh sách tab người dùng
-            del user_tabs[username]
+            # Xóa username khỏi user_tabs
+            user_tabs.pop(username, None)
 
-            # Phát sự kiện player_left để thông báo tới các client khác
+            # Phát sự kiện player_left để cập nhật client
             socketio.emit('player_left', {
                 'room_id': room_id,
                 'player_slots': room["player_slots"]
             }, room=room_id)
 
-            # Nếu người rời đi là người tạo phòng, chuyển quyền trưởng phòng
+            # Nếu người rời đi là người tạo phòng
             if room["created_by"] == session.get("user_id"):
                 if any(slot is not None for slot in room["player_slots"]):
                     # Chuyển quyền trưởng phòng cho người chơi đầu tiên còn lại
-                    room["created_by"] = next(slot for slot in room["player_slots"] if slot is not None)
+                    room["created_by"] = next(slot["username"] for slot in room["player_slots"] if slot is not None)
                 else:
-                    # Xóa phòng nếu không còn ai trong phòng
+                    # Xóa phòng nếu không còn ai
                     redis_client.delete(f"room:{room_id}")
                     socketio.emit('room_deleted', {
                         'room_id': room_id,
@@ -404,14 +404,15 @@ def leave_room(room_id):
                     }, broadcast=True)
                     return jsonify({"message": f"Room {room_id} has been deleted"}), 200
 
-        # Cập nhật thông tin phòng vào Redis
+        # Cập nhật lại thông tin phòng trong Redis
         room["user_tabs"] = user_tabs
         redis_client.set(f"room:{room_id}", json.dumps(room))
 
         return jsonify({"message": f"Successfully left room {room_id}"}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in leave_room: {e}")  # Log lỗi để debug
+        return jsonify({"error": "An error occurred while leaving the room."}), 500
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -493,7 +494,8 @@ def google_login():
         "code": authorization_code,
         "client_id": "35306778162-6i3q4jiron35lefs2t03fi82vd3i23or.apps.googleusercontent.com",
         "client_secret": "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",
-        "redirect_uri": redirect_uri, # "http://127.0.0.1:5000/google-login",
+        "redirect_uri": redirect_uri,
+        #"redirect_uri": "http://127.0.0.1:5000/google-login",
         "grant_type": "authorization_code"
     }
 
@@ -951,4 +953,4 @@ def on_disconnect():
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
     socketio.run(app, host='0.0.0.0', port=port)
-    # socketio.run(app, debug=True)
+    #socketio.run(app, debug=True)
