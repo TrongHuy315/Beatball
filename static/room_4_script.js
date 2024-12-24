@@ -17,39 +17,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Lấy dữ liệu người chơi từ server
     async function fetchPlayerData() {
         try {
-            // Kiểm tra roomId có tồn tại
             if (!roomId) {
                 console.error("roomId is not defined.");
                 return [];
             }
     
-            // Gửi yêu cầu tới server
             const response = await fetch(`/room-data/${roomId}`);
             if (!response.ok) {
                 console.error(`Failed to fetch player data: ${response.status} ${response.statusText}`);
                 return [];
             }
     
-            // Phân tích dữ liệu JSON
-            const players = await response.json();
-            console.log("Fetched players:", players);
+            const playerSlots = await response.json();
+            console.log("Fetched player slots:", playerSlots);
     
-            // Kiểm tra dữ liệu trả về
-            if (!Array.isArray(players)) {
-                console.error("Invalid player data received:", players);
-                return [];
+            if (Array.isArray(playerSlots)) {
+                currentPlayers = playerSlots.filter(slot => slot !== null).map(slot => slot.username);
+                renderPlayerCards(playerSlots);
+                
+                // Kiểm tra và cập nhật UI cho host
+                const currentUsername = document.getElementById("current-username").value;
+                const currentPlayerSlot = playerSlots.find(slot => slot && slot.username === currentUsername);
+                if (currentPlayerSlot && currentPlayerSlot.is_host) {
+                    const hostControls = document.querySelectorAll('.host-only');
+                    hostControls.forEach(el => {
+                        el.style.display = 'block';
+                    });
+                    
+                    const startButton = document.getElementById('start-game-btn');
+                    const readyButton = document.getElementById('ready-btn');
+                    if (startButton && readyButton) {
+                        startButton.style.display = 'block';
+                        readyButton.style.display = 'none';
+                    }
+                }
             }
-    
-            // Gán dữ liệu và render giao diện
-            currentPlayers = players; // Giả định currentPlayers là biến toàn cục
-            renderPlayerCards(players);
-            return players;
+            return playerSlots;
     
         } catch (error) {
             console.error("Error fetching player data:", error);
             return [];
         }
-    }    
+    }
 
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {
