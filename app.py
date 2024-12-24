@@ -327,6 +327,16 @@ def join_room(room_id):
         if empty_slot is None:
             return jsonify({"error": "No available slots."}), 403
 
+        # Lấy thông tin người chơi từ Firebase
+        firebase_query_url = f"{FIREBASE_URL[:-5]}/{user_id}.json"
+        firebase_response = requests.get(firebase_query_url)
+        if firebase_response.status_code != 200:
+            return jsonify({"error": "Failed to fetch user data"}), 500
+
+        user_data = firebase_response.json()
+        if not user_data:
+            return jsonify({"error": "User data not found"}), 404
+
         # Xác định host_id từ room data
         host_id = room.get("host_id")
         
@@ -365,7 +375,7 @@ def join_room(room_id):
     except Exception as e:
         print(f"Error joining room: {e}")
         return jsonify({"error": str(e)}), 500
-
+    
 @app.route("/leave-room/<room_id>", methods=["POST"])
 @login_required
 def leave_room(room_id):
