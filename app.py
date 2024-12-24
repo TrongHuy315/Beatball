@@ -755,41 +755,80 @@ def room(room_id):
 @login_required
 def get_room_data(room_id):
     try:
+        print(f"Fetching data for room {room_id}")
+        
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            return jsonify({"error": "Room does not exist."}), 404
+            print(f"Room {room_id} not found in Redis")
+            return jsonify({"error": "Room does not exist"}), 404
 
-        room = json.loads(room_data)
-        player_slots = [None] * room["max_players"]  # Tạo mảng cố định với số slot tương ứng
-        
-        if room.get("current_players"):
-            # Lấy thông tin từ Firebase một lần
-            firebase_response = requests.get(FIREBASE_URL)
-            if firebase_response.status_code == 200:
-                users = firebase_response.json()
-                
-                # Giữ nguyên vị trí cho mỗi người chơi
-                for user_info in users.values():
-                    username = user_info.get("username")
-                    if username in room["current_players"]:
-                        # Tìm vị trí của người chơi trong player_slots
-                        for i, slot in enumerate(room.get("player_slots", [])):
-                            if slot and slot.get("username") == username:
-                                player_slots[i] = {
-                                    "username": username,
-                                    "avatar": user_info.get("profilePicture", "/static/images/default-avatar.png"),
-                                    "score": user_info.get("stats", {}).get("point", 1000)
-                                }
-                                break
+        try:
+            room = json.loads(room_data)
+            print(f"Room data loaded: {room}")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding room data: {e}")
+            return jsonify({"error": "Invalid room data"}), 500
 
-        # Log để debug
-        print(f"Room {room_id} current players: {room.get('current_players')}")
-        print(f"Returning player slots: {player_slots}")
+        # Kiểm tra kiểu dữ liệu của room
+        if not isinstance(room, dict):
+            print(f"Invalid room data type: {type(room)}")
+            return jsonify({"error": "Invalid room data structure"}), 500
+
+        # Lấy max_players với giá trị mặc định là 4
+        max_players = int(room.get("max_players", 4))
+        player_slots = [None] * max_players
+
+        # Kiểm tra và lấy danh sách người chơi
+        current_players = room.get("current_players", [])
+        if not isinstance(current_players, list):
+            print(f"Invalid current_players type: {type(current_players)}")
+            current_players = []
+
+        # Lấy thông tin từ Firebase
+        firebase_response = requests.get(FIREBASE_URL)
+        if firebase_response.status_code != 200:
+            print(f"Firebase request failed: {firebase_response.status_code}")
+            return jsonify({"error": "Failed to fetch user data"}), 500
+
+        users = firebase_response.json()
+        if not isinstance(users, dict):
+            print(f"Invalid users data type: {type(users)}")
+            users = {}
+
+        # Xử lý player_slots
+        for username in current_players:
+            # Tìm thông tin user trong Firebase
+            user_data = None
+            for user_info in users.values():
+                if isinstance(user_info, dict) and user_info.get("username") == username:
+                    user_data = user_info
+                    break
+
+            if user_data:
+                # Tìm slot trống đầu tiên hoặc slot có username tương ứng
+                for i in range(max_players):
+                    current_slot = player_slots[i]
+                    if current_slot is None or (isinstance(current_slot, dict) and current_slot.get("username") == username):
+                        player_slots[i] = {
+                            "username": username,
+                            "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
+                            "score": user_data.get("stats", {}).get("point", 1000)
+                        }
+                        break
+
+        # Log kết quả cuối cùng
+        print(f"Final player_slots: {player_slots}")
         
+        # Cập nhật lại Redis với player_slots mới
+        room["player_slots"] = player_slots
+        redis_client.set(f"room:{room_id}", json.dumps(room))
+
         return jsonify(player_slots)
 
     except Exception as e:
-        print(f"Error in get_room_data: {e}")
+        print(f"Unexpected error in get_room_data: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route("/check-room/<room_id>", methods=["GET"])
