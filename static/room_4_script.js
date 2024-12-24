@@ -129,17 +129,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Xử lý các sự kiện Socket.IO
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
-        // Kiểm tra host_id từ server
-        const currentUserId = document.getElementById("user-id").value;
+    
+        // Đảm bảo chỉ một người chơi có trạng thái host
         const playerSlots = data.player_slots.map(slot => {
             if (slot) {
-                // Đảm bảo is_host được set đúng dựa trên host_id
                 slot.is_host = slot.user_id === data.host_id;
             }
             return slot;
         });
+    
         renderPlayerCards(playerSlots);
-    });   
+    });       
 
     socket.on("player_left", (data) => {
         console.log("Player left event:", data);

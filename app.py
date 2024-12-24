@@ -297,29 +297,23 @@ def join_room(room_id):
     try:
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            return jsonify({"error": "Room does not exist."}), 404
+            return jsonify({"error": "Room does not exist"}), 404
 
         room = json.loads(room_data)
         username = session.get("username")
         user_id = session.get("user_id")
 
-        # Kiểm tra xem người chơi đã có trong phòng chưa
-        existing_slot = None
-        for i, slot in enumerate(room["player_slots"]):
-            if slot and slot.get("username") == username:
-                existing_slot = i
-                break
-
-        # Nếu người chơi đã có trong phòng, trả về thông tin hiện tại
+        # Kiểm tra nếu người chơi đã có trong phòng
+        existing_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot and slot.get("username") == username), None)
         if existing_slot is not None:
             return jsonify({
                 "message": "Already in room.",
                 "player_slots": room["player_slots"]
             }), 200
 
-        # Nếu phòng đã đầy
+        # Kiểm tra phòng đã đầy
         if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
-            return jsonify({"error": "Room is full."}), 403
+            return jsonify({"error": "Room is full"}), 403
 
         # Tìm slot trống đầu tiên
         empty_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot is None), None)
@@ -332,17 +326,12 @@ def join_room(room_id):
             return jsonify({"error": "Failed to fetch user data"}), 500
 
         users = firebase_response.json()
-        user_data = None
-        for u_data in users.values():
-            if u_data.get("username") == username:
-                user_data = u_data
-                break
-
+        user_data = next((u for u in users.values() if u.get("username") == username), None)
         if not user_data:
             return jsonify({"error": "User data not found"}), 404
 
-        # Kiểm tra xem có phải host không dựa vào host_id trong room
-        is_host = room["host_id"] == user_id
+        # Kiểm tra và đảm bảo chỉ một host
+        is_host = len([p for p in room["player_slots"] if p and p.get("is_host")]) == 0
 
         # Thêm người chơi vào slot
         player_info = {
@@ -351,12 +340,12 @@ def join_room(room_id):
             "slot": empty_slot,
             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
             "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": is_host,  # Chỉ set is_host nếu user_id trùng với host_id
+            "is_host": is_host,
             "is_ready": False
         }
 
         room["player_slots"][empty_slot] = player_info
-        if username not in room["current_players"]:
+        if username not in room.get("current_players", []):
             room["current_players"].append(username)
 
         # Cập nhật Redis
@@ -367,13 +356,12 @@ def join_room(room_id):
             'room_id': room_id,
             'player_info': player_info,
             'player_slots': room["player_slots"],
-            'host_id': room["host_id"]  # Thêm host_id vào response
+            'host_id': room["host_id"]
         }, room=room_id)
 
         return jsonify({
             "message": "Successfully joined room.",
-            "player_slots": room["player_slots"],
-            "host_id": room["host_id"]  # Thêm host_id vào response
+            "player_slots": room["player_slots"]
         }), 200
 
     except Exception as e:
@@ -405,19 +393,18 @@ def leave_room(room_id):
             # Nếu còn người chơi khác trong phòng
             remaining_players = [p for p in room["player_slots"] if p is not None]
             if remaining_players:
-                if slot_index == 0 or (room.get("host_id") == session.get("user_id")):
-                    # Chọn người chơi đầu tiên còn lại làm host mới
+                # Nếu người rời là host, chọn host mới
+                if room.get("host_id") == session.get("user_id"):
                     new_host = remaining_players[0]
                     new_host["is_host"] = True
                     room["host_id"] = new_host.get("user_id")
 
-                # Cập nhật Redis và phát sự kiện
                 redis_client.set(f"room:{room_id}", json.dumps(room))
                 socketio.emit('player_left', {
                     'room_id': room_id,
                     'username': username,
                     'player_slots': room["player_slots"],
-                    'current_players': room["current_players"]
+                    'host_id': room["host_id"]
                 }, room=room_id)
             else:
                 # Xóa phòng nếu không còn ai
