@@ -397,14 +397,19 @@ def leave_room(room_id):
         if slot_index is not None and username in room["current_players"]:
             room["current_players"].remove(username)
 
-            # Nếu còn người chơi
-            if room["current_players"]:
+            # Nếu còn người chơi khác trong phòng
+            remaining_players = [p for p in room["player_slots"] if p is not None]
+            if remaining_players:
                 # Nếu người rời phòng là host, chọn host mới
-                if slot_index == 0 or (slot_index is not None and room["player_slots"][slot_index].get("is_host", False)):
-                    for slot in room["player_slots"]:
-                        if slot is not None:
-                            slot["is_host"] = True
-                            break
+                was_host = slot_index == 0 or (slot_index is not None and room["player_slots"][slot_index] and room["player_slots"][slot_index].get("is_host", False))
+                if was_host:
+                    # Chọn người chơi đầu tiên còn lại làm host mới
+                    new_host = remaining_players[0]
+                    new_host["is_host"] = True
+                    room["host_id"] = new_host.get("user_id")
+                    new_host_id = new_host.get("user_id")
+                else:
+                    new_host_id = None
 
                 # Cập nhật Redis
                 redis_client.set(f"room:{room_id}", json.dumps(room))
@@ -414,7 +419,8 @@ def leave_room(room_id):
                     'room_id': room_id,
                     'username': username,
                     'player_slots': room["player_slots"],
-                    'current_players': room["current_players"]
+                    'current_players': room["current_players"],
+                    'new_host_id': new_host_id
                 }, room=room_id)
             else:
                 # Xóa phòng nếu không còn ai
