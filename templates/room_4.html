@@ -16,12 +16,10 @@
     </div>
 
     <div class="container">
-        <!-- Hidden input for room ID -->
         <input type="hidden" id="room-id" value="{{ room_id }}">
+        <input type="hidden" id="current-username" value="{{ session.username }}">
         
-        <!-- Player Cards Container -->
-        <div id="player-cards" class="player-cards">
-            <!-- Đội 1 -->
+        <div class="player-cards" id="player-cards">
             <div class="team team-1">
                 {% for i in range(2) %}
                 <div class="player-card" data-slot="{{ i }}">
@@ -31,13 +29,11 @@
                 </div>
                 {% endfor %}
             </div>
-        
-            <!-- Biểu tượng VS -->
+            
             <div class="vs-divider">
-                <img src="/static/vs-icon.png" alt="VS" class="vs-icon">
+                <img src="/static/vs-icon.png" class="vs-icon" alt="VS">
             </div>
-        
-            <!-- Đội 2 -->
+            
             <div class="team team-2">
                 {% for i in range(2, 4) %}
                 <div class="player-card" data-slot="{{ i }}">
@@ -47,7 +43,7 @@
                 </div>
                 {% endfor %}
             </div>
-        </div>        
+        </div>
     </div>
     
     <!-- Thêm vào ngay sau phần player-cards -->

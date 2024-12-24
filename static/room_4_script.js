@@ -53,14 +53,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {
-        console.log("Rendering player slots:", playerSlots);
-        playerCardsContainer.innerHTML = "";
+        const playerCardsContainer = document.getElementById("player-cards");
+        if (!playerCardsContainer) return;
     
+        const currentUsername = document.getElementById("current-username").value;
+        
+        playerCardsContainer.innerHTML = "";
+        
         const team1 = document.createElement("div");
         team1.className = "team team-1";
         const team2 = document.createElement("div");
         team2.className = "team team-2";
-    
+        
         const vsDiv = document.createElement("div");
         vsDiv.className = "vs-divider";
         vsDiv.innerHTML = '<img src="/static/vs-icon.png" class="vs-icon" alt="VS">';
@@ -69,7 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         for (let i = 0; i < 4; i++) {
             const card = document.createElement("div");
             card.className = "player-card";
-            card.dataset.slotId = i;
+            card.dataset.slot = i;
             
             const playerData = playerSlots[i];
             
@@ -83,8 +87,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     ${playerData.is_ready ? '<div class="ready-marker">Ready</div>' : ''}
                 `;
                 
-                // Thêm attribute draggable nếu là người chơi hiện tại
-                if (playerData.username === getCurrentUsername()) {
+                // Chỉ cho phép kéo thả nếu là người chơi hiện tại
+                if (playerData.username === currentUsername) {
                     card.setAttribute('draggable', 'true');
                 }
             } else {
@@ -107,7 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         playerCardsContainer.appendChild(vsDiv);
         playerCardsContainer.appendChild(team2);
     
-        // Khởi tạo drag & drop
+        // Khởi tạo lại drag & drop
         initializeDragAndDrop();
     }
 
