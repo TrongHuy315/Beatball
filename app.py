@@ -372,19 +372,16 @@ def leave_room(room_id):
 
         # Nếu không còn tab nào, xóa người chơi khỏi phòng
         if user_tabs[username] <= 0:
-            if "player_slots" not in room:
-                room["player_slots"] = [None] * room["max_players"]
-
-            # Xóa người chơi khỏi danh sách player_slots
-            for i in range(len(room["player_slots"])):
-                if room["player_slots"][i] and room["player_slots"][i].get("username") == username:
+            # Xóa người chơi khỏi player_slots
+            for i, slot in enumerate(room["player_slots"]):
+                if slot and slot.get("username") == username:
                     room["player_slots"][i] = None  # Đặt lại vị trí thành None
                     break
 
             # Xóa username khỏi user_tabs
             user_tabs.pop(username, None)
 
-            # Nếu người rời đi là trưởng phòng
+            # Nếu người rời là trưởng phòng
             if room["created_by"] == session.get("user_id"):
                 remaining_players = [slot for slot in room["player_slots"] if slot is not None]
                 if remaining_players:
@@ -405,14 +402,15 @@ def leave_room(room_id):
                 'player_slots': room["player_slots"]
             }, room=room_id)
 
-        # Cập nhật lại thông tin phòng trong Redis
+        # Cập nhật lại Redis
         room["user_tabs"] = user_tabs
         redis_client.set(f"room:{room_id}", json.dumps(room))
+        print(f"Updated player_slots after user left: {room['player_slots']}")  # Log kiểm tra
 
         return jsonify({"message": f"Successfully left room {room_id}"}), 200
 
     except Exception as e:
-        print(f"Error in leave_room: {e}")  # Log lỗi để debug
+        print(f"Error in leave_room: {e}")
         return jsonify({"error": "An error occurred while leaving the room."}), 500
 
 @app.route("/login", methods=["GET", "POST"])
@@ -789,26 +787,34 @@ def get_room_data(room_id):
             print(f"Error connecting to Firebase: {e}")
             users = {}
 
-        # Duyệt qua danh sách người chơi theo thứ tự tham gia
-        for username in room["current_players"]:
-            user_info = next(
-                (user for user in users.values() if user.get("username") == username),
-                None
-            )
-
-            if user_info:
-                profile_picture = user_info.get("profilePicture", "/static/images/default-avatar.png")
-                player_data.append({
-                    "username": username,
-                    "avatar": profile_picture,
-                    "score": user_info.get("stats", {}).get("point", 1000)
-                })
+        # Duyệt qua player_slots thay vì current_players để đảm bảo thứ tự đúng
+        for slot in room["player_slots"]:
+            if slot:
+                username = slot.get("username", "Unknown User")
+                user_info = next(
+                    (user for user in users.values() if user.get("username") == username),
+                    None
+                )
+                if user_info:
+                    profile_picture = user_info.get("profilePicture", "/static/images/default-avatar.png")
+                    player_data.append({
+                        "username": username,
+                        "avatar": profile_picture,
+                        "score": user_info.get("stats", {}).get("point", 1000)
+                    })
+                else:
+                    # Thêm thông tin mặc định nếu không tìm thấy user
+                    player_data.append({
+                        "username": username,
+                        "avatar": "/static/images/default-avatar.png",
+                        "score": 1000
+                    })
             else:
-                # Thêm thông tin mặc định nếu không tìm thấy user
+                # Nếu slot trống, thêm thông tin mặc định cho vị trí trống
                 player_data.append({
-                    "username": username,
+                    "username": None,
                     "avatar": "/static/images/default-avatar.png",
-                    "score": 1000
+                    "score": None
                 })
 
         return jsonify(player_data)
