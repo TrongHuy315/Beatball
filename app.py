@@ -297,14 +297,20 @@ def join_room(room_id):
     try:
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            return jsonify({"error": "Room does not exist"}), 404
+            return jsonify({"error": "Room does not exist."}), 404
 
         room = json.loads(room_data)
         username = session.get("username")
         user_id = session.get("user_id")
 
         # Kiểm tra xem người chơi đã có trong phòng chưa
-        existing_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot and slot.get("username") == username), None)
+        existing_slot = None
+        for i, slot in enumerate(room["player_slots"]):
+            if slot and slot.get("username") == username:
+                existing_slot = i
+                break
+
+        # Nếu người chơi đã có trong phòng, trả về thông tin hiện tại
         if existing_slot is not None:
             return jsonify({
                 "message": "Already in room.",
@@ -326,7 +332,12 @@ def join_room(room_id):
             return jsonify({"error": "Failed to fetch user data"}), 500
 
         users = firebase_response.json()
-        user_data = next((u for u in users.values() if u.get("username") == username), None)
+        user_data = None
+        for u_data in users.values():
+            if u_data.get("username") == username:
+                user_data = u_data
+                break
+
         if not user_data:
             return jsonify({"error": "User data not found"}), 404
 
@@ -342,11 +353,13 @@ def join_room(room_id):
         }
 
         room["player_slots"][empty_slot] = player_info
-        if username not in room.get("current_players", []):
+        if username not in room["current_players"]:
             room["current_players"].append(username)
 
-        # Cập nhật Redis và phát sự kiện
+        # Cập nhật Redis
         redis_client.set(f"room:{room_id}", json.dumps(room))
+
+        # Thông báo qua Socket.IO
         socketio.emit('player_joined', {
             'room_id': room_id,
             'player_info': player_info,
