@@ -354,6 +354,7 @@ def join_room(room_id):
         print(f"Error joining room: {e}")
         return jsonify({"error": "Failed to join room."}), 500
 
+@app.route("/leave-room/<room_id>", methods=["POST"])
 @login_required
 def leave_room(room_id):
     try:
