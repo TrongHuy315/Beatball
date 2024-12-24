@@ -28,31 +28,28 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return [];
             }
     
-            const playerSlots = await response.json();
-            console.log("Fetched player slots:", playerSlots);
+            const data = await response.json();
+            console.log("Fetched room data:", data);
     
-            if (Array.isArray(playerSlots)) {
-                currentPlayers = playerSlots.filter(slot => slot !== null).map(slot => slot.username);
-                renderPlayerCards(playerSlots);
-                
-                // Kiểm tra và cập nhật UI cho host
-                const currentUsername = document.getElementById("current-username").value;
-                const currentPlayerSlot = playerSlots.find(slot => slot && slot.username === currentUsername);
-                if (currentPlayerSlot && currentPlayerSlot.is_host) {
-                    const hostControls = document.querySelectorAll('.host-only');
-                    hostControls.forEach(el => {
-                        el.style.display = 'block';
-                    });
-                    
-                    const startButton = document.getElementById('start-game-btn');
-                    const readyButton = document.getElementById('ready-btn');
-                    if (startButton && readyButton) {
-                        startButton.style.display = 'block';
-                        readyButton.style.display = 'none';
+            // Lưu host_id
+            currentHostId = data.host_id;
+    
+            if (data.player_slots && Array.isArray(data.player_slots)) {
+                currentPlayers = data.player_slots
+                    .filter(slot => slot !== null)
+                    .map(slot => slot.username);
+    
+                // Cập nhật is_host cho mỗi slot
+                const updatedPlayerSlots = data.player_slots.map(slot => {
+                    if (slot) {
+                        slot.is_host = slot.user_id === data.host_id;
                     }
-                }
+                    return slot;
+                });
+    
+                renderPlayerCards(updatedPlayerSlots);
             }
-            return playerSlots;
+            return data.player_slots || [];
     
         } catch (error) {
             console.error("Error fetching player data:", error);
@@ -83,13 +80,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             const card = document.createElement("div");
             card.className = "player-card";
             card.dataset.slot = i;
-    
+            
             const playerData = playerSlots[i];
-    
+            
             if (playerData && playerData.username) {
-                // Hiển thị thông tin người chơi trong slot
-                const isHost = playerData.is_host === true; // Đảm bảo kiểm tra chính xác boolean
-    
+                // Xác định host dựa trên currentHostId
+                const isHost = playerData.user_id === currentHostId;
+                
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
                     <p class="player-name">${playerData.username}</p>
@@ -128,17 +125,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         initializeDragAndDrop();
     }    
 
-    // Xử lý các sự kiện Socket.IO
+    // Thêm biến để lưu host_id
+    let currentHostId = null;
+
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
-    
+        currentHostId = data.host_id;  // Lưu host_id
+
+        // Cập nhật is_host cho tất cả player slots
         const playerSlots = data.player_slots.map(slot => {
             if (slot) {
-                slot.is_host = slot.user_id === data.host_id;
+                slot.is_host = slot.user_id === currentHostId;
             }
             return slot;
         });
-    
+
         renderPlayerCards(playerSlots);
     });               
 
