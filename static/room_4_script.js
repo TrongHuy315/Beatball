@@ -57,9 +57,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         playerCardsContainer.innerHTML = "";
     
         const team1 = document.createElement("div");
-        team1.className = "team";
+        team1.className = "team team-1";
         const team2 = document.createElement("div");
-        team2.className = "team";
+        team2.className = "team team-2";
     
         const vsDiv = document.createElement("div");
         vsDiv.className = "vs-divider";
@@ -69,16 +69,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         for (let i = 0; i < 4; i++) {
             const card = document.createElement("div");
             card.className = "player-card";
+            card.dataset.slotId = i;
             
             const playerData = playerSlots[i];
             
-            if (playerData) {
-                // Nếu có thông tin người chơi ở slot này
+            if (playerData && playerData.username) {
+                // Slot có người chơi
                 card.innerHTML = `
-                    <div class="avatar" style="background-image: url('${playerData.avatar}')"></div>
+                    <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
                     <p class="player-name">${playerData.username}</p>
-                    <p class="player-score">Rating: ${playerData.score}</p>
+                    <p class="player-score">Rating: ${playerData.score || 1000}</p>
+                    ${playerData.is_host ? '<div class="host-marker">Host</div>' : ''}
+                    ${playerData.is_ready ? '<div class="ready-marker">Ready</div>' : ''}
                 `;
+                
+                // Thêm attribute draggable nếu là người chơi hiện tại
+                if (playerData.username === getCurrentUsername()) {
+                    card.setAttribute('draggable', 'true');
+                }
             } else {
                 // Slot trống
                 card.innerHTML = `
@@ -88,7 +96,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 `;
             }
     
-            // Phân chia team theo vị trí
             if (i < 2) {
                 team1.appendChild(card);
             } else {
@@ -99,6 +106,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         playerCardsContainer.appendChild(team1);
         playerCardsContainer.appendChild(vsDiv);
         playerCardsContainer.appendChild(team2);
+    
+        // Khởi tạo drag & drop
+        initializeDragAndDrop();
     }
 
     // Xử lý các sự kiện Socket.IO
@@ -285,6 +295,67 @@ document.addEventListener("DOMContentLoaded", async () => {
         `;
         document.body.appendChild(loadingScreen);
     }
+
+    let isDragging = false;
+    let draggedCard = null;
+
+    function initializeDragAndDrop() {
+        const playerCards = document.querySelectorAll('.player-card');
+        
+        playerCards.forEach(card => {
+            // Chỉ cho phép kéo thả card có người chơi
+            if (card.querySelector('.player-name').textContent !== 'Waiting...') {
+                card.setAttribute('draggable', true);
+                
+                card.addEventListener('dragstart', (e) => {
+                    isDragging = true;
+                    draggedCard = card;
+                    e.dataTransfer.setData('text/plain', card.dataset.slot);
+                    card.classList.add('dragging');
+                });
+
+                card.addEventListener('dragend', () => {
+                    isDragging = false;
+                    draggedCard = null;
+                    card.classList.remove('dragging');
+                });
+
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (isDragging && draggedCard !== card) {
+                        card.classList.add('drag-over');
+                    }
+                });
+
+                card.addEventListener('dragleave', () => {
+                    card.classList.remove('drag-over');
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over');
+
+                    if (draggedCard) {
+                        const fromSlot = parseInt(draggedCard.dataset.slot);
+                        const toSlot = parseInt(card.dataset.slot);
+                        
+                        // Gửi yêu cầu swap slots lên server
+                        socket.emit('swap_slots', {
+                            room_id: currentRoomId,
+                            from_slot: fromSlot,
+                            to_slot: toSlot
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // Lắng nghe sự kiện cập nhật vị trí từ server
+    socket.on('slots_swapped', (data) => {
+        renderPlayerCards(data.player_slots);
+        initializeDragAndDrop();  // Khởi tạo lại drag & drop sau khi render
+    });
 
     // Khởi tạo ban đầu
     await fetchPlayerData();
