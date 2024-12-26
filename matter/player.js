@@ -39,7 +39,13 @@ class Player {
     createPhysicsBody(x, y) {
         const { radius } = CONFIG.player.graphic;
         const physics = CONFIG.player.physics;
-        
+        categories = {
+            outer: 0x0001,  // 00001
+            inner: 0x0002,  // 00010
+            player: 0x0004, // 00100
+            ball: 0x0008,   // 01000
+            net: 0x00016    // 10000
+        };
         return Matter.Bodies.circle(x, y, radius, {
             label: 'player',
             mass: physics.mass,
@@ -49,7 +55,11 @@ class Player {
             frictionStatic: physics.frictionStatic,
             inertia: physics.inertia,
             slop: physics.slop,
-            isStatic: false
+            isStatic: false, 
+            collisionFilter: {
+                category: categories.player,
+                mask: ~categories.inner  
+            }
         });
     }
 

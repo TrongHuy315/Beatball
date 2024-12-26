@@ -1,13 +1,10 @@
 function createWalls(scene) {
     const {offset_horizontal, offset_vertical, pitch, nets, totalWidth, totalHeight, borderWidth, wall } = CONFIG;
     
-    function create_rectangle(x, y, width, height, direction = null, isNet = false) {
-        x = x + offset_horizontal; 
-        y = y + offset_vertical; 
+    function createRectangle(x, y, width, height, direction = null, isInner = false) {
         const {nets} = CONFIG; 
         direction = null; 
         const wallOptions = {
-            label: isNet ? 'netEdge' : 'wall', 
             isStatic: true,
             restitution: wall.bounciness,
             friction: wall.friction,
@@ -16,8 +13,13 @@ function createWalls(scene) {
             net: false, 
             slop: wall.slop, 
             collideWorldBounds: false, 
+            collisionFilter: {
+                category: isInner ? scene.categories.inner : scene.categories.outer,
+                mask: isInner ? ~scene.categories.player : 0xFFFFFFFF
+            }
         };
         scene.matter.add.rectangle(x, y, width, height, wallOptions);
+        direction = null; 
         if (!direction) return;
         
         let offsetX = 0, offsetY = 0;
@@ -32,133 +34,140 @@ function createWalls(scene) {
             scene.matter.add.rectangle(x, y, width, height, wallOptions);
         }
     }
-
-    create_rectangle(0, 0, totalWidth, totalHeight); 
     // Top wall
-    create_rectangle(
+    createRectangle(
         totalWidth / 2,
-        pitch.borderWidth / 2,
+        pitch.borderWidth / 2 + offset_vertical,
         pitch.width + pitch.borderWidth * 2,
-        pitch.borderWidth
+        pitch.borderWidth, 
+        'U', 
+        true
     );
 
-    // Bottom wall  
-    create_rectangle(
+    // Bottom wall
+    createRectangle(
         totalWidth / 2,
-        totalHeight - pitch.borderWidth / 2,
+        totalHeight - pitch.borderWidth / 2 - offset_vertical,
         pitch.width + pitch.borderWidth * 2,
-        pitch.borderWidth
+        pitch.borderWidth,
+        'D', 
+        true
     );
 
-    const side_wall_length = (totalHeight - nets.height) / 2;
-    
+    const side_wall_length = (pitch.height + pitch.borderWidth * 2 - nets.height) / 2;
+
     // Left-up wall
-    create_rectangle(
-        nets.borderWidth + nets.width + pitch.borderWidth / 2,
-        side_wall_length / 2,
+    createRectangle(
+        nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,
+        side_wall_length / 2 + offset_vertical, 
         pitch.borderWidth,
         side_wall_length,
-        'L'
+        'L', 
+        true
     );
 
     // Left-down wall
-    create_rectangle(
-        nets.borderWidth + nets.width + pitch.borderWidth / 2,
-        totalHeight - side_wall_length / 2,
+    createRectangle(
+        nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,
+        totalHeight - side_wall_length / 2 - offset_vertical,
         pitch.borderWidth,
         side_wall_length,
-        'L'
+        'L', 
+        true
     );
-
     // Right-up wall
-    create_rectangle(
-        nets.borderWidth + nets.width + pitch.borderWidth / 2 + pitch.width + pitch.borderWidth,
-        side_wall_length / 2,
+    createRectangle(
+        totalWidth - (nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal), 
+        side_wall_length / 2 + offset_vertical, 
         pitch.borderWidth,
         side_wall_length,
-        'R'
+        'L',
+        true 
     );
-
     // Right-down wall
-    create_rectangle(
-        nets.borderWidth + nets.width + pitch.borderWidth / 2 + pitch.width + pitch.borderWidth,
-        totalHeight - side_wall_length / 2,
+    createRectangle(
+        totalWidth - (nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal), 
+        totalHeight - side_wall_length / 2 - offset_vertical,
         pitch.borderWidth,
         side_wall_length,
-        'R'
+        'L',
+        true 
     );
-
     // Left net - left wall
-    create_rectangle(
-        nets.borderWidth / 2,
+    createRectangle(
+        nets.borderWidth / 2 + offset_horizontal,
         totalHeight / 2,
         nets.borderWidth,
-        nets.height + nets.borderWidth * 2, 'L', true
+        nets.height + nets.borderWidth * 2, 'L', false
     );
 
     // Right net - right wall
-    create_rectangle(
-        totalWidth - nets.borderWidth / 2,
+    createRectangle(
+        totalWidth - nets.borderWidth / 2 - offset_horizontal,
         totalHeight / 2,
         nets.borderWidth,
-        nets.height + nets.borderWidth * 2, 'R', true
+        nets.height + nets.borderWidth * 2, 'R', false
     );
 
     // Left net - up wall
-    create_rectangle(
-        nets.borderWidth + nets.width / 2,
-        side_wall_length - nets.borderWidth / 2,
+    createRectangle(
+        nets.borderWidth + nets.width / 2 + offset_horizontal,
+        side_wall_length - nets.borderWidth / 2 + offset_vertical,
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'U', true
+        'U', false
     );
 
     // Left net - down wall
-    create_rectangle(
-        nets.borderWidth + nets.width / 2,
-        side_wall_length + nets.height + nets.borderWidth / 2,
+    createRectangle(
+        nets.borderWidth + nets.width / 2 + offset_horizontal,
+        totalHeight - (side_wall_length - nets.borderWidth / 2 + offset_vertical),
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'D', true
+        'D', false
     );
 
     // Right net - up wall
-    create_rectangle(
-        totalWidth - nets.borderWidth - nets.width / 2,
-        side_wall_length - nets.borderWidth / 2,
+    createRectangle(
+        totalWidth - nets.borderWidth - nets.width / 2 - offset_horizontal, 
+        side_wall_length - nets.borderWidth / 2 + offset_vertical,
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'U', true
+        'U', false
     );
 
     // Right net - down wall
-    create_rectangle(
-        totalWidth - nets.borderWidth - nets.width / 2,
-        side_wall_length + nets.height + nets.borderWidth / 2,
+    createRectangle(
+        totalWidth - nets.borderWidth - nets.width / 2 - offset_horizontal,
+        totalHeight - (side_wall_length - nets.borderWidth / 2 + offset_vertical),
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'D', true
+        'D', false
     );
-    scene.matter.add.rectangle(
-        CONFIG.nets.borderWidth + CONFIG.nets.width / 2,
-        CONFIG.totalHeight / 2,
-        CONFIG.nets.width,
-        CONFIG.nets.height,
-        {
-            isSensor: true,
-            isStatic: true,
-            label: 'leftNet',
-        }
-    );
-    scene.matter.add.rectangle(
-        CONFIG.totalWidth - CONFIG.nets.borderWidth - CONFIG.nets.width / 2,
-        CONFIG.totalHeight / 2,
-        CONFIG.nets.width,
-        CONFIG.nets.height,
-        {
-            isSensor: true,
-            isStatic: true,
-            label: 'rightNet',
-        }
-    );
+    createRectangle(totalWidth / 2, 0, totalWidth, 2); 
+    createRectangle(totalWidth / 2, totalHeight, totalWidth, 2); 
+    createRectangle(0, totalHeight / 2, 2, totalHeight);
+    createRectangle(totalWidth, totalHeight / 2, 2, totalHeight); 
+    // scene.matter.add.rectangle(
+    //     CONFIG.nets.borderWidth + CONFIG.nets.width / 2,
+    //     CONFIG.totalHeight / 2,
+    //     CONFIG.nets.width,
+    //     CONFIG.nets.height,
+    //     {
+    //         isSensor: true,
+    //         isStatic: true,
+    //         label: 'leftNet',
+    //     }
+    // );
+    // scene.matter.add.rectangle(
+    //     CONFIG.totalWidth - CONFIG.nets.borderWidth - CONFIG.nets.width / 2,
+    //     CONFIG.totalHeight / 2,
+    //     CONFIG.nets.width,
+    //     CONFIG.nets.height,
+    //     {
+    //         isSensor: true,
+    //         isStatic: true,
+    //         label: 'rightNet',
+    //     }
+    // );
 }

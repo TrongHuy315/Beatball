@@ -154,7 +154,7 @@ class PlayerController {
         
         return this.scene.add.image(0, 0, 'player');
     }
-	createPhysicsBody(x, y) {
+    createPhysicsBody(x, y) {
         const { radius } = CONFIG.player.graphic;
         const physics = CONFIG.player.physics;
         return this.scene.matter.add.circle(x, y, radius, {
@@ -166,7 +166,11 @@ class PlayerController {
             frictionStatic: physics.frictionStatic,
             inertia: physics.inertia,
             slop: physics.slop,
-            isStatic: false
+            isStatic: false,
+            collisionFilter: {
+                category: this.scene.categories.player,
+                mask: ~this.scene.categories.inner  // Va chạm với tất cả trừ inner
+            }
         });
     }
 	createPlayerName() {

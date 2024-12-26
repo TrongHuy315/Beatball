@@ -14,6 +14,13 @@ class ClientScene extends Phaser.Scene {
                 right: 0
             }
         };
+        this.categories = {
+            outer: 0x0001,  // 00001
+            inner: 0x0002,  // 00010
+            player: 0x0004, // 00100
+            ball: 0x0008,   // 01000
+            net: 0x00016    // 10000
+        };
     }
     preload() {
         this.scoreboard = new Scoreboard();
@@ -24,6 +31,9 @@ class ClientScene extends Phaser.Scene {
         // ----- SET UP PHYSICS WORLD -----
         this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
         this.matter.world.setGravity(0, 0);
+
+        // ----- SET UP WALLS WORLD ----- 
+        createWalls(this); 
 
         // ----- BALL -----
         // this.ball = new Ball(this, CONFIG.ball);
@@ -222,7 +232,7 @@ const configPhaser = {
     physics: {
         default: 'matter',
         matter: {
-            debug: false, // Set to false in production
+            debug: true, // Set to false in production
             gravity: { y: 0 },
             setBounds: true
         }
