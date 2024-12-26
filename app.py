@@ -412,44 +412,56 @@ def leave_room(room_id):
             return jsonify({"error": "Room does not exist"}), 404
 
         room = json.loads(room_data)
-        username = session.get("username")
+        username = session.get('username')
+        user_id = session.get('user_id')
 
         # Tìm và xóa thông tin người chơi khỏi slot
         slot_index = None
         for i, slot in enumerate(room["player_slots"]):
-            if slot and slot.get("username") == username:
+            if slot and slot.get("user_id") == user_id:
                 slot_index = i
+                was_host = slot.get("is_host", False)
                 room["player_slots"][i] = None
                 break
 
         if slot_index is not None and username in room.get("current_players", []):
             room["current_players"].remove(username)
 
-            # Nếu còn người chơi khác trong phòng
+            # Tìm người chơi tiếp theo để làm host
             remaining_players = [p for p in room["player_slots"] if p is not None]
+            
             if remaining_players:
-                # Nếu host rời phòng
-                if room.get("host_id") == session.get("user_id"):
-                    remaining_players = [p for p in room["player_slots"] if p is not None]
-                    if remaining_players:
-                        new_host = remaining_players[0]  # Chọn người đầu tiên còn lại làm host
-                        new_host["is_host"] = True
-                        room["host_id"] = new_host["user_id"]
+                if was_host:
+                    # Chọn người chơi đầu tiên còn lại làm host mới
+                    new_host = remaining_players[0]
+                    new_host["is_host"] = True
+                    room["host_id"] = new_host["user_id"]
+                    
+                    print(f"New host assigned: {new_host['username']} (ID: {new_host['user_id']})")
 
+                # Cập nhật Redis với thông tin mới
                 redis_client.set(f"room:{room_id}", json.dumps(room))
+                
+                # Thông báo cho tất cả người chơi về việc người chơi rời phòng và host mới (nếu có)
                 socketio.emit('player_left', {
                     'room_id': room_id,
                     'username': username,
                     'player_slots': room["player_slots"],
-                    'host_id': room["host_id"]
+                    'current_players': room["current_players"],
+                    'new_host_id': room["host_id"] if was_host else None,
+                    'message': 'Player left the room'
                 }, room=room_id)
+                
+                return jsonify({"success": True}), 200
             else:
-                # Xóa phòng nếu không còn ai
+                # Chỉ xóa phòng khi không còn ai
                 redis_client.delete(f"room:{room_id}")
                 socketio.emit('room_deleted', {
                     'room_id': room_id,
-                    'message': 'Room has been deleted'
+                    'message': 'Room has been deleted (no players remaining)'
                 }, room=room_id)
+                
+                return jsonify({"success": True, "message": "Room deleted"}), 200
 
         return jsonify({"success": True}), 200
 
@@ -971,38 +983,42 @@ def handle_socket_join(data):
 
 @socketio.on('disconnect')
 def on_disconnect():
-    if 'current_room' in session:
-        room_id = session['current_room']
-        room_data = redis_client.get(f"room:{room_id}")
+    try:
+        if 'current_room' in session:
+            room_id = session['current_room']
+            room_data = redis_client.get(f"room:{room_id}")
+            
+            if room_data:
+                room = json.loads(room_data)
+                user_id = session.get('user_id')
+                username = session.get('username')
 
-        if room_data:
-            room = json.loads(room_data)
-            username = session.get('username')
-
-            # Chỉ xử lý khi thực sự rời phòng, không phải reload
-            if request.headers.get("Connection") == "close":
-                if username in room["current_players"]:
-                    # Tìm slot của người rời phòng
-                    leaving_slot = None
+                # Chỉ xử lý khi thực sự rời phòng, không phải reload
+                if request.headers.get("Connection") == "close":
+                    # Tìm và xóa người chơi khỏi slot
+                    slot_index = None
                     for i, slot in enumerate(room["player_slots"]):
-                        if slot and slot.get("username") == username:
-                            leaving_slot = i
+                        if slot and slot.get("user_id") == user_id:
+                            slot_index = i
                             was_host = slot.get("is_host", False)
                             room["player_slots"][i] = None
                             break
 
-                    room["current_players"].remove(username)
+                    if slot_index is not None:
+                        if username in room.get("current_players", []):
+                            room["current_players"].remove(username)
 
-                    # Nếu còn người chơi khác trong phòng
-                    remaining_players = [p for p in room["player_slots"] if p is not None]
-                    if remaining_players:
-                        # Nếu người rời phòng là host, chọn host mới
-                        if was_host:
-                            # Chọn người chơi đầu tiên còn lại làm host mới
-                            new_host = remaining_players[0]
-                            new_host["is_host"] = True
-                            room["host_id"] = new_host.get("user_id")
-                            new_host_id = new_host.get("user_id")
+                        # Tìm người chơi tiếp theo để làm host
+                        remaining_players = [p for p in room["player_slots"] if p is not None]
+                        
+                        if remaining_players:
+                            if was_host:
+                                # Chọn người chơi đầu tiên còn lại làm host mới
+                                new_host = remaining_players[0]
+                                new_host["is_host"] = True
+                                room["host_id"] = new_host["user_id"]
+                                
+                                print(f"New host assigned on disconnect: {new_host['username']}")
 
                             # Cập nhật Redis
                             redis_client.set(f"room:{room_id}", json.dumps(room))
@@ -1013,26 +1029,17 @@ def on_disconnect():
                                 'username': username,
                                 'player_slots': room["player_slots"],
                                 'current_players': room["current_players"],
-                                'new_host_id': new_host_id
+                                'new_host_id': room["host_id"] if was_host else None
                             }, room=room_id)
                         else:
-                            # Cập nhật Redis
-                            redis_client.set(f"room:{room_id}", json.dumps(room))
-                            
-                            # Thông báo cho tất cả người chơi
-                            socketio.emit('player_left', {
+                            # Xóa phòng chỉ khi không còn ai
+                            redis_client.delete(f"room:{room_id}")
+                            socketio.emit('room_deleted', {
                                 'room_id': room_id,
-                                'username': username,
-                                'player_slots': room["player_slots"],
-                                'current_players': room["current_players"]
+                                'message': 'Room has been deleted'
                             }, room=room_id)
-                    else:
-                        # Xóa phòng nếu không còn ai
-                        redis_client.delete(f"room:{room_id}")
-                        socketio.emit('room_deleted', {
-                            'room_id': room_id,
-                            'message': 'Room has been deleted'
-                        }, broadcast=True)
+    except Exception as e:
+        print(f"Error in disconnect handler: {e}")
 
 def save_room_data(room_id, room_data):
     """
