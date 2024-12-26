@@ -164,7 +164,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         const playerSlots = data.player_slots.map(slot => {
             if (slot) {
-                slot.is_host = slot.user_id === currentHostId;
+                // Không thay đổi is_host trong slot data
+                return { ...slot };
             }
             return slot;
         });
@@ -292,6 +293,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         setTimeout(() => {
             window.location.href = `/game/${roomId}`; // Sửa currentRoomId thành roomId
         }, 1500);
+    });
+
+    // Thêm event listener cho host_update
+    socket.on("host_update", (data) => {
+        console.log("Host update event:", data);
+        currentHostId = data.host_id;
+        renderPlayerCards(data.player_slots);
     });
 
     function showGameLoadingScreen() {

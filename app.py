@@ -3,7 +3,7 @@ eventlet.monkey_patch()  # Monkey patch phải được gọi trước tất c�
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import send_from_directory, session, jsonify, make_response
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room
 from functools import wraps
 from werkzeug.utils import secure_filename
 from urllib.parse import quote
@@ -282,7 +282,7 @@ def create_room():
             "slot": 0,
             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
             "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": True,
+            "is_host": True,  # User_1 được set là host
             "is_ready": False
         }
 
@@ -373,7 +373,7 @@ def join_room_handler(room_id):
             "slot": empty_slot,
             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
             "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": False,  # Người mới vào không phải host
+            "is_host": False,  # User_2 không phải host
             "is_ready": False
         }
 
@@ -821,6 +821,8 @@ def room(room_id):
         redis_client.set(f"room:{room_id}", json.dumps(room))
         session['current_room'] = room_id
 
+        sync_room_host(room_id)
+
         return render_template("room_4.html", room_id=room_id, room=room, session=session)
 
     except Exception as e:
@@ -955,30 +957,17 @@ def handle_message(data):
 def handle_socket_join(data):
     try:
         room_id = data.get("room_id")
-        username = session.get("username")
-        user_id = session.get("user_id")
-
-        if not all([room_id, username, user_id]):
+        if not room_id:
             return
-
-        room_data = redis_client.get(f"room:{room_id}")
-        if not room_data:
-            emit("error", {"message": "Room not found"})
-            return
-
-        room = json.loads(room_data)
-        join_room_handler(room_id)
-
-        print(f"Socket: Player {username} joined room {room_id}")
-        emit("joined_room", {
-            "room_id": room_id,
-            "player_slots": room["player_slots"],
-            "host_id": room["host_id"]
-        }, room=room_id)
-
+            
+        # Join socket room
+        join_room(room_id)
+        
+        # Đồng bộ host sau khi join
+        sync_room_host(room_id)
+        
     except Exception as e:
         print(f"Error in socket join_room: {e}")
-        emit("error", {"message": "Failed to join room"})
 
 @socketio.on('disconnect')
 def on_disconnect():
@@ -1231,39 +1220,34 @@ def game_page(room_id):
 # app.py
 
 def sync_room_host(room_id):
-    """
-    Đồng bộ hóa host_id trong phòng và thông báo cho tất cả client
-    """
+    """Đồng bộ host_id và thông báo cho tất cả clients"""
     try:
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            return None
-        
+            return
+            
         room = json.loads(room_data)
         
-        # Đảm bảo host_id tồn tại và là người chơi đầu tiên
-        first_player = next((slot for slot in room["player_slots"] if slot is not None), None)
-        if first_player:
-            room["host_id"] = first_player["user_id"]
-            # Cập nhật is_host cho tất cả slot
-            for slot in room["player_slots"]:
-                if slot:
-                    slot["is_host"] = slot["user_id"] == room["host_id"]
-            
-            # Lưu vào Redis
-            redis_client.set(f"room:{room_id}", json.dumps(room))
-            
-            # Thông báo cập nhật cho tất cả client
-            socketio.emit('host_sync', {
-                'room_id': room_id,
-                'host_id': room["host_id"],
-                'player_slots': room["player_slots"]
-            }, room=room_id)
-            
-        return room
+        # Lấy host_id từ room data
+        host_id = room.get("host_id")
+        
+        # Đảm bảo tất cả slots có is_host đúng
+        for slot in room["player_slots"]:
+            if slot:
+                slot["is_host"] = slot["user_id"] == host_id
+        
+        # Lưu lại vào Redis
+        redis_client.set(f"room:{room_id}", json.dumps(room))
+        
+        # Thông báo cho tất cả clients
+        socketio.emit("host_update", {
+            "room_id": room_id,
+            "host_id": host_id,
+            "player_slots": room["player_slots"]
+        }, room=room_id)
+        
     except Exception as e:
         print(f"Error syncing room host: {e}")
-        return None
 
 @socketio.on('swap_slots')
 def handle_swap_slots(data):
