@@ -19,6 +19,7 @@
         <input type="hidden" id="room-id" value="{{ room_id }}">
         <input type="hidden" id="current-username" value="{{ session.username }}">
         <input type="hidden" id="user-id" value="{{ session.get('user_id') }}">
+        <input type="hidden" id="is-host" value="{{ 'true' if session.user_id == room.host_id else 'false' }}">
         
         <div class="player-cards" id="player-cards">
             <div class="team team-1">

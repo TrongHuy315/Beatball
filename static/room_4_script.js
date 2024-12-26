@@ -1,7 +1,8 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const socket = io();
-    const roomId = document.getElementById("room-id").value; // Lấy room_id từ input hidden
-    const currentRoomId = roomId; // Thêm dòng này
+    const roomId = document.getElementById("room-id").value;
+    const currentUserId = document.getElementById("current-user-id").value;
+    let currentHostId = null;
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
@@ -14,14 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Tham gia phòng qua Socket.IO
     socket.emit("join_room", { room_id: roomId });
-
-    // Thêm listener cho host_sync event
-    socket.on("host_sync", (data) => {
-        console.log("Host sync received:", data);
-        currentHostId = data.host_id;
-        renderPlayerCards(data.player_slots);
-        updateControlButtons();
-    });
 
     // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {
@@ -40,41 +33,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await response.json();
             console.log("Fetched room data:", data);
 
-            if (!data.success) {
-                console.error("Failed to fetch room data:", data.error);
-                return [];
-            }
-
-            // Lưu host_id
+            // Lưu host_id và cập nhật UI ngay lập tức
             currentHostId = data.host_id;
             console.log("Current host ID:", currentHostId);
-
-            // Thêm gọi hàm updateControlButtons
-            updateControlButtons();
+            console.log("Current user ID:", currentUserId);
+            console.log("Is host:", currentUserId === currentHostId);
 
             if (data.player_slots && Array.isArray(data.player_slots)) {
-                const currentUserElement = document.getElementById("current-username");
-                const currentUsername = currentUserElement ? currentUserElement.value : null;
-                
-                console.log("Current username:", currentUsername);
-
                 currentPlayers = data.player_slots
                     .filter(slot => slot !== null)
                     .map(slot => slot.username);
 
-                // Log thông tin về host cho mỗi slot
-                data.player_slots.forEach((slot, index) => {
-                    if (slot) {
-                        console.log(`Slot ${index}:`, {
-                            username: slot.username,
-                            user_id: slot.user_id,
-                            is_host: slot.user_id === currentHostId
-                        });
-                    }
-                });
-
                 renderPlayerCards(data.player_slots);
             }
+
+            // Cập nhật UI buttons ngay sau khi có host_id
+            updateControlButtons();
 
             return data.player_slots || [];
 
@@ -83,6 +57,37 @@ document.addEventListener("DOMContentLoaded", async () => {
             return [];
         }
     }
+
+    function updateControlButtons() {
+        const isHost = currentUserId === currentHostId;
+        console.log("Updating control buttons:", { currentUserId, currentHostId, isHost });
+    
+        const readyBtn = document.getElementById("ready-btn");
+        const startBtn = document.getElementById("start-game-btn");
+    
+        if (readyBtn && startBtn) {
+            if (isHost) {
+                readyBtn.style.display = "none";
+                startBtn.style.display = "block";
+                console.log("Setting host controls - Start button visible");
+            } else {
+                readyBtn.style.display = "block";
+                startBtn.style.display = "none";
+                console.log("Setting non-host controls - Ready button visible");
+            }
+        }
+    }
+
+    // Khởi tạo ban đầu - đảm bảo lấy được host_id trước
+    await fetchPlayerData();
+
+    // Thêm listener cho host_sync event
+    socket.on("host_sync", (data) => {
+        console.log("Host sync received:", data);
+        currentHostId = data.host_id;
+        renderPlayerCards(data.player_slots);
+        updateControlButtons();
+    });
 
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {
@@ -158,9 +163,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Khởi tạo lại drag & drop
         initializeDragAndDrop();
     }    
-
-    // Thêm biến để lưu host_id
-    let currentHostId = null;
 
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
@@ -376,27 +378,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 });
             }
         });
-    }
-
-    function updateControlButtons() {
-        const currentUserId = document.getElementById("current-user-id")?.value;
-        const isHost = currentUserId === currentHostId;
-        console.log("Updating control buttons:", { currentUserId, currentHostId, isHost });
-    
-        const readyBtn = document.getElementById("ready-btn");
-        const startBtn = document.getElementById("start-game-btn");
-    
-        if (readyBtn && startBtn) {
-            if (isHost) {
-                readyBtn.style.display = "none";
-                startBtn.style.display = "block";
-                console.log("Showing Start button for host");
-            } else {
-                readyBtn.style.display = "block";
-                startBtn.style.display = "none";
-                console.log("Showing Ready button for non-host");
-            }
-        }
     }
 
     // Lắng nghe sự kiện cập nhật vị trí từ server

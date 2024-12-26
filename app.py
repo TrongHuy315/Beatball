@@ -256,7 +256,7 @@ def create_room():
             max_players = 4
 
         # Tạo room ID
-        for _ in range(5):  # Thử tối đa 5 lần
+        for _ in range(5):
             room_id = str(random.randint(id_min, id_max))
             if not redis_client.exists(f"room:{room_id}"):
                 break
@@ -282,15 +282,15 @@ def create_room():
             "slot": 0,
             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
             "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": True,  # User_1 được set là host
+            "is_host": True,
             "is_ready": False
         }
 
-        # Tạo room data
+        # Tạo room data với host_id rõ ràng
         room_data = {
             "room_id": room_id,
             "created_by": user_id,
-            "host_id": user_id,
+            "host_id": user_id,  # Đảm bảo host_id được set
             "max_players": max_players,
             "player_slots": player_slots,
             "current_players": [username],
@@ -309,7 +309,8 @@ def create_room():
         return jsonify({
             "success": True,
             "room_id": room_id,
-            "player_slots": player_slots
+            "player_slots": player_slots,
+            "host_id": user_id  # Thêm host_id vào response
         }), 201
 
     except Exception as e:
@@ -848,7 +849,8 @@ def room(room_id):
             room_id=room_id,
             room=room,
             session=session,
-            current_user_id=user_id
+            current_user_id=user_id,
+            is_host=(user_id == room.get("host_id"))
         )
 
     except Exception as e:
