@@ -394,10 +394,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     setInterval(async () => {
         try {
             const response = await fetch(`/check-room/${roomId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to check room: ${response.status}`);
+            }
+
             const data = await response.json();
+            
             if (!data.exists) {
+                console.log("Room no longer exists - redirecting to home");
                 alert("Room no longer exists!");
                 window.location.href = "/home";
+            } else {
+                console.log(`Room check - Players: ${data.player_count}`);
             }
         } catch (error) {
             console.error("Error checking room:", error);
