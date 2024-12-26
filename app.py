@@ -799,54 +799,46 @@ def room(room_id):
         username = session.get("username")
         user_id = session.get("user_id")
 
+        # Set flag reload trong session
+        session['is_reloading'] = True
+        session['current_room'] = room_id
+
         # Kiểm tra xem người chơi đã có trong player_slots chưa
         player_exists = False
-        existing_slot = None
-
-        for i, slot in enumerate(room["player_slots"]):
+        for slot in room["player_slots"]:
             if slot and slot.get("user_id") == user_id:
                 player_exists = True
-                existing_slot = i
-                # Đảm bảo giữ nguyên trạng thái host nếu người chơi là host
-                if user_id == room.get("host_id"):
+                # Giữ nguyên trạng thái host nếu người chơi là host
+                if room.get("host_id") == user_id:
                     slot["is_host"] = True
                 break
 
-        # Nếu người chơi không có trong phòng và không phải đang reload
-        if not player_exists and session.get('is_reloading') != True:
-            if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
-                flash("Room is full.", "danger")
-                return redirect(url_for("home"))
-
-            # Tìm slot trống
+        if not player_exists:
+            # Thêm người chơi mới vào slot trống
             empty_slot = next(
                 (i for i, slot in enumerate(room["player_slots"]) if slot is None),
                 None
             )
-            if empty_slot is None:
-                flash("No empty slots available.", "danger")
+            
+            if empty_slot is not None:
+                room["player_slots"][empty_slot] = {
+                    "username": username,
+                    "user_id": user_id,
+                    "slot": empty_slot,
+                    "avatar": "/static/images/default-avatar.png",
+                    "score": 1000,
+                    "is_host": user_id == room.get("host_id"),
+                    "is_ready": False
+                }
+
+                if username not in room["current_players"]:
+                    room["current_players"].append(username)
+            else:
+                flash("Room is full.", "danger")
                 return redirect(url_for("home"))
 
-            # Thêm người chơi mới
-            room["player_slots"][empty_slot] = {
-                "username": username,
-                "user_id": user_id,
-                "slot": empty_slot,
-                "avatar": "/static/images/default-avatar.png",
-                "score": 1000,
-                "is_host": user_id == room.get("host_id", ""),
-                "is_ready": False
-            }
-
-            if username not in room["current_players"]:
-                room["current_players"].append(username)
-
-        # Lưu lại trạng thái phòng và session
+        # Lưu lại trạng thái phòng
         redis_client.set(f"room:{room_id}", json.dumps(room))
-        session['current_room'] = room_id
-
-        # Nếu đang reload, xóa flag reload
-        session.pop('is_reloading', None)
 
         return render_template(
             "room_4.html",
@@ -1022,15 +1014,16 @@ def on_disconnect():
     try:
         if 'current_room' in session:
             room_id = session['current_room']
-            is_reloading = session.get('is_reloading', False)
+            room_data = redis_client.get(f"room:{room_id}")
             
-            if not is_reloading:  # Chỉ xử lý rời phòng nếu không phải reload
-                room_data = redis_client.get(f"room:{room_id}")
-                if room_data:
-                    room = json.loads(room_data)
-                    user_id = session.get('user_id')
-                    username = session.get('username')
+            if room_data:
+                room = json.loads(room_data)
+                user_id = session.get('user_id')
+                username = session.get('username')
 
+                # Kiểm tra xem có phải đang reload không
+                is_reloading = session.get('is_reloading', False)
+                if not is_reloading:  # Chỉ xử lý rời phòng nếu không phải reload
                     # Tìm và xóa người chơi khỏi slot
                     slot_index = None
                     for i, slot in enumerate(room["player_slots"]):
@@ -1044,7 +1037,7 @@ def on_disconnect():
                         if username in room.get("current_players", []):
                             room["current_players"].remove(username)
 
-                        # Tìm người chơi tiếp theo để làm host
+                        # Tìm người chơi tiếp theo để làm host nếu cần
                         remaining_players = [p for p in room["player_slots"] if p is not None]
                         
                         if remaining_players:
@@ -1057,7 +1050,6 @@ def on_disconnect():
                                         slot["is_host"] = slot["user_id"] == new_host["user_id"]
 
                             redis_client.set(f"room:{room_id}", json.dumps(room))
-                            sync_room_host(room_id)
                             
                             socketio.emit('player_left', {
                                 'room_id': room_id,
@@ -1072,12 +1064,9 @@ def on_disconnect():
                                 'room_id': room_id,
                                 'message': 'Room has been deleted'
                             }, room=room_id)
-            
+
     except Exception as e:
         print(f"Error in disconnect handler: {e}")
-    finally:
-        # Xóa các flag reload
-        session.pop('is_reloading', None)
 
 def save_room_data(room_id, room_data):
     """

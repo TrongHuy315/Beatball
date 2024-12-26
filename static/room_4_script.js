@@ -8,37 +8,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
-        sessionStorage.setItem('is_reloading', 'true');
-        sessionStorage.setItem('current_room', roomId);
+        // Lưu trạng thái vào localStorage
+        localStorage.setItem('is_reloading', 'true');
+        localStorage.setItem('current_room', roomId);
+        localStorage.setItem('current_user_id', currentUserId);
+        
+        // Thông báo server về việc reload
         socket.emit('handle_reload', {
             room_id: roomId,
             user_id: currentUserId
         });
+        
         return null;
     };
 
-    if (sessionStorage.getItem('is_reloading') === 'true') {
+    // Kiểm tra nếu đang reload
+    const storedRoomId = localStorage.getItem('current_room');
+    const isReload = localStorage.getItem('is_reloading') === 'true';
+
+    if (isReload && storedRoomId === roomId) {
         console.log("Page is being reloaded");
         socket.emit('handle_reload', {
             room_id: roomId,
             user_id: currentUserId
         });
-        sessionStorage.removeItem('is_reloading');
     }
 
-    // Kiểm tra xem có đang reload không
-    if (localStorage.getItem('is_reloading') === 'true' && 
-        localStorage.getItem('current_room') === roomId) {
-        console.log("Page is being reloaded");
-        socket.emit("handle_reload", {
-            room_id: roomId,
-            user_id: currentUserId
-        });
-    }
-
-    // Xóa flag reload sau khi xử lý
+    // Xóa trạng thái reload sau khi xử lý
     localStorage.removeItem('is_reloading');
     localStorage.removeItem('current_room');
+    localStorage.removeItem('current_user_id');
 
     // Xử lý khi load trang
     window.onload = function() {
@@ -308,7 +307,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Sửa lại event listener socket disconnect
     socket.on("disconnect", () => {
         console.log("Socket disconnected, isReloading:", isReloading);
-        if (!isReloading && !sessionStorage.getItem('is_reloading')) {
+        if (!isReloading) {
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
