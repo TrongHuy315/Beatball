@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Main UI </title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mousePosition/mousePosition.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mainUI.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mainUI_profile/mainUI_profile.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mainUI_rating/mainUI_rating.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mainUI_leaderboard/mainUI_leaderboard.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mainUI_stats/mainUI_stats.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='mainUI/mainUI_mode/mainUI_mode.css') }}"> 
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="position">X: 0, Y: 0</div>
+    <div id="profile-box"> 
+        <div id="user_avatar" data-avatar-path="{{ url_for('static', filename='mainUI/avatar/lion.jpg') }}"> </div>
+        <div id="user_name"> </div>
+        <div id="user_id"> </div>         
+    </div> 
+    <div id="elo-box"> 
+        <div id="rating_heading"> </div>
+        <div id="user_rating"> </div>
+        <div id="user_rating_add"> </div>     
+    </div>
+    <div id="mode-box">  
+        <button class="custom-button" id="lobby-button">Lobby</button>
+        <button class="custom-button" id="vs2-button">2 vs 2</button>
+    </div>
+    <div id="leaderboard-box">  
+        <button id="leaderboard-btn">Leaderboard</button>
+    </div>
+    <div id="stats-box">  
+        <div id="stats_heading"> </div>
+    </div>
+    <div id="settings-box">  </div>
+
+    <script src="{{ url_for('static', filename='mainUI/mousePosition/mousePosition.js') }}"> </script>
+    <script src="{{ url_for('static', filename='mainUI/mainUI.js') }}"> </script>
+    <script src="{{ url_for('static', filename='mainUI/mainUI_profile/mainUI_profile.js') }}"> </script>
+    <script src="{{ url_for('static', filename='mainUI/mainUI_rating/mainUI_rating.js') }}"> </script>
+    <script src="{{ url_for('static', filename='mainUI/mainUI_leaderboard/mainUI_leaderboard.js') }}"> </script>
+    <script src="{{ url_for('static', filename='mainUI/mainUI_stats/mainUI_stats.js') }}"> </script> 
+    <script src="{{ url_for('static', filename='mainUI/mainUI_mode/mainUI_mode.js') }}"> </script> 
+</body>
+</html>
