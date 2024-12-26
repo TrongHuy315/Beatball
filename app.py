@@ -832,54 +832,44 @@ def room(room_id):
 @login_required
 def get_room_data(room_id):
     try:
+        print(f"Fetching data for room {room_id}")
+        current_user_id = session.get("user_id")
+
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
             return jsonify({"error": "Room not found"}), 404
 
         room = json.loads(room_data)
-        user_id = session.get("user_id")
-
-        # Đảm bảo host_id tồn tại
-        if "host_id" not in room:
-            room["host_id"] = room["created_by"]
-            redis_client.set(f"room:{room_id}", json.dumps(room))
-
+        
+        # Đồng bộ host_id
+        sync_room_host(room_id)
+        
         # Cập nhật thông tin người chơi từ Firebase
-        updated_slots = []
         for slot in room["player_slots"]:
-            if not slot:
-                updated_slots.append(None)
-                continue
+            if slot:
+                try:
+                    firebase_response = requests.get(f"{FIREBASE_URL[:-5]}/{slot['user_id']}.json")
+                    if firebase_response.status_code == 200:
+                        user_data = firebase_response.json()
+                        slot.update({
+                            "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
+                            "score": user_data.get("stats", {}).get("point", 1000),
+                        })
+                except Exception as e:
+                    print(f"Error updating player data: {e}")
 
-            try:
-                firebase_response = requests.get(
-                    f"{FIREBASE_URL[:-5]}/{slot['user_id']}.json"
-                )
-                if firebase_response.status_code == 200:
-                    user_data = firebase_response.json()
-                    slot.update({
-                        "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
-                        "score": user_data.get("stats", {}).get("point", 1000),
-                        "is_host": slot["user_id"] == room["host_id"]
-                    })
-            except Exception as e:
-                print(f"Error updating player data: {e}")
-
-            updated_slots.append(slot)
-
-        room["player_slots"] = updated_slots
+        # Lưu lại vào Redis
         redis_client.set(f"room:{room_id}", json.dumps(room))
 
-        print(f"Room {room_id} data fetched:")
+        print(f"Room {room_id} data:")
         print(f"Host ID: {room['host_id']}")
-        print(f"Player slots: {json.dumps(updated_slots, indent=2)}")
+        print(f"Current user ID: {current_user_id}")
+        print(f"Player slots: {json.dumps(room['player_slots'], indent=2)}")
 
         return jsonify({
             "success": True,
-            "player_slots": updated_slots,
-            "host_id": room["host_id"],
-            "room_type": room["room_type"],
-            "max_players": room["max_players"]
+            "player_slots": room["player_slots"],
+            "host_id": room["host_id"]
         })
 
     except Exception as e:
@@ -1239,6 +1229,41 @@ def game_page(room_id):
         return redirect(url_for('rooms'))
     
 # app.py
+
+def sync_room_host(room_id):
+    """
+    Đồng bộ hóa host_id trong phòng và thông báo cho tất cả client
+    """
+    try:
+        room_data = redis_client.get(f"room:{room_id}")
+        if not room_data:
+            return None
+        
+        room = json.loads(room_data)
+        
+        # Đảm bảo host_id tồn tại và là người chơi đầu tiên
+        first_player = next((slot for slot in room["player_slots"] if slot is not None), None)
+        if first_player:
+            room["host_id"] = first_player["user_id"]
+            # Cập nhật is_host cho tất cả slot
+            for slot in room["player_slots"]:
+                if slot:
+                    slot["is_host"] = slot["user_id"] == room["host_id"]
+            
+            # Lưu vào Redis
+            redis_client.set(f"room:{room_id}", json.dumps(room))
+            
+            # Thông báo cập nhật cho tất cả client
+            socketio.emit('host_sync', {
+                'room_id': room_id,
+                'host_id': room["host_id"],
+                'player_slots': room["player_slots"]
+            }, room=room_id)
+            
+        return room
+    except Exception as e:
+        print(f"Error syncing room host: {e}")
+        return None
 
 @socketio.on('swap_slots')
 def handle_swap_slots(data):

@@ -15,45 +15,65 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Tham gia phòng qua Socket.IO
     socket.emit("join_room", { room_id: roomId });
 
-    // Lấy dữ liệu người chơi từ server
+    // Thêm listener cho host_sync event
+    socket.on("host_sync", (data) => {
+        console.log("Host sync received:", data);
+        currentHostId = data.host_id;
+        renderPlayerCards(data.player_slots);
+    });
+
+    // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {
         try {
             if (!roomId) {
                 console.error("roomId is not defined.");
                 return [];
             }
-    
+
             const response = await fetch(`/room-data/${roomId}`);
             if (!response.ok) {
                 console.error(`Failed to fetch player data: ${response.status} ${response.statusText}`);
                 return [];
             }
-    
+
             const data = await response.json();
             console.log("Fetched room data:", data);
-    
+
+            if (!data.success) {
+                console.error("Failed to fetch room data:", data.error);
+                return [];
+            }
+
             // Lưu host_id
             currentHostId = data.host_id;
-    
+            console.log("Current host ID:", currentHostId);
+
             if (data.player_slots && Array.isArray(data.player_slots)) {
+                const currentUserElement = document.getElementById("current-username");
+                const currentUsername = currentUserElement ? currentUserElement.value : null;
+                
+                console.log("Current username:", currentUsername);
+
                 currentPlayers = data.player_slots
                     .filter(slot => slot !== null)
                     .map(slot => slot.username);
-    
-                // Cập nhật is_host cho mỗi slot
-                const updatedPlayerSlots = data.player_slots.map(slot => {
+
+                // Log thông tin về host cho mỗi slot
+                data.player_slots.forEach((slot, index) => {
                     if (slot) {
-                        const isHost = slot.user_id === data.host_id;
-                        console.log(`Checking host for ${slot.username}: ${isHost}`);
-                        slot.is_host = isHost;
+                        console.log(`Slot ${index}:`, {
+                            username: slot.username,
+                            user_id: slot.user_id,
+                            is_host: slot.user_id === currentHostId
+                        });
                     }
-                    return slot;
                 });
-    
-                renderPlayerCards(updatedPlayerSlots);
+
+                renderPlayerCards(data.player_slots);
             }
+
             return data.player_slots || [];
-    
+
         } catch (error) {
             console.error("Error fetching player data:", error);
             return [];
@@ -66,6 +86,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!playerCardsContainer) return;
     
         const currentUsername = document.getElementById("current-username").value;
+        console.log("Rendering cards for current user:", currentUsername);
+        console.log("Current host ID:", currentHostId);
     
         playerCardsContainer.innerHTML = "";
     
@@ -89,7 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (playerData && playerData.username) {
                 // Xác định host dựa trên currentHostId
                 const isHost = playerData.user_id === currentHostId;
-                console.log(`Rendering card for ${playerData.username}:`, {
+                console.log(`Card ${i}:`, {
                     user_id: playerData.user_id,
                     currentHostId: currentHostId,
                     isHost: isHost
