@@ -8,11 +8,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
-        // Lưu flag vào localStorage thay vì sessionStorage
-        localStorage.setItem('is_reloading', 'true');
-        localStorage.setItem('current_room', roomId);
-        return undefined;
+        sessionStorage.setItem('is_reloading', 'true');
+        sessionStorage.setItem('current_room', roomId);
+        socket.emit('handle_reload', {
+            room_id: roomId,
+            user_id: currentUserId
+        });
+        return null;
     };
+
+    if (sessionStorage.getItem('is_reloading') === 'true') {
+        console.log("Page is being reloaded");
+        socket.emit('handle_reload', {
+            room_id: roomId,
+            user_id: currentUserId
+        });
+        sessionStorage.removeItem('is_reloading');
+    }
 
     // Kiểm tra xem có đang reload không
     if (localStorage.getItem('is_reloading') === 'true' && 
@@ -296,7 +308,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Sửa lại event listener socket disconnect
     socket.on("disconnect", () => {
         console.log("Socket disconnected, isReloading:", isReloading);
-        if (!isReloading) {
+        if (!isReloading && !sessionStorage.getItem('is_reloading')) {
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true

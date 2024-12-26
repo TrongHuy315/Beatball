@@ -798,20 +798,22 @@ def room(room_id):
         room = json.loads(room_data)
         username = session.get("username")
         user_id = session.get("user_id")
-        is_reloading = session.pop('is_reloading', False)  # Lấy và xóa flag reload
 
         # Kiểm tra xem người chơi đã có trong player_slots chưa
         player_exists = False
-        for slot in room["player_slots"]:
+        existing_slot = None
+
+        for i, slot in enumerate(room["player_slots"]):
             if slot and slot.get("user_id") == user_id:
                 player_exists = True
-                # Nếu đang reload và là host, giữ nguyên trạng thái host
-                if is_reloading and room.get("host_id") == user_id:
+                existing_slot = i
+                # Đảm bảo giữ nguyên trạng thái host nếu người chơi là host
+                if user_id == room.get("host_id"):
                     slot["is_host"] = True
                 break
 
-        # Nếu người chơi chưa có trong player_slots và phòng còn chỗ
-        if not player_exists and not is_reloading:  # Chỉ thêm mới nếu không phải reload
+        # Nếu người chơi không có trong phòng và không phải đang reload
+        if not player_exists and session.get('is_reloading') != True:
             if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
                 flash("Room is full.", "danger")
                 return redirect(url_for("home"))
@@ -839,12 +841,12 @@ def room(room_id):
             if username not in room["current_players"]:
                 room["current_players"].append(username)
 
-        # Lưu lại trạng thái phòng
+        # Lưu lại trạng thái phòng và session
         redis_client.set(f"room:{room_id}", json.dumps(room))
         session['current_room'] = room_id
 
-        # Đồng bộ host
-        sync_room_host(room_id)
+        # Nếu đang reload, xóa flag reload
+        session.pop('is_reloading', None)
 
         return render_template(
             "room_4.html",
@@ -1340,10 +1342,20 @@ def handle_reload(data):
         user_id = data.get('user_id')
         
         if room_id and user_id:
-            # Đánh dấu đang reload trong session
             session['is_reloading'] = True
             session['current_room'] = room_id
             
+            # Lấy và cập nhật thông tin phòng
+            room_data = redis_client.get(f"room:{room_id}")
+            if room_data:
+                room = json.loads(room_data)
+                # Đảm bảo người chơi vẫn trong phòng
+                for slot in room["player_slots"]:
+                    if slot and slot.get("user_id") == user_id:
+                        slot["is_host"] = user_id == room.get("host_id")
+                        redis_client.set(f"room:{room_id}", json.dumps(room))
+                        break
+                
             print(f"Handling reload for user {user_id} in room {room_id}")
             
     except Exception as e:
