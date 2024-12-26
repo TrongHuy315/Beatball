@@ -8,16 +8,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
-        // Lưu trạng thái vào sessionStorage
-        sessionStorage.setItem('is_reloading', 'true');
-        sessionStorage.setItem('current_room_id', roomId);
+        // Lưu thông tin vào sessionStorage
+        sessionStorage.setItem('roomId', roomId);
+        sessionStorage.setItem('isReloading', 'true');
+        sessionStorage.setItem('wasHost', (currentUserId === currentHostId).toString());
     };
 
     // Xử lý khi load trang
     window.onload = function() {
-        if (sessionStorage.getItem('is_reloading')) {
-            sessionStorage.removeItem('is_reloading');
+        const wasReloading = sessionStorage.getItem('isReloading');
+        if (wasReloading) {
             console.log("Page was reloaded");
+            sessionStorage.removeItem('isReloading');
         }
     };
 
@@ -30,39 +32,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {
         try {
-            if (!roomId) {
-                console.error("roomId is not defined.");
-                return [];
-            }
-
             const response = await fetch(`/room-data/${roomId}`);
-            if (!response.ok) {
-                console.error(`Failed to fetch player data: ${response.status} ${response.statusText}`);
-                return [];
-            }
-
             const data = await response.json();
-            console.log("Fetched room data:", data);
-
-            // Lưu host_id và cập nhật UI ngay lập tức
-            currentHostId = data.host_id;
-            console.log("Current host ID:", currentHostId);
-            console.log("Current user ID:", currentUserId);
-            console.log("Is host:", currentUserId === currentHostId);
-
-            if (data.player_slots && Array.isArray(data.player_slots)) {
-                currentPlayers = data.player_slots
-                    .filter(slot => slot !== null)
-                    .map(slot => slot.username);
-
-                renderPlayerCards(data.player_slots);
+            
+            if (data.success) {
+                currentHostId = data.host_id;
+                console.log("Current host ID:", currentHostId);
+                console.log("Current user ID:", currentUserId);
+                console.log("Is host:", currentUserId === currentHostId);
+    
+                if (data.player_slots) {
+                    renderPlayerCards(data.player_slots);
+                }
+                
+                updateControlButtons();
+                return data.player_slots;
             }
-
-            // Cập nhật UI buttons ngay sau khi có host_id
-            updateControlButtons();
-
-            return data.player_slots || [];
-
+            
+            return [];
         } catch (error) {
             console.error("Error fetching player data:", error);
             return [];
@@ -294,15 +281,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Sửa lại event listener socket disconnect
     socket.on("disconnect", () => {
+        console.log("Socket disconnected, isReloading:", isReloading);
         if (!isReloading) {
-            console.log("Real disconnection, leaving room");
-            // Chỉ gửi yêu cầu rời phòng khi thực sự rời trang
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
+            }).then(response => {
+                console.log("Left room response:", response.status);
+            }).catch(error => {
+                console.error("Error leaving room:", error);
             });
-        } else {
-            console.log("Page is being reloaded, keeping room state");
         }
     });
 

@@ -800,53 +800,51 @@ def room(room_id):
         user_id = session.get("user_id")
 
         # Kiểm tra xem người chơi đã có trong player_slots chưa
-        existing_slot = None
-        for i, slot in enumerate(room["player_slots"]):
+        player_exists = False
+        for slot in room["player_slots"]:
             if slot and slot.get("user_id") == user_id:
-                existing_slot = i
+                player_exists = True
+                # Giữ nguyên trạng thái host nếu người chơi là host
+                if room.get("host_id") == user_id:
+                    slot["is_host"] = True
                 break
 
-        if existing_slot is not None:
-            # Người chơi đã có trong phòng, giữ nguyên thông tin
-            print(f"Player {username} already in room {room_id}, slot {existing_slot}")
-            # Cập nhật timestamp
-            room["player_slots"][existing_slot]["last_active"] = time.time()
-        else:
-            # Người chơi mới vào phòng
-            if len([p for p in room["player_slots"] if p]) >= room["max_players"]:
+        # Nếu người chơi chưa có trong player_slots và phòng còn chỗ
+        if not player_exists:
+            if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
                 flash("Room is full.", "danger")
                 return redirect(url_for("home"))
 
-            # Tìm slot trống
-            empty_slot = next(
-                (i for i, slot in enumerate(room["player_slots"]) if not slot),
-                None
-            )
-            if empty_slot is None:
+            # Tìm slot trống và thêm người chơi
+            empty_slot_found = False
+            for i, slot in enumerate(room["player_slots"]):
+                if slot is None:
+                    room["player_slots"][i] = {
+                        "username": username,
+                        "user_id": user_id,
+                        "slot": i,
+                        "avatar": "/static/images/default-avatar.png",
+                        "score": 1000,
+                        "is_host": user_id == room.get("host_id", ""),
+                        "is_ready": False
+                    }
+                    empty_slot_found = True
+                    break
+
+            if not empty_slot_found:
                 flash("No empty slots available.", "danger")
                 return redirect(url_for("home"))
 
-            # Thêm người chơi mới
-            room["player_slots"][empty_slot] = {
-                "username": username,
-                "user_id": user_id,
-                "slot": empty_slot,
-                "avatar": "/static/images/default-avatar.png",
-                "score": 1000,
-                "is_host": user_id == room.get("host_id"),
-                "is_ready": False,
-                "last_active": time.time()
-            }
-
+            # Cập nhật danh sách người chơi
             if username not in room["current_players"]:
                 room["current_players"].append(username)
 
-        # Lưu lại trạng thái phòng và session
+        # Lưu lại trạng thái phòng vào Redis
         redis_client.set(f"room:{room_id}", json.dumps(room))
         session['current_room'] = room_id
-        
-        # Đồng bộ host
-        sync_room_host(room_id)
+
+        print(f"Room access - User: {username}, ID: {user_id}, Host ID: {room.get('host_id')}")
+        print(f"Room data: {json.dumps(room, indent=2)}")
 
         return render_template(
             "room_4.html",
@@ -1265,14 +1263,18 @@ def sync_room_host(room_id):
             return
             
         room = json.loads(room_data)
-        
-        # Lấy host_id từ room data
         host_id = room.get("host_id")
+        
+        print(f"Syncing room {room_id} host - Host ID: {host_id}")
         
         # Đảm bảo tất cả slots có is_host đúng
         for slot in room["player_slots"]:
             if slot:
-                slot["is_host"] = slot["user_id"] == host_id
+                was_host = slot.get("is_host", False)
+                is_host_now = slot["user_id"] == host_id
+                slot["is_host"] = is_host_now
+                if was_host != is_host_now:
+                    print(f"Updated host status for user {slot['username']}: {was_host} -> {is_host_now}")
         
         # Lưu lại vào Redis
         redis_client.set(f"room:{room_id}", json.dumps(room))
@@ -1283,6 +1285,8 @@ def sync_room_host(room_id):
             "host_id": host_id,
             "player_slots": room["player_slots"]
         }, room=room_id)
+        
+        print(f"Host sync complete for room {room_id}")
         
     except Exception as e:
         print(f"Error syncing room host: {e}")
