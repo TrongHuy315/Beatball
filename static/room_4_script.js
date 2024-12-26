@@ -8,6 +8,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
+        // Lưu trạng thái vào sessionStorage
+        sessionStorage.setItem('is_reloading', 'true');
+        sessionStorage.setItem('current_room_id', roomId);
+    };
+
+    // Xử lý khi load trang
+    window.onload = function() {
+        if (sessionStorage.getItem('is_reloading')) {
+            sessionStorage.removeItem('is_reloading');
+            console.log("Page was reloaded");
+        }
     };
 
     const playerCardsContainer = document.getElementById("player-cards");
@@ -281,13 +292,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         window.location.href = '/rooms';
     });
 
+    // Sửa lại event listener socket disconnect
     socket.on("disconnect", () => {
         if (!isReloading) {
+            console.log("Real disconnection, leaving room");
             // Chỉ gửi yêu cầu rời phòng khi thực sự rời trang
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
             });
+        } else {
+            console.log("Page is being reloaded, keeping room state");
         }
     });
 

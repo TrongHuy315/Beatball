@@ -800,27 +800,28 @@ def room(room_id):
         user_id = session.get("user_id")
 
         # Kiểm tra xem người chơi đã có trong player_slots chưa
-        player_exists = False
-        player_slot = None
-        
+        existing_slot = None
         for i, slot in enumerate(room["player_slots"]):
             if slot and slot.get("user_id") == user_id:
-                player_exists = True
-                player_slot = i
+                existing_slot = i
                 break
 
-        # Nếu người chơi đã có trong phòng, giữ nguyên vị trí và thông tin
-        if player_exists:
-            # Chỉ cập nhật last_active nếu cần
-            room["player_slots"][player_slot]["last_active"] = time.time()
+        if existing_slot is not None:
+            # Người chơi đã có trong phòng, giữ nguyên thông tin
+            print(f"Player {username} already in room {room_id}, slot {existing_slot}")
+            # Cập nhật timestamp
+            room["player_slots"][existing_slot]["last_active"] = time.time()
         else:
-            # Xử lý thêm người chơi mới vào phòng như cũ
-            if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
+            # Người chơi mới vào phòng
+            if len([p for p in room["player_slots"] if p]) >= room["max_players"]:
                 flash("Room is full.", "danger")
                 return redirect(url_for("home"))
 
             # Tìm slot trống
-            empty_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot is None), None)
+            empty_slot = next(
+                (i for i, slot in enumerate(room["player_slots"]) if not slot),
+                None
+            )
             if empty_slot is None:
                 flash("No empty slots available.", "danger")
                 return redirect(url_for("home"))
@@ -837,14 +838,13 @@ def room(room_id):
                 "last_active": time.time()
             }
 
-        # Cập nhật danh sách người chơi nếu cần
-        if username not in room["current_players"]:
-            room["current_players"].append(username)
+            if username not in room["current_players"]:
+                room["current_players"].append(username)
 
-        # Lưu lại trạng thái phòng
+        # Lưu lại trạng thái phòng và session
         redis_client.set(f"room:{room_id}", json.dumps(room))
         session['current_room'] = room_id
-
+        
         # Đồng bộ host
         sync_room_host(room_id)
 
@@ -853,7 +853,8 @@ def room(room_id):
             room_id=room_id,
             room=room,
             session=session,
-            current_user_id=user_id
+            current_user_id=user_id,
+            is_host=(user_id == room.get("host_id"))
         )
 
     except Exception as e:
@@ -1024,7 +1025,7 @@ def on_disconnect():
                 username = session.get('username')
 
                 # Chỉ xử lý khi thực sự rời phòng, không phải reload
-                if request.headers.get("Connection") == "close":
+                if 'is_reloading' not in session:
                     # Tìm và xóa người chơi khỏi slot
                     slot_index = None
                     for i, slot in enumerate(room["player_slots"]):
