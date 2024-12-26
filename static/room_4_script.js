@@ -8,10 +8,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
-        // Lưu thông tin vào sessionStorage
-        sessionStorage.setItem('roomId', roomId);
-        sessionStorage.setItem('isReloading', 'true');
-        sessionStorage.setItem('wasHost', (currentUserId === currentHostId).toString());
+        // Lưu trạng thái vào session
+        session['is_reloading'] = true;
+        return null;
     };
 
     // Xử lý khi load trang
@@ -395,23 +394,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Kiểm tra phòng định kỳ
     setInterval(async () => {
-        try {
-            const response = await fetch(`/check-room/${roomId}`);
-            if (!response.ok) {
-                throw new Error(`Failed to check room: ${response.status}`);
-            }
+        if (!isReloading) {  // Chỉ kiểm tra nếu không phải đang reload
+            try {
+                const response = await fetch(`/check-room/${roomId}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to check room: ${response.status}`);
+                }
 
-            const data = await response.json();
-            
-            if (!data.exists) {
-                console.log("Room no longer exists - redirecting to home");
-                alert("Room no longer exists!");
-                window.location.href = "/home";
-            } else {
-                console.log(`Room check - Players: ${data.player_count}`);
+                const data = await response.json();
+                
+                if (!data.exists) {
+                    console.log("Room no longer exists or player not in room");
+                    alert("Room no longer exists!");
+                    window.location.href = "/home";
+                } else {
+                    console.log(`Room check - Players: ${data.player_count}, Is Host: ${data.is_host}`);
+                    // Cập nhật UI nếu cần
+                    if (data.is_host) {
+                        currentHostId = currentUserId;
+                        updateControlButtons();
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking room:", error);
             }
-        } catch (error) {
-            console.error("Error checking room:", error);
         }
-    }, 5000); // Kiểm tra mỗi 5 giây
+    }, 5000);
 });
