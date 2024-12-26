@@ -8,10 +8,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
-        // Lưu trạng thái vào session
-        session['is_reloading'] = true;
-        return null;
+        // Lưu flag vào localStorage thay vì sessionStorage
+        localStorage.setItem('is_reloading', 'true');
+        localStorage.setItem('current_room', roomId);
+        return undefined;
     };
+
+    // Kiểm tra xem có đang reload không
+    if (localStorage.getItem('is_reloading') === 'true' && 
+        localStorage.getItem('current_room') === roomId) {
+        console.log("Page is being reloaded");
+        socket.emit("handle_reload", {
+            room_id: roomId,
+            user_id: currentUserId
+        });
+    }
+
+    // Xóa flag reload sau khi xử lý
+    localStorage.removeItem('is_reloading');
+    localStorage.removeItem('current_room');
 
     // Xử lý khi load trang
     window.onload = function() {
