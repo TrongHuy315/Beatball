@@ -749,12 +749,26 @@ def room(room_id):
 
     room = json.loads(room_data)
     username = session.get("username")
+    user_id = session.get("user_id")
+
+    # Đảm bảo host_id tồn tại trong room data
+    if "host_id" not in room:
+        # Nếu không có host_id, set người chơi đầu tiên làm host
+        for slot in room["player_slots"]:
+            if slot:
+                room["host_id"] = slot["user_id"]
+                break
+        # Nếu không có người chơi nào, người vào phòng sẽ là host
+        if "host_id" not in room:
+            room["host_id"] = user_id
 
     # Kiểm tra xem người dùng đã có trong player_slots chưa
     player_exists = False
     for slot in room["player_slots"]:
         if slot and slot.get("username") == username:
             player_exists = True
+            # Cập nhật is_host cho người chơi hiện tại
+            slot["is_host"] = slot["user_id"] == room["host_id"]
             break
 
     # Nếu người dùng chưa có trong player_slots và phòng còn chỗ
@@ -777,13 +791,16 @@ def room(room_id):
                             break
 
                     if user_data:
+                        # Xác định host dựa trên host_id đã lưu
+                        is_host = user_id == room["host_id"]
+                        
                         room["player_slots"][i] = {
                             "username": username,
-                            "user_id": session.get("user_id"),
+                            "user_id": user_id,
                             "slot": i,
                             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
                             "score": user_data.get("stats", {}).get("point", 1000),
-                            "is_host": len([p for p in room["player_slots"] if p is not None]) == 0,
+                            "is_host": is_host,
                             "is_ready": False
                         }
                 break
@@ -791,6 +808,14 @@ def room(room_id):
     # Đảm bảo người chơi có trong current_players
     if username not in room["current_players"]:
         room["current_players"].append(username)
+
+    # In log để debug
+    print(f"Room {room_id} data:")
+    print(f"Host ID: {room.get('host_id')}")
+    print("Player slots:")
+    for i, slot in enumerate(room["player_slots"]):
+        if slot:
+            print(f"Slot {i}: {slot['username']} (ID: {slot['user_id']}, is_host: {slot['is_host']})")
 
     # Lưu lại trạng thái phòng vào Redis
     redis_client.set(f"room:{room_id}", json.dumps(room))
@@ -808,7 +833,7 @@ def room(room_id):
         return render_template("room_4.html", 
                            room_id=room_id, 
                            room=room, 
-                           session=session)  
+                           session=session)
     
 @app.route("/room-data/<room_id>", methods=["GET"])
 @login_required
@@ -827,8 +852,17 @@ def get_room_data(room_id):
             print(f"Invalid room data type: {type(room)}")
             return jsonify({"error": "Invalid room data structure"}), 500
 
-        # Lấy host_id từ room data
+        # Đảm bảo host_id tồn tại
+        if "host_id" not in room:
+            # Tìm người chơi đầu tiên để làm host
+            for slot in room["player_slots"]:
+                if slot:
+                    room["host_id"] = slot["user_id"]
+                    print(f"Setting new host_id: {room['host_id']}")
+                    break
+
         host_id = room.get("host_id")
+        print(f"Current host_id: {host_id}")
 
         # Chuẩn hóa player_slots
         max_players = int(room.get("max_players", 4))
@@ -853,6 +887,12 @@ def get_room_data(room_id):
             print(f"Error connecting to Firebase: {e}")
             users = {}
 
+        # Debug: Print thông tin trước khi cập nhật
+        print("Before update:")
+        for i, slot in enumerate(player_slots):
+            if slot:
+                print(f"Slot {i}: {slot.get('username')} (ID: {slot.get('user_id')}, is_host: {slot.get('is_host')})")
+
         # Cập nhật thông tin người chơi từ Firebase và xác định host
         for i, slot in enumerate(player_slots):
             if slot and slot.get("username"):
@@ -862,16 +902,31 @@ def get_room_data(room_id):
                         "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
                         "score": user_data.get("stats", {}).get("point", 1000),
                     })
+                
+                # Đảm bảo user_id tồn tại trong slot
+                if "user_id" not in slot:
+                    slot["user_id"] = next((uid for uid, u in users.items() if u.get("username") == slot["username"]), None)
+                
                 # Cập nhật trạng thái host dựa trên host_id
-                slot["is_host"] = slot.get("user_id") == host_id
+                current_is_host = slot["user_id"] == host_id
+                if current_is_host != slot.get("is_host", False):
+                    print(f"Updating host status for {slot['username']}: {current_is_host}")
+                slot["is_host"] = current_is_host
 
-        # Log kết quả cuối cùng
-        print(f"Final player_slots: {player_slots}")
-        print(f"Host ID: {host_id}")
+        # Debug: Print thông tin sau khi cập nhật
+        print("After update:")
+        for i, slot in enumerate(player_slots):
+            if slot:
+                print(f"Slot {i}: {slot.get('username')} (ID: {slot.get('user_id')}, is_host: {slot.get('is_host')})")
 
         # Cập nhật lại Redis
         room["player_slots"] = player_slots
         redis_client.set(f"room:{room_id}", json.dumps(room))
+
+        # Log kết quả cuối cùng
+        print(f"Final room data:")
+        print(f"Host ID: {host_id}")
+        print(f"Player slots: {json.dumps(player_slots, indent=2)}")
 
         # Trả về cả player_slots và host_id
         return jsonify({
