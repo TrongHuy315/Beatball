@@ -366,14 +366,14 @@ def join_room_handler(room_id):
         if empty_slot is None:
             return jsonify({"error": "No empty slots"}), 403
 
-        # Thêm người chơi vào slot trống
+        # Thêm người chơi vào slot
         room["player_slots"][empty_slot] = {
             "username": username,
             "user_id": user_id,
             "slot": empty_slot,
             "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
             "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": False,
+            "is_host": False,  # Người mới vào không phải host
             "is_ready": False
         }
 
@@ -387,10 +387,10 @@ def join_room_handler(room_id):
         print(f"Updated room data: {json.dumps(room, indent=2)}")
 
         # Emit socket event
-        socketio.emit("player_joined", {
-            "room_id": room_id,
-            "player_slots": room["player_slots"],
-            "host_id": room["host_id"]
+        socketio.emit('player_joined', {
+            'room_id': room_id,
+            'player_slots': room["player_slots"],
+            'host_id': room["host_id"]  # Đảm bảo gửi đúng host_id hiện tại
         }, room=room_id)
 
         return jsonify({
@@ -428,11 +428,13 @@ def leave_room(room_id):
             # Nếu còn người chơi khác trong phòng
             remaining_players = [p for p in room["player_slots"] if p is not None]
             if remaining_players:
+                # Nếu host rời phòng
                 if room.get("host_id") == session.get("user_id"):
-                    # Chọn người chơi còn lại đầu tiên làm host mới
-                    new_host = remaining_players[0]
-                    new_host["is_host"] = True
-                    room["host_id"] = new_host.get("user_id")
+                    remaining_players = [p for p in room["player_slots"] if p is not None]
+                    if remaining_players:
+                        new_host = remaining_players[0]  # Chọn người đầu tiên còn lại làm host
+                        new_host["is_host"] = True
+                        room["host_id"] = new_host["user_id"]
 
                 redis_client.set(f"room:{room_id}", json.dumps(room))
                 socketio.emit('player_left', {

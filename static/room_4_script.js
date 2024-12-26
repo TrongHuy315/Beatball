@@ -138,18 +138,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
-        currentHostId = data.host_id;  // Lưu host_id
-
-        // Cập nhật is_host cho tất cả player slots
+        currentHostId = data.host_id; // Cập nhật host_id từ backend
+    
         const playerSlots = data.player_slots.map(slot => {
             if (slot) {
                 slot.is_host = slot.user_id === currentHostId;
             }
             return slot;
         });
-
+    
         renderPlayerCards(playerSlots);
-    });               
+    });                   
 
     socket.on("player_left", (data) => {
         console.log("Player left event:", data);
