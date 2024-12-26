@@ -34,11 +34,12 @@ class PhysicsEngine {
         
         this.walls = new Wall(this.world);
         this.players = new Map();
-        this.ball = new Ball(this.world); 
+        this.ball = new Ball(this.world, this.engine); 
         this.setUpConnection(); 
         setInterval(() => {
-            Matter.Engine.update(this.engine);
             this.gameloop(); 
+            Matter.Engine.update(this.engine);
+            io.emit('sendGameState', this.gameState()); 
         }, 1000 / 60);
     }
 	gameState () {
@@ -61,7 +62,7 @@ class PhysicsEngine {
         return state; 
 	}
 	gameloop() {
-        io.emit('sendGameState', this.gameState()); 
+        this.ball.update(); 
 	}
 	setUpConnection () {
         const {totalWidth, totalHeight} = CONFIG; 

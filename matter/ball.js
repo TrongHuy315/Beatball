@@ -1,89 +1,77 @@
 const Matter = require('matter-js');
-const CONFIG = require('./config.js');
-
+const { totalWidth } = require('./config.js');
 class Ball {
-    constructor(world) {
+    constructor(world, engine) {
         this.world = world;
-        this.config = CONFIG.ball;
-        this.body = null;
-        this.isColliding = false;
-        this.oldVelocities = new Map();
-        this.damping = this.config.physics.damping;
-        
+        this.engine = engine; 
+        this.config = require('./config.js').ball;
         this.initialize();
     }
 
     initialize() {
-        this.body = this.createPhysicsBody();
-        Matter.World.add(this.world, this.body);
-        Matter.Events.on(this.world, 'beforeUpdate', () => {
+        this.damping = this.config.physics.damping; 
+        this.body = this.createBody();
+        this.isColliding = false;
+        this.oldVelocities = new Map();
+
+        Matter.Events.on(this.engine, 'beforeUpdate', () => {            
             if (!this.isColliding) {
                 this.oldVelocities.set(this.body.id, {
                     x: this.body.velocity.x,
                     y: this.body.velocity.y
                 });
             }
-            this.afterPhysicsUpdate();
         });
 
-        Matter.Events.on(this.world, 'collisionStart', (event) => {
+        Matter.Events.on(this.engine, 'collisionStart', () => {
             this.isColliding = true;
         });
 
-        Matter.Events.on(this.world, 'collisionEnd', () => {
+        Matter.Events.on(this.engine, 'collisionEnd', () => {
             this.isColliding = false;
         });
 
-        Matter.Events.on(this.world, 'collisionActive', (event) => {
+        Matter.Events.on(this.engine, 'collisionActive', (event) => {
             const oldVel = this.oldVelocities.get(this.body.id);
-            
+            if (!oldVel) return;
+
             event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA :
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA :
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-
-                if (ball && wall && oldVel) {
-                    const currentVel = {
-                        x: ball.velocity.x,
-                        y: ball.velocity.y
-                    };
-
+    
+                if (ball && wall) {
+                    const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
+            
                     const EPSILON = 0.0001;
                     if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
                         if (Math.abs(currentVel.x) < EPSILON) {
-                            this.setVelocity(
-                                -oldVel.x * this.config.physics.restitution,
-                                currentVel.y
-                            );
+                            this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y); 
                         }
                         if (Math.abs(currentVel.y) < EPSILON) {
-                            this.setVelocity(
-                                currentVel.x,
-                                -oldVel.y * this.config.physics.restitution
-                            );
+                            this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution); 
                         }
                     }
                 }
             });
         });
+        this.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
     }
-
-    afterPhysicsUpdate() {
-        const xx = this.body.velocity.x * this.damping;
-        const yy = this.body.velocity.y * this.damping;
-        this.setVelocity(xx, yy);
+    update() {
+        var xx = this.body.velocity.x * this.damping; 
+        var yy = this.body.velocity.y * this.damping; 
+        this.setVelocity(xx, yy); 
     }
-
-    createPhysicsBody() {
+    createBody() {
         const { physics } = this.config;
         
-        return Matter.Bodies.circle(
-            CONFIG.totalWidth / 2,  // center x
-            CONFIG.totalHeight / 2, // center y
+        const body = Matter.Bodies.circle(
+            CONFIG.totalWidth / 2,
+            CONFIG.totalHeight / 2,
             physics.radius,
             {
-                label: 'ball',
+                label: 'ball', 
                 mass: physics.mass,
                 restitution: physics.restitution,
                 friction: physics.friction,
@@ -95,6 +83,9 @@ class Ball {
                 slop: physics.slop
             }
         );
+
+        Matter.World.add(this.world, body);
+        return body;
     }
 
     controlSpeed() {
@@ -109,15 +100,13 @@ class Ball {
             );
         }
     }
-
+    
     reset() {
-        const centerX = CONFIG.totalWidth / 2;
-        const centerY = CONFIG.totalHeight / 2;
-        this.setPosition(centerX, centerY);
+        this.setPosition(this.config.spawnX, this.config.spawnY);
         this.setVelocity(0, 0);
         this.damping = this.config.physics.damping;
     }
-
+    
     setVelocity(x, y) {
         Matter.Body.setVelocity(this.body, { x, y });
     }
@@ -136,10 +125,13 @@ class Ball {
 
     destroy() {
         Matter.World.remove(this.world, this.body);
-        Matter.Events.off(this.world, 'beforeUpdate');
-        Matter.Events.off(this.world, 'collisionStart');
-        Matter.Events.off(this.world, 'collisionEnd');
-        Matter.Events.off(this.world, 'collisionActive');
+        Matter.Events.off(this.engine, 'beforeUpdate');
+        Matter.Events.off(this.engine, 'collisionStart');
+        Matter.Events.off(this.engine, 'collisionEnd');
+        Matter.Events.off(this.engine, 'collisionActive');
+        this.oldVelocities.clear();
+        this.body = null;
+        this.world = null;
     }
 }
 

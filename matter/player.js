@@ -39,7 +39,7 @@ class Player {
     createPhysicsBody(x, y) {
         const { radius } = CONFIG.player.graphic;
         const physics = CONFIG.player.physics;
-        categories = {
+        const categories = {
             outer: 0x0001,  // 00001
             inner: 0x0002,  // 00010
             player: 0x0004, // 00100

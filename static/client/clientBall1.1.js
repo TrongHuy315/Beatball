@@ -2,6 +2,7 @@ class Ball {
     constructor(scene, config) {
         this.scene = scene;
         this.config = config;
+        this.frameRemainder = 0; 
         this.initialize();
     }
 
@@ -9,58 +10,12 @@ class Ball {
         this.damping = this.config.physics.damping; 
         this.graphics = this.createGraphics();
         this.body = this.createPhysicsBody();
-        this.scene.events.on('update', this.update, this);
-        this.scene.matter.world.on('beforeupdate', this.afterPhysicsUpdate, this);
-        this.scene.matter.world.on('collisionstart', (event) => {
-            this.isColliding = true;
-        });
-        
-        this.scene.matter.world.on('collisionend', () => {
-            this.isColliding = false;
-        });
-        this.oldVelocities = new Map();
-
-        // Collision Start handler
-        this.scene.matter.world.on('beforeupdate', (event) => {
-            if (!this.isColliding) {
-                this.oldVelocities.set(this.body.id, {
-                    x: this.body.velocity.x,
-                    y: this.body.velocity.y
-                });
-            }
-        });
-    
-        // Collision Active handler - đăng ký riêng
-        this.scene.matter.world.on('collisionactive', (event) => {
-            const oldVel = this.oldVelocities.get(this.body.id); 
-            console.log(oldVel.x, oldVel.y); 
-            event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-    
-                if (ball && wall) {
-                    console.log("Ball and wall"); 
-                    if (!oldVel) return;
-    
-                    const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-            
-                    const EPSILON = 0.0001;
-                    if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
-                        if (Math.abs(currentVel.x) < EPSILON) {
-                            this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y); 
-                        }
-                        if (Math.abs(currentVel.y) < EPSILON) {
-                            this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution); 
-                        }
-                    }
-                }
-            });
-        });
-    
-    }
-    afterPhysicsUpdate() {
+        this.container = this.scene.add.container(
+            this.body.position.x,
+            this.body.position.y,
+            [this.graphics]
+        );
+        this.scene.matter.add.gameObject(this.container, this.body);
     }
     
     createGraphics() {
@@ -156,36 +111,75 @@ class Ball {
     }
 
     update() {
-        this.graphics.setPosition(this.body.position.x, this.body.position.y);
-        this.body.angle = 0;
+        this.frameRemainder++; 
+        if (this.frameRemainder > 100) this.frameRemainder = 100; 
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
         this.setVelocity(xx, yy); 
+        this.graphics.setPosition(this.body.position.x, this.body.position.y);
+        this.body.angle = 0;
     }
-
-    controlSpeed() {
-		const velocity = this.body.velocity;
-		const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-		
-		if (speed > this.config.limits.maxSpeed) {
-			const scale = this.config.limits.maxSpeed / speed;
-			this.scene.matter.setVelocity(
-				this.body,
-				velocity.x * scale,
-				velocity.y * scale
-			);
-		}
-	}
-	
-	reset() {
-		const centerX = this.scene.scale.width / 2;
-		const centerY = this.scene.scale.height / 2;
-		// this.scene.matter.body.setPosition(this.body, {x: centerX, y: centerY});
-        this.setPosition(centerX, centerY); 
-		this.setVelocity(0, 0);
-        this.damping = this.config.physics.damping; 
-	}
-	
+    predictedState(serverState) {
+        const predictedState = {
+            position: {
+                x: serverState.position.x, 
+                y: serverState.position.y 
+            },
+            velocity: {
+                x: serverState.velocity.x,
+                y: serverState.velocity.y 
+            }
+        };
+        for (let j = 0;j < this.frameRemainder;j++) {
+            predictedState.x *= this.damping; 
+            predictedState.y *= this.damping; 
+            predictedState.x = predictedState.x + predictedState.velocity.x; 
+            predictedState.y = predictedState.y + predictedState.velocity.y; 
+        }
+        return predictedState; 
+    }
+    serverReconciliation(serverState) {
+        this.frameRemainder--; 
+        const predictedState = this.predictedState(serverState); 
+        const positionError = {
+            x: this.body.position.x - predictedState.position.x,
+            y: this.body.position.y - predictedState.position.y
+        };
+    
+        const velocityError = {
+            x: this.body.velocity.x - predictedState.velocity.x,
+            y: this.body.velocity.y - predictedState.velocity.y
+        };
+    
+        const distanceError = Math.sqrt(
+            Math.pow(positionError.x, 2) + 
+            Math.pow(positionError.y, 2)
+        );
+    
+        const velocityErrorMagnitude = Math.sqrt(
+            Math.pow(velocityError.x, 2) + 
+            Math.pow(velocityError.y, 2)
+        );
+    
+        const errorThreshold = 40;
+        const velocityErrorThreshold = 20;
+    
+        if (distanceError > errorThreshold || velocityErrorMagnitude > velocityErrorThreshold) {
+            this.setPosition(predictedState.position.x, predictedState.position.y);
+            this.setVelocity(predictedState.velocity.x, predictedState.velocity.y);
+        } else {
+            const lerpFactor = Math.min(0.3, distanceError / errorThreshold);
+            const velocityLerpFactor = Math.min(0.3, velocityErrorMagnitude / velocityErrorThreshold);
+    
+            const newX = this.body.position.x + (predictedState.position.x - this.body.position.x) * lerpFactor;
+            const newY = this.body.position.y + (predictedState.position.y - this.body.position.y) * lerpFactor;
+            this.setPosition(newX, newY);
+    
+            const newVX = this.body.velocity.x + (predictedState.velocity.x - this.body.velocity.x) * velocityLerpFactor;
+            const newVY = this.body.velocity.y + (predictedState.velocity.y - this.body.velocity.y) * velocityLerpFactor;
+            this.setVelocity(newVX, newVY);
+        }
+    }
 	setVelocity(x, y) {
 		this.scene.matter.setVelocity(this.body, x, y);
 	}
@@ -203,8 +197,22 @@ class Ball {
     }
 
     destroy() {
-        this.graphics.destroy();
-        this.scene.matter.world.remove(this.body);
-        this.scene.events.off('update', this.update, this);
+        if (this.container) {
+            if (this.graphics) {
+                this.container.remove(this.graphics);
+                this.graphics.destroy();
+                this.graphics = null;
+            }
+            this.container.destroy();
+            this.container = null;
+        }
+
+        if (this.body && this.scene && this.scene.matter) {
+            this.scene.matter.world.remove(this.body);
+            this.body = null;
+        }
+
+        this.scene = null;
+        this.config = null;
     }
 }

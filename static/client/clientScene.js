@@ -36,7 +36,7 @@ class ClientScene extends Phaser.Scene {
         createWalls(this); 
 
         // ----- BALL -----
-        // this.ball = new Ball(this, CONFIG.ball);
+        this.ball = new Ball(this, CONFIG.ball);
 
         // ---- SCOREBOARD ----
         this.scoreboard.draw();
@@ -148,6 +148,7 @@ class ClientScene extends Phaser.Scene {
                 this.players.delete(playerId);
             }
         }
+        this.ball.serverReconciliation(data.ball);    
     }
 
     // SET UP SOCKET EVENT 
@@ -232,7 +233,7 @@ const configPhaser = {
     physics: {
         default: 'matter',
         matter: {
-            debug: true, // Set to false in production
+            debug: false, // Set to false in production
             gravity: { y: 0 },
             setBounds: true
         }

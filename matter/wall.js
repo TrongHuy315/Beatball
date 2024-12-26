@@ -16,6 +16,7 @@ class Wall {
         }; 
         const { Bodies, World } = Matter;
         const wallOptions = {
+            label: 'wall', 
             isStatic: true,
             restitution: CONFIG.wall.bounciness,
             friction: CONFIG.wall.friction,
