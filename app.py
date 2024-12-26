@@ -434,15 +434,22 @@ def leave_room(room_id):
                 if was_host:
                     # Chọn người chơi đầu tiên còn lại làm host mới
                     new_host = remaining_players[0]
-                    new_host["is_host"] = True
                     room["host_id"] = new_host["user_id"]
+                    
+                    # Cập nhật is_host cho tất cả người chơi
+                    for slot in room["player_slots"]:
+                        if slot:
+                            slot["is_host"] = slot["user_id"] == new_host["user_id"]
                     
                     print(f"New host assigned: {new_host['username']} (ID: {new_host['user_id']})")
 
-                # Cập nhật Redis với thông tin mới
+                # Lưu thay đổi vào Redis
                 redis_client.set(f"room:{room_id}", json.dumps(room))
                 
-                # Thông báo cho tất cả người chơi về việc người chơi rời phòng và host mới (nếu có)
+                # Đồng bộ host
+                sync_room_host(room_id)
+                
+                # Thông báo cho tất cả người chơi
                 socketio.emit('player_left', {
                     'room_id': room_id,
                     'username': username,
@@ -454,13 +461,11 @@ def leave_room(room_id):
                 
                 return jsonify({"success": True}), 200
             else:
-                # Chỉ xóa phòng khi không còn ai
                 redis_client.delete(f"room:{room_id}")
                 socketio.emit('room_deleted', {
                     'room_id': room_id,
-                    'message': 'Room has been deleted (no players remaining)'
+                    'message': 'Room has been deleted'
                 }, room=room_id)
-                
                 return jsonify({"success": True, "message": "Room deleted"}), 200
 
         return jsonify({"success": True}), 200
@@ -793,16 +798,12 @@ def room(room_id):
         username = session.get("username")
         user_id = session.get("user_id")
 
-        # Đảm bảo host_id tồn tại
-        if "host_id" not in room:
-            room["host_id"] = next((slot["user_id"] for slot in room["player_slots"] if slot), user_id)
-
         # Kiểm tra xem người chơi đã có trong player_slots chưa
         player_exists = False
         for slot in room["player_slots"]:
-            if slot and slot.get("username") == username and slot.get("user_id") == user_id:
+            if slot and slot.get("user_id") == user_id:
                 player_exists = True
-                slot["is_host"] = slot["user_id"] == room["host_id"]
+                # Không thay đổi is_host, giữ nguyên trạng thái host
                 break
 
         # Nếu người chơi chưa có trong player_slots và phòng còn chỗ
@@ -812,6 +813,7 @@ def room(room_id):
                 return redirect(url_for("home"))
 
             # Tìm slot trống và thêm người chơi
+            empty_slot_found = False
             for i, slot in enumerate(room["player_slots"]):
                 if slot is None:
                     room["player_slots"][i] = {
@@ -820,10 +822,15 @@ def room(room_id):
                         "slot": i,
                         "avatar": "/static/images/default-avatar.png",
                         "score": 1000,
-                        "is_host": user_id == room["host_id"],
+                        "is_host": user_id == room.get("host_id", ""),
                         "is_ready": False
                     }
+                    empty_slot_found = True
                     break
+
+            if not empty_slot_found:
+                flash("No empty slots available.", "danger")
+                return redirect(url_for("home"))
 
         # Cập nhật danh sách người chơi
         if username not in room["current_players"]:
@@ -833,14 +840,21 @@ def room(room_id):
         redis_client.set(f"room:{room_id}", json.dumps(room))
         session['current_room'] = room_id
 
+        # Đồng bộ host sau khi cập nhật
         sync_room_host(room_id)
 
-        return render_template("room_4.html", room_id=room_id, room=room, session=session)
+        return render_template(
+            "room_4.html",
+            room_id=room_id,
+            room=room,
+            session=session,
+            current_user_id=user_id
+        )
 
     except Exception as e:
         print(f"Error accessing room: {e}")
         flash("An error occurred while accessing the room.", "error")
-        return redirect(url_for("home")) 
+        return redirect(url_for("home"))
     
 @app.route("/room-data/<room_id>", methods=["GET"])
 @login_required

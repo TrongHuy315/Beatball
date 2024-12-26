@@ -407,6 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Khởi tạo ban đầu
     await fetchPlayerData();
+    updateControlButtons(); // Gọi ngay sau khi load trang
 
     // Kiểm tra phòng định kỳ
     setInterval(async () => {
