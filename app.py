@@ -238,6 +238,8 @@ def create_room():
     try:
         data = request.get_json()
         room_type = data.get("room_type")
+        user_id = session.get("user_id")
+        username = session.get("username")
 
         if room_type not in ["lobby", "vs"]:
             return jsonify({"error": "Invalid room type."}), 400
@@ -261,9 +263,11 @@ def create_room():
         
         if retries >= max_retries:
             return jsonify({"error": "Failed to create room. Please try again."}), 500
-
-        user_id = session.get("user_id")
-        username = session.get("username")
+        
+        # Lấy thông tin người chơi từ Firebase
+        firebase_query_url = f"{FIREBASE_URL[:-5]}/{user_id}.json"
+        firebase_response = requests.get(firebase_query_url)
+        user_data = firebase_response.json() if firebase_response.status_code == 200 else {}
 
         # Khởi tạo player_slots với người chơi đầu tiên
         player_slots = [None] * max_players
@@ -271,6 +275,8 @@ def create_room():
             "username": username,
             "user_id": user_id,
             "slot": 0,
+            "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
+            "score": user_data.get("stats", {}).get("point", 1000),
             "is_host": True,
             "is_ready": False
         }
@@ -285,6 +291,7 @@ def create_room():
             "room_type": room_type,
         }
 
+        # Lưu thông tin phòng vào Redis
         redis_client.set(f"room:{room_id}", json.dumps(room_data))
         print(f"Room {room_id} created successfully by {username} (ID: {user_id})")
 

@@ -43,7 +43,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // Cập nhật is_host cho mỗi slot
                 const updatedPlayerSlots = data.player_slots.map(slot => {
                     if (slot) {
-                        slot.is_host = slot.user_id === data.host_id;
+                        const isHost = slot.user_id === data.host_id;
+                        console.log(`Checking host for ${slot.username}: ${isHost}`);
+                        slot.is_host = isHost;
                     }
                     return slot;
                 });
@@ -87,6 +89,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (playerData && playerData.username) {
                 // Xác định host dựa trên currentHostId
                 const isHost = playerData.user_id === currentHostId;
+                console.log(`Rendering card for ${playerData.username}:`, {
+                    user_id: playerData.user_id,
+                    currentHostId: currentHostId,
+                    isHost: isHost
+                });
                 
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
