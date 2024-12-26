@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const socket = io();
     const roomId = document.getElementById("room-id").value; // Lấy room_id từ input hidden
+    const currentRoomId = roomId; // Thêm dòng này
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
@@ -257,15 +258,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     socket.on('game_started', (data) => {
         const { game_state, message } = data;
         
-        // Lưu game state vào session storage để có thể sử dụng ở trang game
         sessionStorage.setItem('game_state', JSON.stringify(game_state));
-        
-        // Hiển thị animation loading
         showGameLoadingScreen();
         
-        // Chuyển hướng đến trang game sau khi animation hoàn tất
         setTimeout(() => {
-            window.location.href = `/game/${currentRoomId}`;
+            window.location.href = `/game/${roomId}`; // Sửa currentRoomId thành roomId
         }, 1500);
     });
 
