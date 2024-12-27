@@ -4,78 +4,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     const currentUserId = document.getElementById("current-user-id").value;
     let currentHostId = null;
 
-    // Tham gia phòng qua Socket.IO
-    socket.emit("join_room", { room_id: roomId });
-
     // Thêm flag để đánh dấu reload
     let isReloading = false;
-
-    window.addEventListener('beforeunload', () => {
-        // Trước khi rời/trước khi reload
-        // Set cờ is_reloading = true
-        localStorage.setItem('is_reloading', 'true');
-    });
-
     window.onbeforeunload = function() {
         isReloading = true;
+        // Lưu flag vào localStorage thay vì sessionStorage
         localStorage.setItem('is_reloading', 'true');
         localStorage.setItem('current_room', roomId);
-        localStorage.setItem('current_user_id', currentUserId);
-    
-        socket.emit('handle_reload', {
-            room_id: roomId,
-            user_id: currentUserId
-        });
-    
         return undefined;
-    };   
+    };
 
-    socket.on("disconnect", () => {
-        console.log("Socket disconnected, isReloading:", isReloading);
-        const wasReloading = localStorage.getItem('is_reloading') === 'true';
-        
-        if (!isReloading && !wasReloading) {
-            fetch(`/leave-room/${roomId}`, {
-                method: "POST",
-                keepalive: true
-            }).then(response => {
-                console.log("Left room response:", response.status);
-            }).catch(error => {
-                console.error("Error leaving room:", error);
-            });
-        } else {
-            console.log("Skipping leave-room request - page is reloading");
-        }
-    });
-
-    // Kiểm tra nếu đang reload
-    const storedRoomId = localStorage.getItem('current_room');
-    const isReload = localStorage.getItem('is_reloading') === 'true';
-
-    if (isReload && storedRoomId === roomId) {
+    // Kiểm tra xem có đang reload không
+    if (localStorage.getItem('is_reloading') === 'true' && 
+        localStorage.getItem('current_room') === roomId) {
         console.log("Page is being reloaded");
-        socket.emit('handle_reload', {
+        socket.emit("handle_reload", {
             room_id: roomId,
             user_id: currentUserId
         });
     }
 
-    // Xóa trạng thái reload sau khi xử lý
+    // Xóa flag reload sau khi xử lý
     localStorage.removeItem('is_reloading');
     localStorage.removeItem('current_room');
-    localStorage.removeItem('current_user_id');
 
     // Xử lý khi load trang
     window.onload = function() {
-        const wasReloading = localStorage.getItem('is_reloading') === 'true';
+        const wasReloading = sessionStorage.getItem('isReloading');
         if (wasReloading) {
             console.log("Page was reloaded");
-            localStorage.setItem('is_reloading', 'false');
+            sessionStorage.removeItem('isReloading');
         }
     };
 
     const playerCardsContainer = document.getElementById("player-cards");
     let currentPlayers = [];
+
+    // Tham gia phòng qua Socket.IO
+    socket.emit("join_room", { room_id: roomId });
 
     // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {
@@ -313,12 +279,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         return session.get("username");
     }
     
+    // Thêm listener cho socket disconnect
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        // Có thể thêm xử lý khi mất kết nối
+    });
+    
     // Thêm listener cho room_deleted
     socket.on('room_deleted', (data) => {
         console.log('Room deleted:', data);
         alert('Phòng đã bị xóa!');
         // Chuyển về trang danh sách phòng
         window.location.href = '/rooms';
+    });
+
+    // Sửa lại event listener socket disconnect
+    socket.on("disconnect", () => {
+        console.log("Socket disconnected, isReloading:", isReloading);
+        if (!isReloading) {
+            fetch(`/leave-room/${roomId}`, {
+                method: "POST",
+                keepalive: true
+            }).then(response => {
+                console.log("Left room response:", response.status);
+            }).catch(error => {
+                console.error("Error leaving room:", error);
+            });
+        }
     });
 
     // Trong file room_4.js
