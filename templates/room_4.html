@@ -164,6 +164,15 @@
             if (history.state === null) {
                 history.replaceState({ page: "room" }, "", window.location.href);
             }
+        
+            // Nếu đang dùng Socket.IO, thêm xử lý disconnect
+            if (typeof io !== 'undefined') {
+                const socket = io();
+                socket.on('disconnect', () => {
+                    handleLeaveRoom();
+                });
+            }
+        });
 
         // Constants cho trạng thái game
         const GAME_STATES = {
