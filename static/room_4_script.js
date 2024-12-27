@@ -12,20 +12,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Tham gia phòng qua Socket.IO
     socket.emit("join_room", { room_id: roomId });
 
-    // Thêm flag để đánh dấu reload
+    // Đánh dấu cờ reload trên localStorage
     let isReloading = false;
     window.addEventListener("beforeunload", function (e) {
-        isReloading = performance.getEntriesByType("navigation")[0]?.type === "reload";
+        // Kiểm tra performance.getEntriesByType("navigation") để xem có phải reload
+        const navType = performance.getEntriesByType("navigation")[0]?.type;
+        isReloading = (navType === "reload");
+        
+        // Lưu cờ vào localStorage để phòng trường hợp logic ondisconnect
+        localStorage.setItem("is_reloading", String(isReloading));
     });
 
+    // Khi socket disconnect, chỉ rời phòng nếu không phải reload
     socket.on("disconnect", () => {
+        console.log("Socket disconnected, isReloading =", isReloading);
         if (!isReloading) {
-            // Chỉ gửi yêu cầu rời phòng khi thực sự rời trang
+            // Chỉ khi user rời thật (đóng tab, chuyển trang) mới báo leave-room
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
             });
         }
+    });
+
+    // Sau khi trang load xong, đặt lại is_reloading = false
+    window.addEventListener("load", () => {
+        localStorage.setItem("is_reloading", "false");
     });
 
     const playerCardsContainer = document.getElementById("player-cards");

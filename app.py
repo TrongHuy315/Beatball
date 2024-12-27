@@ -434,18 +434,52 @@ def update_host(room):
     
 @app.route("/leave-room/<room_id>", methods=["POST"])
 def leave_room(room_id):
-    room = get_room(room_id)
-    if not room:
+    room_data = redis_client.get(f"room:{room_id}")
+    if not room_data:
         return jsonify({"error": "Room does not exist"}), 404
 
+    room = json.loads(room_data)
     user_id = session.get("user_id")
+    username = session.get("username")
+
+    # Tìm slot user
+    left_slot_index = None
+    was_host = False
+
     for i, slot in enumerate(room["player_slots"]):
         if slot and slot["user_id"] == user_id:
+            left_slot_index = i
+            was_host = slot.get("is_host", False)
             room["player_slots"][i] = None
             break
 
-    update_host(room)
-    save_room(room_id, room)
+    if username in room["current_players"]:
+        room["current_players"].remove(username)
+
+    # Nếu còn người => chỉ đổi host nếu user này là host
+    remaining_slots = [s for s in room["player_slots"] if s]
+    if remaining_slots:
+        if was_host:
+            # Gán host cho người đầu (hoặc logic nào đó)
+            new_host = remaining_slots[0]
+            new_host["is_host"] = True
+            room["host_id"] = new_host["user_id"]
+        # Lưu
+        redis_client.set(f"room:{room_id}", json.dumps(room))
+        socketio.emit('player_left', {
+            'room_id': room_id,
+            'username': username,
+            'player_slots': room["player_slots"],
+            'current_players': room["current_players"],
+            'new_host_id': room["host_id"] if was_host else None
+        }, room=room_id)
+    else:
+        # Xóa phòng nếu không còn ai
+        redis_client.delete(f"room:{room_id}")
+        socketio.emit('room_deleted', {
+            'room_id': room_id,
+            'message': 'Room has been deleted'
+        }, room=room_id)
 
     return jsonify({"success": True}), 200
     
@@ -773,14 +807,11 @@ def room(room_id):
         user_id = session.get("user_id")
         username = session.get("username")
 
-        # Đảm bảo thông tin trong session đồng bộ
-        if session.get("current_room") != room_id:
-            session["current_room"] = room_id
-
-        # Kiểm tra nếu người chơi đã có trong phòng
+        # Kiểm tra user đã tồn tại trong room chưa
         player_exists = any(slot and slot["user_id"] == user_id for slot in room["player_slots"])
 
         if not player_exists:
+            # User chưa có => đưa vào slot trống
             for i, slot in enumerate(room["player_slots"]):
                 if slot is None:
                     room["player_slots"][i] = {
@@ -789,13 +820,20 @@ def room(room_id):
                         "slot": i,
                         "avatar": "/static/images/default-avatar.png",
                         "score": 1000,
-                        "is_host": user_id == room["host_id"],
+                        "is_host": (user_id == room["host_id"]),  # Giữ host nếu user_id == host_id
                         "is_ready": False,
                     }
-                    room["current_players"].append(username)
+                    # Thêm username vào current_players
+                    if username not in room["current_players"]:
+                        room["current_players"].append(username)
                     break
 
+        # Lưu room
         redis_client.set(f"room:{room_id}", json.dumps(room))
+
+        # Cập nhật session
+        session["current_room"] = room_id
+
         return render_template("room_4.html", room_id=room_id, room=room, session=session)
 
     except Exception as e:
@@ -1140,28 +1178,40 @@ def game_page(room_id):
 # app.py
 
 def sync_room_host(room_id):
-    room = get_room(room_id)
-    if not room:
+    room_data = redis_client.get(f"room:{room_id}")
+    if not room_data:
         return
 
-    # Nếu không có host_id, đặt host mới
+    room = json.loads(room_data)
     if not room.get("host_id"):
+        # Nếu chưa có host => lấy người đầu
         remaining = [slot for slot in room["player_slots"] if slot]
         if remaining:
             new_host = remaining[0]
             room["host_id"] = new_host["user_id"]
             new_host["is_host"] = True
         else:
-            room["host_id"] = None  # Không còn ai trong phòng
+            room["host_id"] = None
+    else:
+        # Kiểm tra người host cũ còn trong room ko
+        host_in_room = any(slot and slot["user_id"] == room["host_id"] for slot in room["player_slots"])
+        if not host_in_room:
+            # Host cũ rời => pick host mới
+            remaining = [slot for slot in room["player_slots"] if slot]
+            if remaining:
+                new_host = remaining[0]
+                room["host_id"] = new_host["user_id"]
+                new_host["is_host"] = True
+            else:
+                room["host_id"] = None
 
-    # Đồng bộ trạng thái is_host cho tất cả các slot
+    # Cập nhật is_host = True/False
     for slot in room["player_slots"]:
         if slot:
             slot["is_host"] = (slot["user_id"] == room["host_id"])
-
-    save_room(room_id, room)
-
-    # Gửi sự kiện host_update qua Socket.IO
+    
+    # Lưu
+    redis_client.set(f"room:{room_id}", json.dumps(room))
     socketio.emit("host_update", {
         "room_id": room_id,
         "host_id": room["host_id"],
