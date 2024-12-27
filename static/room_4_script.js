@@ -12,13 +12,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem('current_room', roomId);
         localStorage.setItem('current_user_id', currentUserId);
     
+        // Thông báo server về việc reload
         socket.emit('handle_reload', {
             room_id: roomId,
             user_id: currentUserId
         });
     
         return null; // Không gửi yêu cầu leave-room
-    };
+    };    
 
     // Kiểm tra nếu đang reload
     const storedRoomId = localStorage.getItem('current_room');
