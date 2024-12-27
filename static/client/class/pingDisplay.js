@@ -5,7 +5,10 @@ class PerfMonitor {
         this.currentPing = 0;
         this.pingHistory = [];
         this.maxPingHistory = 10;
-
+        this.networkState = {
+            latency: 0,
+            jitter: 0
+        };
         // FPS tracking
         this.fpsHistory = [];
         this.maxFpsHistory = 60;
@@ -18,8 +21,8 @@ class PerfMonitor {
             position: absolute;
             top: 10px;
             left: 4px;
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
             border-radius: 5px;
             font-family: Arial;
             font-size: 14px;
@@ -27,6 +30,7 @@ class PerfMonitor {
             display: flex;
             flex-direction: column;
             gap: 5px;
+            color: white;
         `;
 
         // Tạo các elements cho ping và fps với style riêng
@@ -41,7 +45,12 @@ class PerfMonitor {
             color: #333;
             font-weight: '100'
         `;
-        
+        this.jitterElement = document.createElement('div');
+        this.jitterElement.style.cssText = `
+            color: #333;
+            font-weight: '100'
+        `;
+        this.container.appendChild(this.jitterElement);
         this.container.appendChild(this.pingElement);
         this.container.appendChild(this.fpsElement);
 
@@ -72,7 +81,11 @@ class PerfMonitor {
             this.scene.SOCKET.emit('ping');
         }, 2000);
     }
-
+    getInterpolationDelay() {
+        const baseDelay = this.networkState.latency * 1.2;
+        const serverTickRate = 1000/60; 
+        return Math.min(Math.max(baseDelay + serverTickRate, 30), 200);
+    }
     updatePing(ping) {
         this.currentPing = ping;
         this.pingHistory.push(ping);
@@ -83,11 +96,23 @@ class PerfMonitor {
         const avgPing = Math.round(
             this.pingHistory.reduce((a, b) => a + b, 0) / this.pingHistory.length
         );
-        
+        const jitter = this.updateJitter();
+        this.networkState.latency = avgPing; 
         this.pingElement.textContent = `${avgPing} ms`;
+        this.jitterElement.textContent = `Jitter: ${jitter}ms`;
         this.updatePingColor(avgPing);
     }
-
+    updateJitter() {
+        if (this.pingHistory.length < 2) return;
+        
+        let jitterSum = 0;
+        for (let i = 1; i < this.pingHistory.length; i++) {
+            jitterSum += Math.abs(this.pingHistory[i] - this.pingHistory[i-1]);
+        }
+        const avgJitter = Math.round(jitterSum / (this.pingHistory.length - 1));
+        this.networkState.jitter = avgJitter;
+        return avgJitter;
+    }
     updatePingColor(ping) {
         let color = '#00ff00';
         if (ping > 150) color = '#ff0000';
@@ -108,7 +133,12 @@ class PerfMonitor {
 
         this.fpsElement.textContent = `FPS: ${avgFps}`;
     }
-
+    getCurrentNetworkState() {
+        return {
+            latency: this.networkState.latency,
+            jitter: this.networkState.jitter
+        };
+    }
     destroy() {
         // Clear all intervals
         clearInterval(this.pingInterval);

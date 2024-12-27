@@ -1,8 +1,8 @@
 CONFIG = {
     offset_vertical: 90, 
-    offset_horizontal: 120, 
+    offset_horizontal: 75, 
     pitch: {
-        width: 1000,  
+        width: 1100,  
         height: 550, 
         borderWidth: 5, 
         backgroundColor:'rgba(110, 120, 123, 0.25)' 

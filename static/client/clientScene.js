@@ -15,11 +15,12 @@ class ClientScene extends Phaser.Scene {
             }
         };
         this.categories = {
-            outer: 0x0001,  // 00001
-            inner: 0x0002,  // 00010
-            player: 0x0004, // 00100
-            ball: 0x0008,   // 01000
-            net: 0x00016    // 10000
+            outer: 0x0001,         // 000001
+            inner: 0x0002,         // 000010
+            player: 0x0004,        // 000100
+            ball: 0x0008,          // 001000
+            net: 0x0010,           // 010000
+            nonGraphicBall: 0x0020 // 100000
         };
     }
     preload() {
@@ -34,7 +35,6 @@ class ClientScene extends Phaser.Scene {
 
         // ----- SET UP WALLS WORLD ----- 
         createWalls(this); 
-
         // ----- BALL -----
         this.ball = new Ball(this, CONFIG.ball);
 
@@ -47,8 +47,12 @@ class ClientScene extends Phaser.Scene {
         this.setupWebSocket();
         // ---- PING DISPLAY ---- 
         this.perfMonitor = new PerfMonitor(this);
+        this.ball1 = new Ball1(this, CONFIG.ball);
+
         // ---- INTERPOLATION 
-        this.interpolators = new InterpolationManager(this); 
+        // this.interpolators = new InterpolationManager(this); 
+
+
     }
 
     // GOAL CELEBRATION 
@@ -117,6 +121,12 @@ class ClientScene extends Phaser.Scene {
         if (this.interpolators) {
             this.interpolators.update(); 
         }
+        if (this.ball) {
+            this.ball.update(); 
+        }
+        if (this.ball1) {
+            this.ball1.update(); 
+        }
     }
 
     // HANDLE RECEIVED DATA 
@@ -143,14 +153,16 @@ class ClientScene extends Phaser.Scene {
         }
         for (const [playerId, player] of this.players.entries()) {
             if (!data.players[playerId]) {
-                this.interpolators.removePlayer(playerId); 
+                // this.interpolators.removePlayer(playerId); 
                 player.destroy();
                 this.players.delete(playerId);
             }
         }
-        this.ball.serverReconciliation(data.ball);    
+        this.ball1.serverReconciliation({
+            position: data.ball.position,
+            velocity: data.ball.velocity
+        });
     }
-
     // SET UP SOCKET EVENT 
     setupWebSocket() {
         this.SOCKET = io('http://localhost:3000', {
@@ -175,6 +187,10 @@ class ClientScene extends Phaser.Scene {
         socket.on('sendGameState', (data) => {
             this.handleGameState(data);
         });
+        socket.on('sendBallState', (data) => {
+            console.log("Received"); 
+            this.ball.handleBallState(data); 
+        }); 
 
         // ------ PLAYERS UPDATE -------- 
         socket.on('newPlayerJoin', (data) => {
@@ -230,12 +246,17 @@ const configPhaser = {
     backgroundColor: 0x000000,
     parent: 'player_container',
     transparent: true,
+    fps: {
+        target: 60, // Mục tiêu 60 FPS
+    },
     physics: {
         default: 'matter',
         matter: {
-            debug: false, // Set to false in production
+            debug: true, // Set to false in production
             gravity: { y: 0 },
-            setBounds: true
+            setBounds: true, 
+            positionIterations: 8,  // Tăng độ chính xác physics (default: 6)
+            velocityIterations: 6,  // Tăng độ chính xác physics (default: 4)
         }
     },
     scene: ClientScene

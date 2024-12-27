@@ -2,7 +2,7 @@ const Matter = require('matter-js');
 const CONFIG = require('./config.js');
 
 class Player {
-    constructor(world, engine) {
+    constructor(world, engine, io) {
         this.world = world;
         this.engine = engine; 
         this.body = null;
@@ -11,12 +11,12 @@ class Player {
         this.moveType = CONFIG.player.movement.type;
         this.sequence = 0;
         this.lastProcessedInput = null;
-
-        // Ball kick config
-        const { normal_kick_distance, normal_kick_velocity_add } = CONFIG.player.ballConfig;
-        this.normalKickDistance = normal_kick_distance;
-        this.normalKickVelocity = normal_kick_velocity_add;
-
+        this.io = io; 
+        // Ball kick config 
+        const { normalKickDistance, normalKickVelocityAdd } = CONFIG.player.ballConfig;
+        this.normalKickDistance = normalKickDistance;
+        this.normalKickVelocityAdd = normalKickVelocityAdd;
+        console.log(this.normalKickDistance, this.normalKickVelocityAdd); 
         this.create();
         Matter.Events.on(this.engine, 'beforeUpdate', this.afterPhysicsUpdate.bind(this));
     }
@@ -130,22 +130,32 @@ class Player {
     }
 
     handleKick(ball) {
-        const { player } = CONFIG;
+        const { player} = CONFIG;
         const distance = this.getDistanceTo(ball.body.position);
         const minDistance = (player.graphic.radius + ball.radius + this.normalKickDistance);
-
         if (distance <= minDistance) {
             const angle = this.getAngleTo(ball.body.position);
 
             const velocity = {
-                x: Math.cos(angle) * this.normalKickVelocity,
-                y: Math.sin(angle) * this.normalKickVelocity
+                x: Math.cos(angle) * this.normalKickVelocityAdd,
+                y: Math.sin(angle) * this.normalKickVelocityAdd
             };
 
             const currentVelocity = ball.body.velocity;
             Matter.Body.setVelocity(ball.body, {
                 x: currentVelocity.x + velocity.x,
                 y: currentVelocity.y + velocity.y
+            });
+            this.io.emit('sendBallState', {
+                position: {
+                    x: ball.body.position.x,
+                    y: ball.body.position.y
+                },
+                velocity: {
+                    x: ball.body.velocity.x,
+                    y: ball.body.velocity.y
+                }, 
+                timestamp: Date.now()
             });
         }
     }

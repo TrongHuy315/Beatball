@@ -1,10 +1,12 @@
 const Matter = require('matter-js');
 const { totalWidth } = require('./config.js');
 class Ball {
-    constructor(world, engine) {
+    constructor(world, engine, io) {
+        this.io = io; 
         this.world = world;
         this.engine = engine; 
         this.config = require('./config.js').ball;
+        this.radius = CONFIG.ball.physics.radius; 
         this.initialize();
     }
 
@@ -27,8 +29,47 @@ class Ball {
             this.isColliding = true;
         });
 
-        Matter.Events.on(this.engine, 'collisionEnd', () => {
+        Matter.Events.on(this.engine, 'collisionEnd', (event) => {
             this.isColliding = false;
+            
+            // Check các collision pairs
+            event.pairs.forEach(pair => {
+                // Xác định ball và object va chạm
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                
+                let ball = null;
+                
+                // Tìm ball trong pair
+                if (bodyA.label === 'ball') ball = bodyA;
+                if (bodyB.label === 'ball') ball = bodyB;
+                
+                // Nếu có ball trong collision
+                if (ball) {
+                    const otherBody = ball === bodyA ? bodyB : bodyA;
+                    
+                    if (otherBody.label === 'wall' || otherBody.label.startsWith('player')) {
+                        try {
+                            const ballState = {
+                                position: ball.position, 
+                                velocity: ball.velocity, 
+                                timestamp: Date.now(),
+                            };
+        
+                            this.io.emit('sendBallState', ballState);
+        
+                        } catch (error) {
+                            console.error('Error sending collision end ball state:', error);
+                            
+                            this.io.emit('sendBallState', {
+                                position: ball.position,
+                                velocity: ball.velocity, 
+                                timestamp: Date.now()
+                            });
+                        }
+                    }
+                }
+            });
         });
 
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
@@ -47,9 +88,11 @@ class Ball {
                     const EPSILON = 0.0001;
                     if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
                         if (Math.abs(currentVel.x) < EPSILON) {
+                            console.log("Flip x");
                             this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y); 
                         }
                         if (Math.abs(currentVel.y) < EPSILON) {
+                            console.log("Flip y");
                             this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution); 
                         }
                     }
@@ -78,7 +121,6 @@ class Ball {
                 frictionAir: physics.frictionAir,
                 inertia: physics.inertia,
                 frictionStatic: physics.frictionStatic,
-                angle: physics.angle,
                 isStatic: false,
                 slop: physics.slop
             }
@@ -88,23 +130,10 @@ class Ball {
         return body;
     }
 
-    controlSpeed() {
-        const velocity = this.body.velocity;
-        const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-        
-        if (speed > this.config.limits.maxSpeed) {
-            const scale = this.config.limits.maxSpeed / speed;
-            this.setVelocity(
-                velocity.x * scale,
-                velocity.y * scale
-            );
-        }
-    }
-    
     reset() {
         this.setPosition(this.config.spawnX, this.config.spawnY);
         this.setVelocity(0, 0);
-        this.damping = this.config.physics.damping;
+        // this.damping = this.config.physics.damping;
     }
     
     setVelocity(x, y) {

@@ -24,18 +24,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.87.0/phaser.min.js"></script>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 
-    <!-- SET UP -->
-    <script src="/client/pingDisplay.js"></script> 
-    <script src="/client/interpolate1.1.js"></script> 
-    <script src="/client/helperFunc.js"></script>
-    <script src="/client/config.js"></script>
-    <script src="/client/clientPlayer1.2.js"></script>
-    <script src="/client/clientBall1.1.js"></script>
-    <script src="/client/wall.js"></script> 
-    <script src="/client/scoreboard.js"></script>
-    
-    <!-- MAIN SCRIPT -->
-    <script src="/client/stadium.js"></script>
+    <!-- CONFIGURATION AND UTILITIES -->
+    <script src="/client/class/config.js"></script>
+    <script src="/client/class/helperFunc.js"></script>
+    <script src="/client/class/pingDisplay.js"></script>
+
+    <!-- GAME OBJECTS -->
+    <script src="/client/class/wall.js"></script>
+    <script src="/client/class/scoreboard.js"></script>
+    <script src="/client/clientBall/nonGraphicBall.js"></script>
+    <script src="/client/clientBall/clientBall1.5.js"></script>
+    <script src="/client/clientBall/clientBall1.1.js"></script>
+    <script src="/client/clientPlayer/clientPlayer1.2.js"></script>
+
+    <!-- INTERPOLATION AND SCENES -->
+    <script src="/client/interpolation/interpolate1.1.js"></script>
     <script src="/client/clientScene.js"></script>
+    <script src="/client/stadium.js"></script>
 </body>
 </html>

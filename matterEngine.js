@@ -5,6 +5,7 @@ const Player = require('./matter/player.js');
 const CONFIG = require('./matter/config.js');
 const Ball = require('./matter/ball.js');
 const express = require('express');
+const { Engine, Events } = require('matter-js');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
@@ -22,7 +23,7 @@ app.get('/', (req, res) => {
 });
 class PhysicsEngine {
     constructor() {
-
+        let cnt = 0; 
         this.engine = Matter.Engine.create({
             gravity: {
                 x: 0,
@@ -30,17 +31,26 @@ class PhysicsEngine {
                 scale: 0
             }
         });
-        this.world = this.engine.world;
-        
+        this.world = this.engine.world;        
         this.walls = new Wall(this.world);
         this.players = new Map();
-        this.ball = new Ball(this.world, this.engine); 
+        this.ball = new Ball(this.world, this.engine, io); 
         this.setUpConnection(); 
         setInterval(() => {
             this.gameloop(); 
             Matter.Engine.update(this.engine);
             io.emit('sendGameState', this.gameState()); 
         }, 1000 / 60);
+        Events.on(this.engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                if ((bodyA.label == 'player' && bodyB.label == 'ball') || (bodyB.label == 'player' && bodyA.label == 'ball')) {
+                    cnt++; 
+                    console.log(`Collision between: ${bodyA.label} and ${bodyB.label}`, cnt, `times`);
+                }
+            });
+        });
     }
 	gameState () {
 		const state = {
@@ -69,7 +79,7 @@ class PhysicsEngine {
         io.on('connection', (socket) => {            
             // PLAYER JOIN 
             socket.on('requestJoin', () => {
-                const newPlayer = new Player(this.world, this.engine);
+                const newPlayer = new Player(this.world, this.engine, io);
                 newPlayer.create(totalWidth / 2, totalHeight / 2); 
                 this.players.set(socket.id, newPlayer);
                 

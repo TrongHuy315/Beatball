@@ -3,6 +3,7 @@ class Ball {
         this.scene = scene;
         this.config = config;
         this.frameRemainder = 0; 
+        this.authorityBall = scene.authorityBall; 
         this.initialize();
     }
 
@@ -89,7 +90,8 @@ class Ball {
 
     createPhysicsBody() {
         const { physics } = this.config;
-        
+        const ballCategory = this.scene.categories.ball;
+        const nonGraphicBallCategory = this.scene.categories.nonGraphicBall;
         return this.scene.matter.add.circle(
             this.scene.scale.width / 2,
             this.scene.scale.height / 2,
@@ -102,92 +104,38 @@ class Ball {
                 frictionAir: physics.frictionAir,
                 inertia: physics.inertia,
                 frictionStatic: physics.frictionStatic,
-                angle: physics.angle,
-                isStatic: false,
+                isStatic: true,
                 slop: physics.slop, 
-                velocity: { x: 0, y: 0 }
+                velocity: { x: 0, y: 0 }, 
+                collisionFilter: {
+                    category: ballCategory, 
+                    mask: ~nonGraphicBallCategory 
+                }
             }
         );
     }
 
     update() {
-        this.frameRemainder++; 
-        if (this.frameRemainder > 100) this.frameRemainder = 100; 
-        var xx = this.body.velocity.x * this.damping; 
-        var yy = this.body.velocity.y * this.damping; 
-        this.setVelocity(xx, yy); 
-        this.graphics.setPosition(this.body.position.x, this.body.position.y);
-        this.body.angle = 0;
-    }
-    predictedState(serverState) {
-        const predictedState = {
-            position: {
-                x: serverState.position.x, 
-                y: serverState.position.y 
-            },
-            velocity: {
-                x: serverState.velocity.x,
-                y: serverState.velocity.y 
-            }
-        };
-        for (let j = 0;j < this.frameRemainder;j++) {
-            predictedState.x *= this.damping; 
-            predictedState.y *= this.damping; 
-            predictedState.x = predictedState.x + predictedState.velocity.x; 
-            predictedState.y = predictedState.y + predictedState.velocity.y; 
-        }
-        return predictedState; 
-    }
-    serverReconciliation(serverState) {
-        this.frameRemainder--; 
-        const predictedState = this.predictedState(serverState); 
-        const positionError = {
-            x: this.body.position.x - predictedState.position.x,
-            y: this.body.position.y - predictedState.position.y
-        };
-    
-        const velocityError = {
-            x: this.body.velocity.x - predictedState.velocity.x,
-            y: this.body.velocity.y - predictedState.velocity.y
-        };
-    
-        const distanceError = Math.sqrt(
-            Math.pow(positionError.x, 2) + 
-            Math.pow(positionError.y, 2)
+        if (!this.authorityBall) return;
+
+        const authorityPos = this.authorityBall.getPosition();
+        const currentPos = this.getPosition();
+        
+        const distance = Phaser.Math.Distance.Between(
+            currentPos.x, currentPos.y,
+            authorityPos.x, authorityPos.y
         );
-    
-        const velocityErrorMagnitude = Math.sqrt(
-            Math.pow(velocityError.x, 2) + 
-            Math.pow(velocityError.y, 2)
-        );
-    
-        const errorThreshold = 40;
-        const velocityErrorThreshold = 20;
-    
-        if (distanceError > errorThreshold || velocityErrorMagnitude > velocityErrorThreshold) {
-            this.setPosition(predictedState.position.x, predictedState.position.y);
-            this.setVelocity(predictedState.velocity.x, predictedState.velocity.y);
+
+        const teleportThreshold = 100; 
+        if (distance > teleportThreshold) {
+            this.setPosition(authorityPos.x, authorityPos.y);
         } else {
-            const lerpFactor = Math.min(0.3, distanceError / errorThreshold);
-            const velocityLerpFactor = Math.min(0.3, velocityErrorMagnitude / velocityErrorThreshold);
-    
-            const newX = this.body.position.x + (predictedState.position.x - this.body.position.x) * lerpFactor;
-            const newY = this.body.position.y + (predictedState.position.y - this.body.position.y) * lerpFactor;
+            const lerpFactor = 0.3; 
+            const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
+            const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
             this.setPosition(newX, newY);
-    
-            const newVX = this.body.velocity.x + (predictedState.velocity.x - this.body.velocity.x) * velocityLerpFactor;
-            const newVY = this.body.velocity.y + (predictedState.velocity.y - this.body.velocity.y) * velocityLerpFactor;
-            this.setVelocity(newVX, newVY);
         }
     }
-	setVelocity(x, y) {
-		this.scene.matter.setVelocity(this.body, x, y);
-	}
-
-    getVelocity() {
-        return this.body.velocity;
-    }
-
     setPosition(xx, yy) {
         this.scene.matter.body.setPosition(this.body, {x: xx, y: yy});
     }
@@ -212,6 +160,7 @@ class Ball {
             this.body = null;
         }
 
+        this.authorityBall = null;
         this.scene = null;
         this.config = null;
     }
