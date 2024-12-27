@@ -1011,60 +1011,34 @@ def handle_socket_join(data):
 
 @socketio.on('disconnect')
 def on_disconnect():
+    """
+    Xử lý khi socket bị ngắt kết nối.
+    """
     try:
         if 'current_room' in session:
             room_id = session['current_room']
             room_data = redis_client.get(f"room:{room_id}")
-            
+
             if room_data:
                 room = json.loads(room_data)
                 user_id = session.get('user_id')
                 username = session.get('username')
 
-                # Kiểm tra xem có phải đang reload không
+                # Kiểm tra nếu đang reload
                 is_reloading = session.get('is_reloading', False)
-                if not is_reloading:  # Chỉ xử lý rời phòng nếu không phải reload
-                    # Tìm và xóa người chơi khỏi slot
-                    slot_index = None
+                if not is_reloading:
                     for i, slot in enumerate(room["player_slots"]):
                         if slot and slot.get("user_id") == user_id:
-                            slot_index = i
-                            was_host = slot.get("is_host", False)
                             room["player_slots"][i] = None
                             break
 
-                    if slot_index is not None:
-                        if username in room.get("current_players", []):
-                            room["current_players"].remove(username)
-
-                        # Tìm người chơi tiếp theo để làm host nếu cần
-                        remaining_players = [p for p in room["player_slots"] if p is not None]
-                        
-                        if remaining_players:
-                            if was_host:
-                                new_host = remaining_players[0]
-                                room["host_id"] = new_host["user_id"]
-                                
-                                for slot in room["player_slots"]:
-                                    if slot:
-                                        slot["is_host"] = slot["user_id"] == new_host["user_id"]
-
-                            redis_client.set(f"room:{room_id}", json.dumps(room))
-                            
-                            socketio.emit('player_left', {
-                                'room_id': room_id,
-                                'username': username,
-                                'player_slots': room["player_slots"],
-                                'current_players': room["current_players"],
-                                'new_host_id': room["host_id"] if was_host else None
-                            }, room=room_id)
-                        else:
-                            redis_client.delete(f"room:{room_id}")
-                            socketio.emit('room_deleted', {
-                                'room_id': room_id,
-                                'message': 'Room has been deleted'
-                            }, room=room_id)
-
+                    remaining_players = [p for p in room["player_slots"] if p is not None]
+                    if not remaining_players:
+                        redis_client.delete(f"room:{room_id}")
+                        socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
+                    else:
+                        redis_client.set(f"room:{room_id}", json.dumps(room))
+                        socketio.emit('player_left', {"room_id": room_id, "player_slots": room["player_slots"]}, room=room_id)
     except Exception as e:
         print(f"Error in disconnect handler: {e}")
 
@@ -1325,30 +1299,48 @@ def handle_swap_slots(data):
 
 @socketio.on('handle_reload')
 def handle_reload(data):
-    """Xử lý khi client reload trang"""
+    """
+    Xử lý khi client reload trang.
+    """
     try:
         room_id = data.get('room_id')
         user_id = data.get('user_id')
-        
+
         if room_id and user_id:
-            session['is_reloading'] = True
-            session['current_room'] = room_id
-            
-            # Lấy và cập nhật thông tin phòng
+            # Lấy thông tin phòng từ Redis
             room_data = redis_client.get(f"room:{room_id}")
             if room_data:
                 room = json.loads(room_data)
-                # Đảm bảo người chơi vẫn trong phòng
+
+                # Kiểm tra nếu người chơi đã trong phòng
+                player_found = False
                 for slot in room["player_slots"]:
                     if slot and slot.get("user_id") == user_id:
+                        player_found = True
                         slot["is_host"] = user_id == room.get("host_id")
-                        redis_client.set(f"room:{room_id}", json.dumps(room))
                         break
-                
-            print(f"Handling reload for user {user_id} in room {room_id}")
-            
+
+                # Nếu không tìm thấy người chơi, thêm lại vào phòng
+                if not player_found:
+                    empty_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot is None), None)
+                    if empty_slot is not None:
+                        room["player_slots"][empty_slot] = {
+                            "username": session.get("username"),
+                            "user_id": user_id,
+                            "slot": empty_slot,
+                            "avatar": "/static/images/default-avatar.png",
+                            "score": 1000,
+                            "is_host": user_id == room.get("host_id"),
+                            "is_ready": False
+                        }
+
+                # Lưu lại trạng thái phòng vào Redis
+                redis_client.set(f"room:{room_id}", json.dumps(room))
+
+                print(f"User {user_id} rejoined room {room_id} after reload")
+
     except Exception as e:
-        print(f"Error handling reload: {e}")
+        print(f"Error handling reload for user {user_id} in room {room_id}: {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
