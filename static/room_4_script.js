@@ -49,14 +49,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await response.json();
             if (!data.success) return;
     
-            if (!currentHostId || currentHostId !== data.host_id) {
+            // Đảm bảo currentHostId luôn đồng bộ với dữ liệu từ backend
+            if (data.host_id) {
                 currentHostId = data.host_id;
-                updateHost(data);
             }
+    
+            renderPlayerCards(data.player_slots);
+            updateControlButtons();
         } catch (error) {
             console.error("Error fetching player data:", error);
         }
-    }    
+    }        
 
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {

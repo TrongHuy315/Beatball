@@ -1140,24 +1140,31 @@ def game_page(room_id):
 # app.py
 
 def sync_room_host(room_id):
-    """
-    Đồng bộ host_id => set slot["is_host"] = True/False phù hợp, 
-    rồi phát socket "host_update"
-    """
     room = get_room(room_id)
     if not room:
         return
-    host_id = room.get("host_id")
 
+    # Nếu không có host_id, đặt host mới
+    if not room.get("host_id"):
+        remaining = [slot for slot in room["player_slots"] if slot]
+        if remaining:
+            new_host = remaining[0]
+            room["host_id"] = new_host["user_id"]
+            new_host["is_host"] = True
+        else:
+            room["host_id"] = None  # Không còn ai trong phòng
+
+    # Đồng bộ trạng thái is_host cho tất cả các slot
     for slot in room["player_slots"]:
         if slot:
-            slot["is_host"] = (slot["user_id"] == host_id)
+            slot["is_host"] = (slot["user_id"] == room["host_id"])
 
     save_room(room_id, room)
 
+    # Gửi sự kiện host_update qua Socket.IO
     socketio.emit("host_update", {
         "room_id": room_id,
-        "host_id": host_id,
+        "host_id": room["host_id"],
         "player_slots": room["player_slots"]
     }, room=room_id)
 
