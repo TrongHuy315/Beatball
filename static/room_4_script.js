@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const currentUserId = document.getElementById("current-user-id").value;
     let currentHostId = null;
 
+    // Tham gia phòng qua Socket.IO
+    socket.emit("join_room", { room_id: roomId });
+
     // Thêm flag để đánh dấu reload
     let isReloading = false;
     window.onbeforeunload = function() {
@@ -53,9 +56,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const playerCardsContainer = document.getElementById("player-cards");
     let currentPlayers = [];
-
-    // Tham gia phòng qua Socket.IO
-    socket.emit("join_room", { room_id: roomId });
 
     // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {

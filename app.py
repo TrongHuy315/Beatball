@@ -320,35 +320,79 @@ def create_room():
         print(f"Error creating room: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@socketio.on("join_room")
-def handle_socket_join(data):
+@app.route("/join-room/<room_id>", methods=["POST"])
+@login_required
+def join_room_handler(room_id):
     try:
-        room_id = data.get("room_id")
-        if not room_id:
-            return
-            
-        print(f"\n=== Socket Join Room ===")
-        print(f"Room ID: {room_id}")
-        print(f"User ID: {session.get('user_id')}")
-        
-        # Verify room exists
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            print(f"Room {room_id} not found in Redis")
-            return
-        
-        # Join socket room
-        join_room(room_id)
-        print(f"Joined socket room {room_id}")
-        
-        # Refresh room expiration
-        redis_client.expire(f"room:{room_id}", 7200)  # Reset to 2 hours
-        
-        # Đồng bộ host sau khi join
-        sync_room_host(room_id)
-        
+            return jsonify({"error": "Room not found"}), 404
+
+        room = json.loads(room_data)
+        user_id = session.get("user_id")
+        username = session.get("username")
+
+        # Kiểm tra người chơi đã trong phòng chưa
+        player_slot = next(
+            (i for i, slot in enumerate(room["player_slots"]) 
+             if slot and slot["user_id"] == user_id),
+            None
+        )
+
+        if player_slot is not None:
+            return jsonify({
+                "success": True,
+                "message": "Already in room",
+                "player_slots": room["player_slots"]
+            }), 200
+
+        # Kiểm tra phòng đã đầy chưa
+        if len([p for p in room["player_slots"] if p]) >= room["max_players"]:
+            return jsonify({"error": "Room is full"}), 403
+
+        # Lấy thông tin người chơi
+        user_avatar = "/static/images/default-avatar.png"
+        user_score = 1000
+
+        # Tìm slot trống đầu tiên
+        empty_slot = next((i for i, slot in enumerate(room["player_slots"]) if not slot), None)
+
+        if empty_slot is None:
+            return jsonify({"error": "No empty slots available"}), 403
+
+        # Thêm người chơi vào slot
+        room["player_slots"][empty_slot] = {
+            "username": username,
+            "user_id": user_id,
+            "slot": empty_slot,
+            "avatar": user_avatar,
+            "score": user_score,
+            "is_host": False,
+            "is_ready": False
+        }
+
+        if username not in room["current_players"]:
+            room["current_players"].append(username)
+
+        # Lưu lại thông tin phòng vào Redis
+        redis_client.set(f"room:{room_id}", json.dumps(room))
+
+        # Emit socket event để thông báo người chơi mới tham gia
+        socketio.emit("player_joined", {
+            "room_id": room_id,
+            "player_slots": room["player_slots"],
+            "host_id": room["host_id"]
+        }, room=room_id)
+
+        return jsonify({
+            "success": True,
+            "message": "Joined room successfully",
+            "player_slots": room["player_slots"]
+        }), 200
+
     except Exception as e:
-        print(f"Error in socket join_room: {e}")
+        print(f"Error joining room: {e}")
+        return jsonify({"error": str(e)}), 500
     
 @app.route("/leave-room/<room_id>", methods=["POST"])
 @login_required
@@ -952,8 +996,22 @@ def handle_socket_join(data):
         if not room_id:
             return
             
+        print(f"\n=== Socket Join Room ===")
+        print(f"Room ID: {room_id}")
+        print(f"User ID: {session.get('user_id')}")
+        
+        # Verify room exists
+        room_data = redis_client.get(f"room:{room_id}")
+        if not room_data:
+            print(f"Room {room_id} not found in Redis")
+            return
+        
         # Join socket room
         join_room(room_id)
+        print(f"Joined socket room {room_id}")
+        
+        # Refresh room expiration
+        redis_client.expire(f"room:{room_id}", 7200)  # Reset to 2 hours
         
         # Đồng bộ host sau khi join
         sync_room_host(room_id)
