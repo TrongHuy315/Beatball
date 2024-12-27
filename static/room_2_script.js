@@ -154,9 +154,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Thêm các đội và biểu tượng VS vào container
         playerCardsContainer.appendChild(team1);
         playerCardsContainer.appendChild(team2);
-    
-        // Khởi tạo lại drag & drop
-        initializeDragAndDrop();
     }
 
     socket.on("player_left", (data) => {
