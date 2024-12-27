@@ -242,33 +242,26 @@ def create_room():
         username = session.get("username")
 
         # Room configuration
-        if room_type == "lobby":
-            id_min, id_max = 100000, 549999
-            max_players = 2
-        else:
-            id_min, id_max = 550000, 999999
-            max_players = 4
+        id_min, id_max = (100000, 549999) if room_type == "lobby" else (550000, 999999)
+        max_players = 2 if room_type == "lobby" else 4
 
         room_id = str(random.randint(id_min, id_max))
 
         # Room data initialization
-        player_slots = [None] * max_players
-        player_slots[0] = {
-            "username": username,
-            "user_id": user_id,
-            "slot": 0,
-            "avatar": "/static/images/default-avatar.png",
-            "score": 1000,
-            "is_host": True,
-            "is_ready": False
-        }
-
         room_data = {
             "room_id": room_id,
             "created_by": user_id,
             "host_id": user_id,
             "max_players": max_players,
-            "player_slots": player_slots,
+            "player_slots": [{
+                "username": username,
+                "user_id": user_id,
+                "slot": 0,
+                "avatar": "/static/images/default-avatar.png",
+                "score": 1000,
+                "is_host": True,
+                "is_ready": False
+            }] + [None] * (max_players - 1),
             "current_players": [username],
             "room_type": room_type,
             "created_at": time.time(),
@@ -276,19 +269,18 @@ def create_room():
             "game_data": None
         }
 
+        # Save to Redis
         redis_client.setex(f"room:{room_id}", 7200, json.dumps(room_data))
-
         session['current_room'] = room_id
-        session['is_room_creator'] = True
 
-        return jsonify({
-            "success": True,
-            "room_id": room_id,
-            "player_slots": player_slots,
-            "host_id": user_id
-        }), 201
+        # Verify Redis
+        if not redis_client.get(f"room:{room_id}"):
+            raise Exception("Room data not saved to Redis.")
+
+        return jsonify({"success": True, "room_id": room_id}), 201
 
     except Exception as e:
+        print(f"Error creating room: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/join-room/<room_id>", methods=["POST"])
@@ -961,13 +953,18 @@ def on_disconnect():
         if room_data:
             room = json.loads(room_data)
 
+            # Skip handling if the room was just created
+            if room.get("created_by") == user_id and time.time() - room["created_at"] < 10:
+                print("Skipping disconnect handling for just created room")
+                return
+
+            # Remove user from room
             for i, slot in enumerate(room["player_slots"]):
                 if slot and slot.get("user_id") == user_id:
                     room["player_slots"][i] = None
                     break
 
-            remaining_players = [slot for slot in room["player_slots"] if slot is not None]
-            if not remaining_players:
+            if not any(slot for slot in room["player_slots"]):
                 redis_client.delete(f"room:{room_id}")
                 socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
             else:

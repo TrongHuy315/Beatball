@@ -9,24 +9,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
-    window.onbeforeunload = function() {
-        isReloading = true;
-        localStorage.setItem('is_reloading', 'true');
-        localStorage.setItem('current_room', roomId);
-        localStorage.setItem('current_user_id', currentUserId);
-    
-        if (roomJustCreated) {
-            localStorage.setItem('room_just_created', 'true');
+    window.onbeforeunload = function () {
+        const isReloading = localStorage.getItem('is_reloading') === 'true';
+        if (!isReloading) {
+            fetch(`/leave-room/${roomId}`, {
+                method: 'POST',
+                keepalive: true
+            });
         }
-    
-        socket.emit('handle_reload', {
-            room_id: roomId,
-            user_id: currentUserId,
-            is_creator: roomJustCreated
-        });
-    
-        return undefined;
-    };    
+        return null;
+    };   
 
     // Kiểm tra nếu đang reload
     const storedRoomId = localStorage.getItem('current_room');
@@ -46,19 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.removeItem('current_user_id');
 
     // Xử lý khi load trang
-    window.onload = function() {
-        const wasReloading = sessionStorage.getItem('isReloading');
-        const wasJustCreated = localStorage.getItem('room_just_created') === 'true';
-        
-        if (wasReloading) {
-            console.log("Page was reloaded");
-            if (wasJustCreated) {
-                console.log("Room was just created");
-                roomJustCreated = true;
-            }
-            sessionStorage.removeItem('isReloading');
-            localStorage.removeItem('room_just_created');
-        }
+    window.onload = function () {
+        localStorage.setItem('is_reloading', 'false');
     };
 
     const playerCardsContainer = document.getElementById("player-cards");
