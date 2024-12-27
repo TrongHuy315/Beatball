@@ -834,8 +834,8 @@ def room(room_id):
         # Cập nhật session
         session["current_room"] = room_id
 
-        if room_id < 550000:
-            return render_template("room_2.html", room_id=room_id, room=room, session=session)
+        if int(room_id) < 550000:
+            return render_template("room_4.html", room_id=room_id, room=room, session=session)
         else:
             return render_template("room_4.html", room_id=room_id, room=room, session=session)
 
