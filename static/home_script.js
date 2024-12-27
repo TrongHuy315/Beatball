@@ -80,13 +80,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const currentRoom = sessionStorage.getItem("current_room");
     if (currentRoom) {
-        window.location.href = `/room/${currentRoom}`;
+        try {
+            const response = await fetch(`/check-room/${currentRoom}`);
+            const data = await response.json();
+
+            if (response.ok && data.exists) {
+                // Chỉ điều hướng nếu phòng tồn tại
+                window.location.href = `/room/${currentRoom}`;
+            } else {
+                // Xóa thông tin phòng khỏi sessionStorage nếu phòng không tồn tại
+                sessionStorage.removeItem("current_room");
+            }
+        } catch (error) {
+            console.error("Error checking room:", error);
+            sessionStorage.removeItem("current_room");
+        }
     }
 });
-
 
 document.addEventListener("DOMContentLoaded", () => {
     // Elements
