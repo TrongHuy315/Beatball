@@ -400,6 +400,14 @@ def leave_room(room_id):
         room = json.loads(room_data)
         user_id = session.get('user_id')
 
+        # Kiểm tra nếu là người tạo phòng và phòng mới
+        is_creator = room.get("created_by") == user_id
+        is_new_room = time.time() - room.get("created_at", 0) < 60
+        
+        if is_creator and is_new_room:
+            print("Skipping leave room - Room is new and user is creator")
+            return jsonify({"success": True}), 200
+
         # Remove player from room
         for i, slot in enumerate(room["player_slots"]):
             if slot and slot.get("user_id") == user_id:
@@ -734,6 +742,10 @@ def logout():
 @login_required
 def room(room_id):
     try:
+        # Đặt flag reload trong session
+        session['is_reloading'] = True
+        session['current_room'] = room_id
+
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
             flash("Room does not exist.", "danger")
@@ -743,9 +755,8 @@ def room(room_id):
         username = session.get("username")
         user_id = session.get("user_id")
 
-        # Set flag reload trong session
-        session['is_reloading'] = True
-        session['current_room'] = room_id
+         # Refresh room expiration
+        redis_client.expire(f"room:{room_id}", 7200)  # Reset to 2 hours
 
         # Xóa flag reload nếu có
         for slot in room["player_slots"]:
@@ -1069,29 +1080,25 @@ def on_disconnect():
             
             room_data = redis_client.get(f"room:{room_id}")
             if not room_data:
+                print("Room not found during disconnect")
                 return
 
             room = json.loads(room_data)
             
-            # Bỏ qua xử lý nếu phòng mới tạo (60s)
-            if room.get("created_by") == user_id and time.time() - room["created_at"] < 60:
-                print("Skipping disconnect for newly created room")
+            # Kiểm tra nhiều điều kiện hơn trước khi xử lý disconnect
+            is_creator = room.get("created_by") == user_id
+            is_new_room = time.time() - room.get("created_at", 0) < 60  # 60 giây
+            is_reloading = session.get('is_reloading', False)
+            
+            print(f"Disconnect checks - Creator: {is_creator}, New room: {is_new_room}, Reloading: {is_reloading}")
+            
+            # Bỏ qua xử lý nếu là phòng mới hoặc đang reload
+            if (is_creator and is_new_room) or is_reloading:
+                print("Skipping disconnect handling - Room is new or user is reloading")
                 return
 
-            # Kiểm tra xem có phải đang reload không
-            is_reloading = False
-            for slot in room["player_slots"]:
-                if slot and slot.get("user_id") == user_id:
-                    is_reloading = slot.get("is_reloading", False)
-                    break
-
-            print(f"Is reloading: {is_reloading}")
-            
-            if not is_reloading:
-                # Xử lý rời phòng
-                handle_player_leave(room_id, user_id)
-            else:
-                print("User is reloading, keeping in room")
+            # Xử lý người chơi rời phòng
+            handle_player_leave(room_id, user_id)
                 
     except Exception as e:
         print(f"Error in disconnect handler: {e}")
@@ -1388,20 +1395,28 @@ def handle_reload(data):
     try:
         room_id = data.get('room_id')
         user_id = data.get('user_id')
-        is_creator = data.get('is_creator', False)
-
+        
         if room_id and user_id:
+            print(f"\n=== Handle Reload ===")
+            print(f"Room ID: {room_id}")
+            print(f"User ID: {user_id}")
+            
             room_data = redis_client.get(f"room:{room_id}")
             if room_data:
                 room = json.loads(room_data)
+                
+                # Đánh dấu người chơi đang reload
                 for slot in room["player_slots"]:
                     if slot and slot.get("user_id") == user_id:
                         slot["is_reloading"] = True
-                        if is_creator:
-                            slot["is_creator_reloading"] = True
                         break
+                
+                # Lưu lại vào Redis và refresh expiration
                 redis_client.set(f"room:{room_id}", json.dumps(room))
                 redis_client.expire(f"room:{room_id}", 7200)
+                
+                print(f"Marked player {user_id} as reloading in room {room_id}")
+                
     except Exception as e:
         print(f"Error handling reload: {e}")
 

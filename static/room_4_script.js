@@ -30,6 +30,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         return undefined;
     };   
 
+    socket.on("disconnect", () => {
+        console.log("Socket disconnected, isReloading:", isReloading);
+        const wasReloading = localStorage.getItem('is_reloading') === 'true';
+        
+        if (!isReloading && !wasReloading) {
+            fetch(`/leave-room/${roomId}`, {
+                method: "POST",
+                keepalive: true
+            }).then(response => {
+                console.log("Left room response:", response.status);
+            }).catch(error => {
+                console.error("Error leaving room:", error);
+            });
+        } else {
+            console.log("Skipping leave-room request - page is reloading");
+        }
+    });
+
     // Kiểm tra nếu đang reload
     const storedRoomId = localStorage.getItem('current_room');
     const isReload = localStorage.getItem('is_reloading') === 'true';
@@ -294,25 +312,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getCurrentUsername() {
         return session.get("username");
     }
-    
-    // Thêm listener cho socket disconnect
-    socket.on("disconnect", () => {
-        console.log("Socket disconnected, isReloading:", isReloading);
-        const wasReloading = localStorage.getItem('is_reloading') === 'true';
-        
-        if (!isReloading && !wasReloading) {
-            fetch(`/leave-room/${roomId}`, {
-                method: "POST",
-                keepalive: true
-            }).then(response => {
-                console.log("Left room response:", response.status);
-            }).catch(error => {
-                console.error("Error leaving room:", error);
-            });
-        } else {
-            console.log("Skipping leave-room request - page is reloading");
-        }
-    });
     
     // Thêm listener cho room_deleted
     socket.on('room_deleted', (data) => {
