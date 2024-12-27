@@ -20,7 +20,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log("Host sync received:", data);
         currentHostId = data.host_id;
         renderPlayerCards(data.player_slots);
-        updateControlButtons();
     });
 
     // Sửa lại hàm fetchPlayerData
@@ -48,9 +47,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Lưu host_id
             currentHostId = data.host_id;
             console.log("Current host ID:", currentHostId);
-
-            // Thêm gọi hàm updateControlButtons
-            updateControlButtons();
 
             if (data.player_slots && Array.isArray(data.player_slots)) {
                 const currentUserElement = document.getElementById("current-username");
@@ -175,7 +171,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     
         renderPlayerCards(playerSlots);
-        updateControlButtons();
     });                   
 
     socket.on("player_left", (data) => {
@@ -183,7 +178,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         if (data.player_slots) {
             renderPlayerCards(data.player_slots);
-            updateControlButtons();
             
             // Cập nhật thông tin chủ phòng nếu có thay đổi
             if (data.new_host_id) {
@@ -306,7 +300,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log("Host update event:", data);
         currentHostId = data.host_id;
         renderPlayerCards(data.player_slots);
-        updateControlButtons();
     });
 
     function showGameLoadingScreen() {
@@ -376,27 +369,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 });
             }
         });
-    }
-
-    function updateControlButtons() {
-        const currentUserId = document.getElementById("current-user-id")?.value;
-        const isHost = currentUserId === currentHostId;
-        console.log("Updating control buttons:", { currentUserId, currentHostId, isHost });
-    
-        const readyBtn = document.getElementById("ready-btn");
-        const startBtn = document.getElementById("start-game-btn");
-    
-        if (readyBtn && startBtn) {
-            if (isHost) {
-                readyBtn.style.display = "none";
-                startBtn.style.display = "block";
-                console.log("Showing Start button for host");
-            } else {
-                readyBtn.style.display = "block";
-                startBtn.style.display = "none";
-                console.log("Showing Ready button for non-host");
-            }
-        }
     }
 
     // Lắng nghe sự kiện cập nhật vị trí từ server
