@@ -13,29 +13,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     socket.emit("join_room", { room_id: roomId });
 
     // Đánh dấu cờ reload trên localStorage
+    // Ta sẽ dùng localStorage hoặc biến cục bộ để nhận biết reload
     let isReloading = false;
+
+    // 1) Lắng nghe beforeunload để xác định có phải reload không
     window.addEventListener("beforeunload", function (e) {
-        // Kiểm tra performance.getEntriesByType("navigation") để xem có phải reload
-        const navType = performance.getEntriesByType("navigation")[0]?.type;
-        isReloading = (navType === "reload");
+        const nav = performance.getEntriesByType("navigation");
+        const navType = nav.length > 0 ? nav[0].type : null;
         
-        // Lưu cờ vào localStorage để phòng trường hợp logic ondisconnect
-        localStorage.setItem("is_reloading", String(isReloading));
+        // Kiểm tra kiểu điều hướng (reload, back_forward, navigate)
+        if (navType === "reload") {
+            // Người dùng bấm nút reload
+            isReloading = true;
+            localStorage.setItem("is_reloading", "true");
+        } else {
+            isReloading = false;
+            localStorage.setItem("is_reloading", "false");
+        }
     });
 
-    // Khi socket disconnect, chỉ rời phòng nếu không phải reload
+    // 2) Khi socket bị disconnect (tab đóng hoặc reload đều ngắt socket),
+    // ta quyết định có gọi /leave-room hay không.
     socket.on("disconnect", () => {
-        console.log("Socket disconnected, isReloading =", isReloading);
-        if (!isReloading) {
-            // Chỉ khi user rời thật (đóng tab, chuyển trang) mới báo leave-room
+        // Đọc lại cờ is_reloading từ localStorage
+        const checkReload = localStorage.getItem("is_reloading") === "true";
+        console.log("Socket disconnected, isReloading =", checkReload);
+
+        if (!checkReload) {
+            // Nếu không phải reload => gọi /leave-room
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
             });
+        } else {
+            // Nếu là reload => KHÔNG gọi /leave-room
+            console.log("Reload detected -> skip leave-room");
         }
     });
 
-    // Sau khi trang load xong, đặt lại is_reloading = false
+    // 3) Sau khi load xong trang mới, đặt lại cờ is_reloading = false
+    // để tránh ảnh hưởng lần sau
     window.addEventListener("load", () => {
         localStorage.setItem("is_reloading", "false");
     });
@@ -203,14 +220,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getCurrentUsername() {
         return session.get("username");
     }
-    
-    // Thêm listener cho room_deleted
-    socket.on('room_deleted', (data) => {
-        console.log('Room deleted:', data);
-        alert('Phòng đã bị xóa!');
-        // Chuyển về trang danh sách phòng
-        window.location.href = '/rooms';
-    });
 
     // Trong file room_4.js
     socket.on('game_started', (data) => {
