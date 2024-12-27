@@ -946,29 +946,44 @@ def on_disconnect():
     try:
         room_id = session.get('current_room')
         user_id = session.get('user_id')
+        
         if not room_id or not user_id:
             return
-
+        
         room_data = redis_client.get(f"room:{room_id}")
-        if room_data:
-            room = json.loads(room_data)
+        if not room_data:
+            return
+        
+        room = json.loads(room_data)
 
-            # Skip handling if the room was just created
-            if room.get("created_by") == user_id and time.time() - room["created_at"] < 10:
-                print("Skipping disconnect handling for just created room")
-                return
+        # -- Sửa giá trị 10 giây thành 30 giây --
+        # Kiểm tra nếu phòng mới tạo dưới 30 giây → không xử lý gì (bỏ qua)
+        if room.get("created_by") == user_id and time.time() - room["created_at"] < 30:
+            print("Skipping disconnect handling for just created room (under 30s).")
+            return
 
-            # Remove user from room
-            for i, slot in enumerate(room["player_slots"]):
-                if slot and slot.get("user_id") == user_id:
-                    room["player_slots"][i] = None
-                    break
+        # -- Kiểm tra cờ reload (nếu muốn) --
+        # Giả sử có cờ reload lưu trong Redis hoặc session
+        # Hoặc bạn đọc cờ reload từ session, tuỳ vào cách triển khai:
+        is_reloading = session.get("is_reloading", False)
+        if is_reloading:
+            print("User is reloading -> skip removing room/player.")
+            return
 
-            if not any(slot for slot in room["player_slots"]):
-                redis_client.delete(f"room:{room_id}")
-                socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
-            else:
-                redis_client.set(f"room:{room_id}", json.dumps(room))
+        # Nếu không phải reload, tiến hành xóa player khỏi room
+        for i, slot in enumerate(room["player_slots"]):
+            if slot and slot.get("user_id") == user_id:
+                room["player_slots"][i] = None
+                break
+
+        # Nếu không còn ai trong phòng → xóa phòng
+        if not any(slot for slot in room["player_slots"]):
+            redis_client.delete(f"room:{room_id}")
+            socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
+        else:
+            # ngược lại, cập nhật Redis
+            redis_client.set(f"room:{room_id}", json.dumps(room))
+
     except Exception as e:
         print(f"Error in disconnect: {e}")
 

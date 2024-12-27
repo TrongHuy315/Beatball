@@ -9,7 +9,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
+
+    window.addEventListener('beforeunload', () => {
+        // Trước khi rời/trước khi reload
+        // Set cờ is_reloading = true
+        localStorage.setItem('is_reloading', 'true');
+    });
+
     window.onbeforeunload = function () {
+        // Đánh dấu cờ reload
+        localStorage.setItem('is_reloading', 'true');
+
+        // Kiểm tra cờ
         const isReloading = localStorage.getItem('is_reloading') === 'true';
         if (!isReloading) {
             fetch(`/leave-room/${roomId}`, {
@@ -17,6 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 keepalive: true
             });
         }
+        // Trả về null để không hiển thị popup
         return null;
     };   
 
@@ -39,6 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Xử lý khi load trang
     window.onload = function () {
+        // Đặt lại cờ reload = false
         localStorage.setItem('is_reloading', 'false');
     };
 
