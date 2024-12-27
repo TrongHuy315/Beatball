@@ -899,9 +899,13 @@ def check_room(room_id):
 
     room = json.loads(room_data)
 
-    # Kiểm tra phòng có người chơi không
-    if not room.get("current_players"):
-        print(f"Room {room_id} has no players. Deleting the room.")  # Debugging log
+    # Thay vì dựa vào room["current_players"],
+    # ta kiểm tra xem player_slots còn ai không.
+    player_slots = room.get("player_slots", [])
+    actual_players = [slot for slot in player_slots if slot is not None]
+
+    if len(actual_players) == 0:
+        print(f"Room {room_id} has no players in player_slots. Deleting the room.")
         redis_client.delete(f"room:{room_id}")
         return jsonify({"exists": False}), 404
 
