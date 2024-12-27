@@ -164,15 +164,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         initializeDragAndDrop();
     }
 
-    function updateHost(data) {
+    socket.on("player_left", (data) => {
+        console.log("Player left:", data);
+    
+        // Cập nhật host ID từ server
+        currentHostId = data.new_host_id;
+    
+        // Cập nhật lại giao diện thẻ người chơi
+        renderPlayerCards(data.player_slots);
+    
+        // Cập nhật các nút điều khiển (Ready/Start)
+        updateControlButtons();
+    });
+    
+    socket.on("host_update", (data) => {
+        console.log("Host updated:", data);
+    
+        // Cập nhật host ID và UI
         currentHostId = data.host_id;
         renderPlayerCards(data.player_slots);
         updateControlButtons();
-    }
-    
-    socket.on("player_left", updateHost);
-    socket.on("host_update", updateHost);
-    
+    }); 
 
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
