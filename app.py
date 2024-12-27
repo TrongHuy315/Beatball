@@ -72,6 +72,14 @@ def sync_room_host(room_id):
         return
     
     host_id = room.get("host_id")
+    if not host_id:
+        remaining = [slot for slot in room["player_slots"] if slot]
+        if remaining:
+            new_host = remaining[0]
+            room["host_id"] = new_host["user_id"]
+            new_host["is_host"] = True
+        else:
+            room["host_id"] = None  # Không còn ai trong phòng
     for slot in room["player_slots"]:
         if slot:
             slot["is_host"] = (slot["user_id"] == host_id)
