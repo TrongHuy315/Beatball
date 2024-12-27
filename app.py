@@ -1028,7 +1028,6 @@ def on_disconnect():
             if room_data:
                 room = json.loads(room_data)
 
-                # Kiểm tra xem người dùng có phải là người tạo phòng
                 is_creator = room.get("created_by") == user_id
                 just_created = time.time() - room.get("created_at", 0) < 10
 
@@ -1036,17 +1035,14 @@ def on_disconnect():
                     print("Room just created, skipping disconnect handling")
                     return
 
-                # Kiểm tra trạng thái reload
                 is_reloading = any(slot.get("is_reloading", False) for slot in room["player_slots"] if slot and slot.get("user_id") == user_id)
 
                 if not is_reloading:
-                    # Xử lý xóa người chơi khỏi phòng
                     for i, slot in enumerate(room["player_slots"]):
                         if slot and slot.get("user_id") == user_id:
                             room["player_slots"][i] = None
                             break
 
-                    # Xóa phòng nếu không còn người chơi
                     if all(slot is None for slot in room["player_slots"]):
                         redis_client.delete(f"room:{room_id}")
                         socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
@@ -1321,16 +1317,12 @@ def handle_reload(data):
             room_data = redis_client.get(f"room:{room_id}")
             if room_data:
                 room = json.loads(room_data)
-
-                # Cập nhật trạng thái reload
                 for slot in room["player_slots"]:
                     if slot and slot.get("user_id") == user_id:
                         slot["is_reloading"] = True
                         if is_creator:
                             slot["is_creator_reloading"] = True
                         break
-
-                # Refresh thời gian tồn tại của phòng
                 redis_client.set(f"room:{room_id}", json.dumps(room))
                 redis_client.expire(f"room:{room_id}", 7200)
     except Exception as e:

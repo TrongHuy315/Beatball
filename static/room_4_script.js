@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem('current_room', roomId);
         localStorage.setItem('current_user_id', currentUserId);
     
-        // Nếu phòng vừa được tạo, đặt flag
         if (roomJustCreated) {
             localStorage.setItem('room_just_created', 'true');
         }
@@ -26,10 +25,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             is_creator: roomJustCreated
         });
     
-        const start = Date.now();
-        while (Date.now() - start < 100) {}
         return undefined;
-    }; 
+    };    
 
     // Kiểm tra nếu đang reload
     const storedRoomId = localStorage.getItem('current_room');
