@@ -232,7 +232,7 @@ def end_match():
     else:
         return jsonify({"success": False, "error": "Failed to update stats"}), 500
     
-@app.route("/create-room", methods=["POST"])
+@app.route('/create-room', methods=['POST'])
 @login_required
 def create_room():
     try:
@@ -241,12 +241,7 @@ def create_room():
         user_id = session.get("user_id")
         username = session.get("username")
 
-        print(f"\n=== Creating Room ===")
-        print(f"Room Type: {room_type}")
-        print(f"User ID: {user_id}")
-        print(f"Username: {username}")
-
-        # Tạo room ID
+        # Room configuration
         if room_type == "lobby":
             id_min, id_max = 100000, 549999
             max_players = 2
@@ -255,9 +250,8 @@ def create_room():
             max_players = 4
 
         room_id = str(random.randint(id_min, id_max))
-        print(f"Generated Room ID: {room_id}")
 
-        # Khởi tạo room data
+        # Room data initialization
         player_slots = [None] * max_players
         player_slots[0] = {
             "username": username,
@@ -282,30 +276,10 @@ def create_room():
             "game_data": None
         }
 
-        # Lưu vào Redis với thời gian tồn tại là 2 giờ
-        redis_client.setex(
-            f"room:{room_id}",
-            7200,  # 2 giờ
-            json.dumps(room_data)
-        )
+        redis_client.setex(f"room:{room_id}", 7200, json.dumps(room_data))
 
-        # Verify Redis connection
-        try:
-            redis_client.ping()
-            print("Redis connection verified")
-        except Exception as e:
-            print(f"Redis connection failed: {e}")
-            return jsonify({"error": "Database connection error"}), 500
-
-        # After saving to Redis
-        saved_data = redis_client.get(f"room:{room_id}")
-        print(f"Saved room data verification: {saved_data is not None}")
-        
-        if saved_data:
-            # Set session data
-            session['current_room'] = room_id
-            session['is_room_creator'] = True
-            print(f"Session updated with room ID: {room_id}")
+        session['current_room'] = room_id
+        session['is_room_creator'] = True
 
         return jsonify({
             "success": True,
@@ -315,7 +289,6 @@ def create_room():
         }), 201
 
     except Exception as e:
-        print(f"Error creating room: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/join-room/<room_id>", methods=["POST"])
@@ -392,7 +365,7 @@ def join_room_handler(room_id):
         print(f"Error joining room: {e}")
         return jsonify({"error": str(e)}), 500
     
-@app.route("/leave-room/<room_id>", methods=["POST"])
+@app.route('/leave-room/<room_id>', methods=['POST'])
 @login_required
 def leave_room(room_id):
     try:
@@ -401,66 +374,25 @@ def leave_room(room_id):
             return jsonify({"error": "Room does not exist"}), 404
 
         room = json.loads(room_data)
-        username = session.get('username')
         user_id = session.get('user_id')
 
-        # Tìm và xóa thông tin người chơi khỏi slot
-        slot_index = None
+        # Remove player from room
         for i, slot in enumerate(room["player_slots"]):
             if slot and slot.get("user_id") == user_id:
-                slot_index = i
-                was_host = slot.get("is_host", False)
                 room["player_slots"][i] = None
                 break
 
-        if slot_index is not None and username in room.get("current_players", []):
-            room["current_players"].remove(username)
-
-            # Tìm người chơi tiếp theo để làm host
-            remaining_players = [p for p in room["player_slots"] if p is not None]
-            
-            if remaining_players:
-                if was_host:
-                    # Chọn người chơi đầu tiên còn lại làm host mới
-                    new_host = remaining_players[0]
-                    room["host_id"] = new_host["user_id"]
-                    
-                    # Cập nhật is_host cho tất cả người chơi
-                    for slot in room["player_slots"]:
-                        if slot:
-                            slot["is_host"] = slot["user_id"] == new_host["user_id"]
-                    
-                    print(f"New host assigned: {new_host['username']} (ID: {new_host['user_id']})")
-
-                # Lưu thay đổi vào Redis
-                redis_client.set(f"room:{room_id}", json.dumps(room))
-                
-                # Đồng bộ host
-                sync_room_host(room_id)
-                
-                # Thông báo cho tất cả người chơi
-                socketio.emit('player_left', {
-                    'room_id': room_id,
-                    'username': username,
-                    'player_slots': room["player_slots"],
-                    'current_players': room["current_players"],
-                    'new_host_id': room["host_id"] if was_host else None,
-                    'message': 'Player left the room'
-                }, room=room_id)
-                
-                return jsonify({"success": True}), 200
-            else:
-                redis_client.delete(f"room:{room_id}")
-                socketio.emit('room_deleted', {
-                    'room_id': room_id,
-                    'message': 'Room has been deleted'
-                }, room=room_id)
-                return jsonify({"success": True, "message": "Room deleted"}), 200
+        remaining_players = [slot for slot in room["player_slots"] if slot is not None]
+        if not remaining_players:
+            redis_client.delete(f"room:{room_id}")
+            socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
+        else:
+            redis_client.set(f"room:{room_id}", json.dumps(room))
+            socketio.emit('player_left', {"room_id": room_id}, room=room_id)
 
         return jsonify({"success": True}), 200
 
     except Exception as e:
-        print(f"Error in leave_room: {e}")
         return jsonify({"error": str(e)}), 500
     
 @app.route("/login", methods=["GET", "POST"])
@@ -1020,36 +952,28 @@ def handle_socket_join(data):
 @socketio.on('disconnect')
 def on_disconnect():
     try:
-        if 'current_room' in session:
-            room_id = session['current_room']
-            user_id = session.get('user_id')
+        room_id = session.get('current_room')
+        user_id = session.get('user_id')
+        if not room_id or not user_id:
+            return
 
-            room_data = redis_client.get(f"room:{room_id}")
-            if room_data:
-                room = json.loads(room_data)
+        room_data = redis_client.get(f"room:{room_id}")
+        if room_data:
+            room = json.loads(room_data)
 
-                is_creator = room.get("created_by") == user_id
-                just_created = time.time() - room.get("created_at", 0) < 10
+            for i, slot in enumerate(room["player_slots"]):
+                if slot and slot.get("user_id") == user_id:
+                    room["player_slots"][i] = None
+                    break
 
-                if is_creator and just_created:
-                    print("Room just created, skipping disconnect handling")
-                    return
-
-                is_reloading = any(slot.get("is_reloading", False) for slot in room["player_slots"] if slot and slot.get("user_id") == user_id)
-
-                if not is_reloading:
-                    for i, slot in enumerate(room["player_slots"]):
-                        if slot and slot.get("user_id") == user_id:
-                            room["player_slots"][i] = None
-                            break
-
-                    if all(slot is None for slot in room["player_slots"]):
-                        redis_client.delete(f"room:{room_id}")
-                        socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
-                    else:
-                        redis_client.set(f"room:{room_id}", json.dumps(room))
+            remaining_players = [slot for slot in room["player_slots"] if slot is not None]
+            if not remaining_players:
+                redis_client.delete(f"room:{room_id}")
+                socketio.emit('room_deleted', {"room_id": room_id}, room=room_id)
+            else:
+                redis_client.set(f"room:{room_id}", json.dumps(room))
     except Exception as e:
-        print(f"Error in disconnect handler: {e}")
+        print(f"Error in disconnect: {e}")
 
 def save_room_data(room_id, room_data):
     """
