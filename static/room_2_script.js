@@ -153,7 +153,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         // Thêm các đội và biểu tượng VS vào container
         playerCardsContainer.appendChild(team1);
-        playerCardsContainer.appendChild(vsDiv);
         playerCardsContainer.appendChild(team2);
     
         // Khởi tạo lại drag & drop
