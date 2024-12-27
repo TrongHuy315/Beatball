@@ -834,8 +834,9 @@ def room(room_id):
         # Cập nhật session
         session["current_room"] = room_id
 
-        return render_template("room_4.html", room_id=room_id, room=room, session=session)
-
+        template = "room_4.html" if room["room_type"] == "room_4" else "room_2.html"
+        return render_template(template, room_id=room_id, room=room)
+    
     except Exception as e:
         print(f"Error accessing room: {e}")
         flash("An error occurred while accessing the room.", "error")
