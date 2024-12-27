@@ -863,39 +863,55 @@ def get_room_data(room_id):
         return jsonify({"error": str(e)}), 500
 
 @app.route("/check-room/<room_id>", methods=["GET"])
-@login_required
-def check_room(room_id):
+def check_room(room_id):  # Bỏ @login_required để cho phép kiểm tra phòng mà không cần đăng nhập
     try:
-        # Lấy thông tin phòng từ Redis
+        print(f"\n=== Checking Room {room_id} ===")
+        print(f"Looking for room: room:{room_id}")
+        
+        # Kiểm tra phòng có tồn tại trong Redis không
         room_data = redis_client.get(f"room:{room_id}")
+        
         if not room_data:
-            return jsonify({"exists": False}), 404
+            print(f"Room {room_id} not found in Redis")
+            return jsonify({
+                "exists": False,
+                "message": "Room not found"
+            }), 404
 
+        # Parse dữ liệu phòng
         room = json.loads(room_data)
-        current_user_id = session.get('user_id')
-
-        # Kiểm tra người chơi có trong phòng không
-        player_in_room = False
-        for slot in room["player_slots"]:
-            if slot and slot.get("user_id") == current_user_id:
-                player_in_room = True
-                break
-
-        if not player_in_room:
-            return jsonify({"exists": False}), 404
-
+        print(f"Found room data: {json.dumps(room, indent=2)}")
+        
         # Đếm số người chơi thực sự trong phòng
         active_players = [slot for slot in room["player_slots"] if slot is not None]
+        print(f"Active players: {len(active_players)}/{room['max_players']}")
         
+        # Kiểm tra trạng thái phòng
+        room_status = room.get("status", "unknown")
+        has_empty_slots = len(active_players) < room["max_players"]
+        can_join = room_status == "waiting" and has_empty_slots
+        
+        print(f"Room status: {room_status}")
+        print(f"Has empty slots: {has_empty_slots}")
+        print(f"Can join: {can_join}")
+
         return jsonify({
             "exists": True,
+            "room_id": room_id,
+            "room_type": room.get("room_type"),
+            "status": room_status,
             "player_count": len(active_players),
-            "is_host": current_user_id == room.get("host_id")
+            "max_players": room["max_players"],
+            "can_join": can_join,
+            "message": "Room found"
         }), 200
 
     except Exception as e:
         print(f"Error checking room {room_id}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "exists": False,
+            "error": str(e)
+        }), 500
 
 @app.route("/get-user-stats")
 @login_required
@@ -1102,6 +1118,48 @@ def on_disconnect():
                 
     except Exception as e:
         print(f"Error in disconnect handler: {e}")
+
+@app.route("/available-rooms", methods=["GET"])
+def available_rooms():
+    try:
+        room_type = request.args.get('type')  # Có thể lọc theo loại phòng: lobby/2vs2/4vs4
+        rooms = []
+        
+        # Lấy tất cả các phòng từ Redis
+        for key in redis_client.scan_iter("room:*"):
+            room_data = redis_client.get(key)
+            if room_data:
+                room = json.loads(room_data)
+                
+                # Chỉ lấy những phòng đang chờ và còn slot trống
+                active_players = [slot for slot in room["player_slots"] if slot is not None]
+                has_empty_slots = len(active_players) < room["max_players"]
+                
+                if (room["status"] == "waiting" and has_empty_slots and 
+                    (not room_type or room["room_type"] == room_type)):
+                    rooms.append({
+                        "room_id": room["room_id"],
+                        "room_type": room["room_type"],
+                        "player_count": len(active_players),
+                        "max_players": room["max_players"],
+                        "players": [slot["username"] for slot in active_players if slot],
+                        "created_at": room["created_at"]
+                    })
+        
+        # Sắp xếp phòng theo thời gian tạo (mới nhất trước)
+        rooms.sort(key=lambda x: x["created_at"], reverse=True)
+        
+        return jsonify({
+            "success": True,
+            "rooms": rooms
+        })
+        
+    except Exception as e:
+        print(f"Error listing available rooms: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route("/list-rooms", methods=["GET"])
 def list_rooms():
@@ -1420,22 +1478,47 @@ def handle_reload(data):
     except Exception as e:
         print(f"Error handling reload: {e}")
 
+# Trong cleanup_inactive_rooms, thêm log
 def cleanup_inactive_rooms():
-    """Xóa các phòng không hoạt động sau 2 giờ"""
     try:
         current_time = time.time()
         pattern = "room:*"
+        print("\n=== Checking inactive rooms ===")
         for key in redis_client.scan_iter(match=pattern):
+            print(f"Checking room: {key}")
             room_data = redis_client.get(key)
             if room_data:
                 room = json.loads(room_data)
-                # Chỉ xóa phòng đã tồn tại > 2 giờ và không có người chơi
                 if (current_time - room["created_at"] > 7200 and 
                     not any(slot for slot in room["player_slots"] if slot)):
+                    print(f"Deleting inactive room: {key}")
                     redis_client.delete(key)
-                    print(f"Cleaned up inactive room: {key}")
+            else:
+                print(f"Room data not found for key: {key}")
     except Exception as e:
         print(f"Error in cleanup_inactive_rooms: {e}")
+
+def verify_room_exists(room_id):
+    """Hàm helper để kiểm tra phòng"""
+    try:
+        print(f"\n=== Verifying room {room_id} ===")
+        # Liệt kê tất cả các keys
+        all_keys = redis_client.keys("room:*")
+        print(f"All room keys in Redis: {all_keys}")
+        
+        # Kiểm tra key cụ thể
+        room_key = f"room:{room_id}"
+        exists = redis_client.exists(room_key)
+        print(f"Room {room_id} exists: {exists}")
+        
+        if exists:
+            data = redis_client.get(room_key)
+            print(f"Room data: {data}")
+            return True
+        return False
+    except Exception as e:
+        print(f"Error verifying room: {e}")
+        return False
 
 # Chạy cleanup mỗi giờ
 from apscheduler.schedulers.background import BackgroundScheduler

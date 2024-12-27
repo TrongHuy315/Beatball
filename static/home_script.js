@@ -169,6 +169,82 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    async function findRoom(roomId) {
+        try {
+            console.log(`Checking room: ${roomId}`);
+            const response = await fetch(`/check-room/${roomId}`);
+            const data = await response.json();
+            
+            console.log('Response:', response.status, data);
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    showMessage("Phòng không tồn tại", "error");
+                    return;
+                }
+                throw new Error(data.error || "Server error");
+            }
+    
+            if (data.exists) {
+                if (data.status === "playing") {
+                    showMessage("Phòng đang trong trận đấu", "warning");
+                    return;
+                }
+    
+                if (!data.can_join) {
+                    showMessage("Không thể tham gia phòng này", "warning");
+                    return;
+                }
+    
+                // Hiển thị thông tin phòng và nút tham gia
+                showMessage(`Đã tìm thấy phòng ${roomId} (${data.player_count}/${data.max_players})`, "success");
+                
+                // Thêm nút tham gia
+                const joinButton = document.createElement('button');
+                joinButton.textContent = 'Tham gia phòng';
+                joinButton.onclick = () => joinRoom(roomId);
+                document.getElementById('room-info').appendChild(joinButton);
+                
+            } else {
+                showMessage("Phòng không tồn tại", "error");
+            }
+        } catch (error) {
+            console.error("Error finding room:", error);
+            showMessage("Lỗi khi tìm phòng", "error");
+        }
+    }
+    
+    function showMessage(message, type = "info") {
+        const messageEl = document.getElementById('message');
+        if (messageEl) {
+            messageEl.textContent = message;
+            messageEl.className = `message ${type}`;
+        }
+    }
+    
+    async function joinRoom(roomId) {
+        try {
+            const response = await fetch(`/join-room/${roomId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Chuyển hướng đến trang phòng
+                window.location.href = `/room/${roomId}`;
+            } else {
+                showMessage(data.error || "Không thể tham gia phòng", "error");
+            }
+        } catch (error) {
+            console.error("Error joining room:", error);
+            showMessage("Lỗi khi tham gia phòng", "error");
+        }
+    }
+
     // Stats Update
     const updateStats = () => {
         fetch('/get-user-stats')
