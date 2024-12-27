@@ -6,20 +6,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
-    window.onbeforeunload = function() {
+    window.onbeforeunload = function () {
         isReloading = true;
-        // Lưu trạng thái vào localStorage
         localStorage.setItem('is_reloading', 'true');
         localStorage.setItem('current_room', roomId);
         localStorage.setItem('current_user_id', currentUserId);
-        
-        // Thông báo server về việc reload
+    
         socket.emit('handle_reload', {
             room_id: roomId,
             user_id: currentUserId
         });
-        
-        return null;
+    
+        return null; // Không gửi yêu cầu leave-room
     };
 
     // Kiểm tra nếu đang reload

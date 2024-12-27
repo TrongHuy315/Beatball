@@ -1299,15 +1299,11 @@ def handle_swap_slots(data):
 
 @socketio.on('handle_reload')
 def handle_reload(data):
-    """
-    Xử lý khi client reload trang.
-    """
     try:
         room_id = data.get('room_id')
         user_id = data.get('user_id')
 
         if room_id and user_id:
-            # Lấy thông tin phòng từ Redis
             room_data = redis_client.get(f"room:{room_id}")
             if room_data:
                 room = json.loads(room_data)
@@ -1320,7 +1316,7 @@ def handle_reload(data):
                         slot["is_host"] = user_id == room.get("host_id")
                         break
 
-                # Nếu không tìm thấy người chơi, thêm lại vào phòng
+                # Thêm người chơi vào phòng nếu cần
                 if not player_found:
                     empty_slot = next((i for i, slot in enumerate(room["player_slots"]) if slot is None), None)
                     if empty_slot is not None:
@@ -1334,10 +1330,8 @@ def handle_reload(data):
                             "is_ready": False
                         }
 
-                # Lưu lại trạng thái phòng vào Redis
+                # Cập nhật Redis
                 redis_client.set(f"room:{room_id}", json.dumps(room))
-
-                print(f"User {user_id} rejoined room {room_id} after reload")
 
     except Exception as e:
         print(f"Error handling reload for user {user_id} in room {room_id}: {e}")
