@@ -3,17 +3,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const roomId = document.getElementById("room-id").value; // Lấy room_id từ input hidden
     const currentRoomId = roomId; // Thêm dòng này
 
-    // Thêm flag để đánh dấu reload
-    let isReloading = false;
-    window.onbeforeunload = function() {
-        isReloading = true;
-    };
-
-    const playerCardsContainer = document.getElementById("player-cards");
-    let currentPlayers = [];
-
     // Tham gia phòng qua Socket.IO
     socket.emit("join_room", { room_id: roomId });
+
+    // Giữ trạng thái phòng trong sessionStorage
+    sessionStorage.setItem("current_room", roomId);
 
     // Thêm listener cho host_sync event
     socket.on("host_sync", (data) => {
@@ -22,6 +16,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPlayerCards(data.player_slots);
         updateControlButtons();
     });
+
+    // Thêm flag để đánh dấu reload
+    let isReloading = false;
+    window.addEventListener("beforeunload", function (e) {
+        isReloading = performance.getEntriesByType("navigation")[0].type === "reload";
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        // Có thể thêm xử lý khi mất kết nối
+    });
+
+    await fetchPlayerData();
+
+    const playerCardsContainer = document.getElementById("player-cards");
+    let currentPlayers = [];
 
     // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {
@@ -265,12 +275,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return session.get("username");
     }
     
-    // Thêm listener cho socket disconnect
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-        // Có thể thêm xử lý khi mất kết nối
-    });
-    
     // Thêm listener cho room_deleted
     socket.on('room_deleted', (data) => {
         console.log('Room deleted:', data);
@@ -404,9 +408,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPlayerCards(data.player_slots);
         initializeDragAndDrop();  // Khởi tạo lại drag & drop sau khi render
     });
-
-    // Khởi tạo ban đầu
-    await fetchPlayerData();
 
     // Kiểm tra phòng định kỳ
     setInterval(async () => {

@@ -81,6 +81,14 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+    const currentRoom = sessionStorage.getItem("current_room");
+    if (currentRoom) {
+        window.location.href = `/room/${currentRoom}`;
+    }
+});
+
+
+document.addEventListener("DOMContentLoaded", () => {
     // Elements
     const leaderboardButton = document.getElementById("leaderboard-btn");
     const createRoomButton = document.getElementById("create-room-btn");

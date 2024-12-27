@@ -786,12 +786,7 @@ def room(room_id):
             room["host_id"] = next((slot["user_id"] for slot in room["player_slots"] if slot), user_id)
 
         # Kiểm tra xem người chơi đã có trong player_slots chưa
-        player_exists = False
-        for slot in room["player_slots"]:
-            if slot and slot.get("username") == username and slot.get("user_id") == user_id:
-                player_exists = True
-                slot["is_host"] = slot["user_id"] == room["host_id"]
-                break
+        player_exists = any(slot and slot["user_id"] == user_id for slot in room["player_slots"])
 
         # Nếu người chơi chưa có trong player_slots và phòng còn chỗ
         if not player_exists:
@@ -817,18 +812,16 @@ def room(room_id):
         if username not in room["current_players"]:
             room["current_players"].append(username)
 
-        # Lưu lại trạng thái phòng vào Redis
+        # Lưu lại trạng thái phòng vào Redis và session
         redis_client.set(f"room:{room_id}", json.dumps(room))
         session['current_room'] = room_id
-
-        sync_room_host(room_id)
 
         return render_template("room_4.html", room_id=room_id, room=room, session=session)
 
     except Exception as e:
         print(f"Error accessing room: {e}")
         flash("An error occurred while accessing the room.", "error")
-        return redirect(url_for("home")) 
+        return redirect(url_for("home"))
     
 @app.route("/room-data/<room_id>", methods=["GET"])
 @login_required
