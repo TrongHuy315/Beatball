@@ -100,20 +100,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         playerCardsContainer.innerHTML = "";
     
+        const team1 = document.createElement("div");
+        team1.className = "team team-1";
+        const team2 = document.createElement("div");
+        team2.className = "team team-2";
+    
         // Duyệt qua playerSlots để hiển thị mỗi slot
-        playerSlots.forEach((playerData, index) => {
+        for (let i = 0; i < 2; i++) {
             const card = document.createElement("div");
             card.className = "player-card";
-            card.dataset.slot = index;
+            card.dataset.slot = i;
+            
+            const playerData = playerSlots[i];
             
             if (playerData && playerData.username) {
+                // Xác định host dựa trên currentHostId
                 const isHost = playerData.user_id === currentHostId;
-                console.log(`Card ${index}:`, {
+                console.log(`Card ${i}:`, {
                     user_id: playerData.user_id,
                     currentHostId: currentHostId,
                     isHost: isHost
                 });
-
+                
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
                     <p class="player-name">${playerData.username}</p>
@@ -121,6 +129,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     ${isHost ? '<div class="host-marker">Host</div>' : ''}
                     ${playerData.is_ready ? '<div class="ready-marker">Ready</div>' : ''}
                 `;
+    
+                // Cho phép kéo thả nếu người chơi hiện tại là user này
+                if (playerData.username === currentUsername) {
+                    card.setAttribute('draggable', 'true');
+                }
             } else {
                 // Slot trống
                 card.innerHTML = `
@@ -129,9 +142,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <p class="player-score"></p>
                 `;
             }
-
-            playerCardsContainer.appendChild(card);
-        });
+    
+            // Thêm card vào team1 hoặc team2
+            if (i < 1) {
+                team1.appendChild(card);
+            } else {
+                team2.appendChild(card);
+            }
+        }
+    
+        // Thêm các đội và biểu tượng VS vào container
+        playerCardsContainer.appendChild(team1);
+        playerCardsContainer.appendChild(vsDiv);
+        playerCardsContainer.appendChild(team2);
+    
+        // Khởi tạo lại drag & drop
+        initializeDragAndDrop();
     }
 
     socket.on("player_left", (data) => {
