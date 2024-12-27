@@ -37,22 +37,26 @@ body {
 /* Card player ở giữa */
 .player-cards {
     display: flex;
-    gap: 20px;
+    justify-content: space-evenly;
+    padding: 20px;
 }
 
 .player-card {
-    background: white;
+    width: 150px;
+    height: 200px;
+    background: #ffffff;
     border: 1px solid #ddd;
     border-radius: 10px;
-    width: 150px;
     text-align: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .avatar {
-    width: 100%;
-    height: 100px;
-    background-color: #e0e0e0;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
     margin-bottom: 10px;
 }
 
