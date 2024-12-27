@@ -15,13 +15,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Thêm flag để đánh dấu reload
     let isReloading = false;
     window.addEventListener("beforeunload", function (e) {
-        isReloading = performance.getEntriesByType("navigation")[0].type === "reload";
+        isReloading = performance.getEntriesByType("navigation")[0]?.type === "reload";
     });
 
     socket.on('disconnect', () => {
         console.log('Disconnected from server');
         // Có thể thêm xử lý khi mất kết nối
     });
+
+    const playerCardsContainer = document.getElementById("player-cards");
+    let currentPlayers = [];
+    let currentHostId = null; // Khởi tạo biến
 
     await fetchPlayerData();
 
@@ -32,9 +36,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPlayerCards(data.player_slots);
         updateControlButtons();
     });
-
-    const playerCardsContainer = document.getElementById("player-cards");
-    let currentPlayers = [];
 
     // Sửa lại hàm fetchPlayerData
     async function fetchPlayerData() {
@@ -99,10 +100,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Hiển thị player cards
     function renderPlayerCards(playerSlots) {
-        const playerCardsContainer = document.getElementById("player-cards");
         if (!playerCardsContainer) return;
     
-        const currentUsername = document.getElementById("current-username").value;
+        const currentUsername = document.getElementById("current-username")?.value;
         console.log("Rendering cards for current user:", currentUsername);
         console.log("Current host ID:", currentHostId);
     
@@ -172,9 +172,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         initializeDragAndDrop();
     }    
 
-    // Thêm biến để lưu host_id
-    let currentHostId = null;
-
     socket.on("player_joined", (data) => {
         console.log("Player joined:", data);
         currentHostId = data.host_id; // Cập nhật host_id từ backend
@@ -200,7 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             // Cập nhật thông tin chủ phòng nếu có thay đổi
             if (data.new_host_id) {
-                const currentUsername = document.getElementById("current-username").value;
+                const currentUsername = document.getElementById("current-username")?.value;
                 // Tìm username của host mới
                 let newHostUsername = null;
                 for (const slot of data.player_slots) {
