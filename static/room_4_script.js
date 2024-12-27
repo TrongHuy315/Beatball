@@ -6,20 +6,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
-    window.onbeforeunload = function () {
+    window.onbeforeunload = function() {
         isReloading = true;
+        // Đặt flag reload vào localStorage
         localStorage.setItem('is_reloading', 'true');
         localStorage.setItem('current_room', roomId);
         localStorage.setItem('current_user_id', currentUserId);
     
-        // Thông báo server về việc reload
+        // Đảm bảo emit handle_reload được gửi đi trước khi reload
         socket.emit('handle_reload', {
             room_id: roomId,
             user_id: currentUserId
         });
     
-        return null; // Không gửi yêu cầu leave-room
-    };    
+        // Trì hoãn reload một chút để đảm bảo emit được gửi đi
+        const start = Date.now();
+        while (Date.now() - start < 100) {}
+        return undefined;
+    }; 
 
     // Kiểm tra nếu đang reload
     const storedRoomId = localStorage.getItem('current_room');
