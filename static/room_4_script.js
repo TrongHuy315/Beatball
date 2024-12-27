@@ -25,20 +25,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await fetchPlayerData();
 
-    // Kiểm tra phòng định kỳ
-    setInterval(async () => {
-        try {
-            const response = await fetch(`/check-room/${roomId}`);
-            const data = await response.json();
-            if (!data.exists) {
-                alert("Room no longer exists!");
-                window.location.href = "/home";
-            }
-        } catch (error) {
-            console.error("Error checking room:", error);
-        }
-    }, 5000); // Kiểm tra mỗi 5 giây
-
     // Thêm listener cho host_sync event
     socket.on("host_sync", (data) => {
         console.log("Host sync received:", data);
@@ -425,4 +411,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPlayerCards(data.player_slots);
         initializeDragAndDrop();  // Khởi tạo lại drag & drop sau khi render
     });
+
+    // Kiểm tra phòng định kỳ
+    setInterval(async () => {
+        try {
+            const response = await fetch(`/check-room/${roomId}`);
+            const data = await response.json();
+            if (!data.exists) {
+                alert("Room no longer exists!");
+                window.location.href = "/home";
+            }
+        } catch (error) {
+            console.error("Error checking room:", error);
+        }
+    }, 5000); // Kiểm tra mỗi 5 giây
 });
