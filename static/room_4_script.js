@@ -16,20 +16,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem('is_reloading', 'true');
     });
 
-    window.onbeforeunload = function () {
-        // Đánh dấu cờ reload
+    window.onbeforeunload = function() {
+        isReloading = true;
         localStorage.setItem('is_reloading', 'true');
-
-        // Kiểm tra cờ
-        const isReloading = localStorage.getItem('is_reloading') === 'true';
-        if (!isReloading) {
-            fetch(`/leave-room/${roomId}`, {
-                method: 'POST',
-                keepalive: true
-            });
-        }
-        // Trả về null để không hiển thị popup
-        return null;
+        localStorage.setItem('current_room', roomId);
+        localStorage.setItem('current_user_id', currentUserId);
+    
+        socket.emit('handle_reload', {
+            room_id: roomId,
+            user_id: currentUserId
+        });
+    
+        return undefined;
     };   
 
     // Kiểm tra nếu đang reload
@@ -50,9 +48,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.removeItem('current_user_id');
 
     // Xử lý khi load trang
-    window.onload = function () {
-        // Đặt lại cờ reload = false
-        localStorage.setItem('is_reloading', 'false');
+    window.onload = function() {
+        const wasReloading = localStorage.getItem('is_reloading') === 'true';
+        if (wasReloading) {
+            console.log("Page was reloaded");
+            localStorage.setItem('is_reloading', 'false');
+        }
     };
 
     const playerCardsContainer = document.getElementById("player-cards");
@@ -297,7 +298,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Thêm listener cho socket disconnect
     socket.on("disconnect", () => {
         console.log("Socket disconnected, isReloading:", isReloading);
-        if (!isReloading || !roomJustCreated) {
+        const wasReloading = localStorage.getItem('is_reloading') === 'true';
+        
+        if (!isReloading && !wasReloading) {
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
@@ -306,6 +309,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             }).catch(error => {
                 console.error("Error leaving room:", error);
             });
+        } else {
+            console.log("Skipping leave-room request - page is reloading");
         }
     });
     
