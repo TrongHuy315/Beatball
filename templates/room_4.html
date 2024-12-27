@@ -160,12 +160,6 @@
                 handleLeaveRoom();
             });
         
-            // Xử lý khi bấm back-button của trình duyệt
-            window.addEventListener("popstate", (event) => {
-                event.preventDefault();
-                handleLeaveRoom();
-            });
-        
             // Thêm state cho trang hiện tại
             if (history.state === null) {
                 history.replaceState({ page: "room" }, "", window.location.href);
