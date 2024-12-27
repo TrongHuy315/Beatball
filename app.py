@@ -241,56 +241,46 @@ def create_room():
         user_id = session.get("user_id")
         username = session.get("username")
 
-        if not all([room_type, user_id, username]):
-            return jsonify({"error": "Missing required data"}), 400
+        print(f"\n=== Creating Room ===")
+        print(f"Room Type: {room_type}")
+        print(f"User ID: {user_id}")
+        print(f"Username: {username}")
 
-        if room_type not in ["lobby", "vs"]:
-            return jsonify({"error": "Invalid room type"}), 400
-
-        # Xác định loại phòng và số người chơi tối đa
+        # Tạo room ID
         if room_type == "lobby":
             id_min, id_max = 100000, 549999
             max_players = 2
-        else:  # room_type == "vs"
+        else:
             id_min, id_max = 550000, 999999
             max_players = 4
 
-        # Tạo room ID
-        for _ in range(5):
-            room_id = str(random.randint(id_min, id_max))
-            if not redis_client.exists(f"room:{room_id}"):
-                break
-        else:
-            return jsonify({"error": "Failed to create unique room ID"}), 500
+        room_id = str(random.randint(id_min, id_max))
+        print(f"Generated Room ID: {room_id}")
 
-        # Lấy thông tin người chơi từ Firebase
+        # Kiểm tra Redis connection
         try:
-            firebase_response = requests.get(f"{FIREBASE_URL[:-5]}/{user_id}.json")
-            if firebase_response.status_code == 200:
-                user_data = firebase_response.json()
-            else:
-                user_data = {}
+            redis_client.ping()
+            print("Redis connection successful")
         except Exception as e:
-            print(f"Error fetching Firebase data: {e}")
-            user_data = {}
+            print(f"Redis connection error: {e}")
+            return jsonify({"error": "Database connection error"}), 500
 
-        # Khởi tạo player_slots với host ở slot đầu tiên
+        # Khởi tạo room data
         player_slots = [None] * max_players
         player_slots[0] = {
             "username": username,
             "user_id": user_id,
             "slot": 0,
-            "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
-            "score": user_data.get("stats", {}).get("point", 1000),
+            "avatar": "/static/images/default-avatar.png",
+            "score": 1000,
             "is_host": True,
             "is_ready": False
         }
 
-        # Tạo room data với host_id rõ ràng
         room_data = {
             "room_id": room_id,
             "created_by": user_id,
-            "host_id": user_id,  # Đảm bảo host_id được set
+            "host_id": user_id,
             "max_players": max_players,
             "player_slots": player_slots,
             "current_players": [username],
@@ -300,109 +290,65 @@ def create_room():
             "game_data": None
         }
 
-        # Lưu vào Redis
-        redis_client.set(f"room:{room_id}", json.dumps(room_data))
-        
-        print(f"Room {room_id} created by {username} (ID: {user_id})")
+        # Lưu vào Redis với thời gian tồn tại là 2 giờ
+        redis_client.setex(
+            f"room:{room_id}",
+            7200,  # 2 giờ
+            json.dumps(room_data)
+        )
+
+        # Verify room was saved
+        saved_data = redis_client.get(f"room:{room_id}")
+        if not saved_data:
+            print("Failed to save room to Redis")
+            return jsonify({"error": "Failed to save room"}), 500
+
+        print(f"Room {room_id} created successfully")
         print(f"Room data: {json.dumps(room_data, indent=2)}")
+
+        # Thêm room ID vào session
+        session['current_room'] = room_id
 
         return jsonify({
             "success": True,
             "room_id": room_id,
             "player_slots": player_slots,
-            "host_id": user_id  # Thêm host_id vào response
+            "host_id": user_id
         }), 201
 
     except Exception as e:
-        print(f"Error creating room: {e}")
+        print(f"Error creating room: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/join-room/<room_id>", methods=["POST"])
-@login_required
-def join_room_handler(room_id):
+@socketio.on("join_room")
+def handle_socket_join(data):
     try:
+        room_id = data.get("room_id")
+        if not room_id:
+            return
+            
+        print(f"\n=== Socket Join Room ===")
+        print(f"Room ID: {room_id}")
+        print(f"User ID: {session.get('user_id')}")
+        
+        # Verify room exists
         room_data = redis_client.get(f"room:{room_id}")
         if not room_data:
-            return jsonify({"error": "Room not found"}), 404
-
-        room = json.loads(room_data)
-        user_id = session.get("user_id")
-        username = session.get("username")
-
-        # Kiểm tra người chơi đã trong phòng
-        player_slot = next(
-            (i for i, slot in enumerate(room["player_slots"]) 
-             if slot and slot["user_id"] == user_id),
-            None
-        )
-
-        if player_slot is not None:
-            return jsonify({
-                "success": True,
-                "message": "Already in room",
-                "player_slots": room["player_slots"]
-            })
-
-        # Kiểm tra phòng đầy
-        if len([p for p in room["player_slots"] if p]) >= room["max_players"]:
-            return jsonify({"error": "Room is full"}), 403
-
-        # Lấy thông tin người chơi từ Firebase
-        try:
-            firebase_response = requests.get(f"{FIREBASE_URL[:-5]}/{user_id}.json")
-            if firebase_response.status_code == 200:
-                user_data = firebase_response.json()
-            else:
-                user_data = {}
-        except Exception as e:
-            print(f"Error fetching Firebase data: {e}")
-            user_data = {}
-
-        # Tìm slot trống đầu tiên
-        empty_slot = next(
-            (i for i, slot in enumerate(room["player_slots"]) if not slot),
-            None
-        )
-
-        if empty_slot is None:
-            return jsonify({"error": "No empty slots"}), 403
-
-        # Thêm người chơi vào slot
-        room["player_slots"][empty_slot] = {
-            "username": username,
-            "user_id": user_id,
-            "slot": empty_slot,
-            "avatar": user_data.get("profilePicture", "/static/images/default-avatar.png"),
-            "score": user_data.get("stats", {}).get("point", 1000),
-            "is_host": False,  # User_2 không phải host
-            "is_ready": False
-        }
-
-        if username not in room["current_players"]:
-            room["current_players"].append(username)
-
-        # Cập nhật Redis
-        redis_client.set(f"room:{room_id}", json.dumps(room))
-
-        print(f"Player {username} joined room {room_id} in slot {empty_slot}")
-        print(f"Updated room data: {json.dumps(room, indent=2)}")
-
-        # Emit socket event
-        socketio.emit('player_joined', {
-            'room_id': room_id,
-            'player_slots': room["player_slots"],
-            'host_id': room["host_id"]  # Đảm bảo gửi đúng host_id hiện tại
-        }, room=room_id)
-
-        return jsonify({
-            "success": True,
-            "message": "Joined room successfully",
-            "player_slots": room["player_slots"]
-        })
-
+            print(f"Room {room_id} not found in Redis")
+            return
+        
+        # Join socket room
+        join_room(room_id)
+        print(f"Joined socket room {room_id}")
+        
+        # Refresh room expiration
+        redis_client.expire(f"room:{room_id}", 7200)  # Reset to 2 hours
+        
+        # Đồng bộ host sau khi join
+        sync_room_host(room_id)
+        
     except Exception as e:
-        print(f"Error joining room: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in socket join_room: {e}")
     
 @app.route("/leave-room/<room_id>", methods=["POST"])
 @login_required
@@ -1023,6 +969,10 @@ def on_disconnect():
             user_id = session.get('user_id')
             room_data = redis_client.get(f"room:{room_id}")
 
+            print(f"\n=== Socket Disconnect ===")
+            print(f"Room ID: {room_id}")
+            print(f"User ID: {user_id}")
+
             if room_data:
                 room = json.loads(room_data)
                 
@@ -1353,6 +1303,27 @@ def handle_reload(data):
                 
     except Exception as e:
         print(f"Error handling reload: {e}")
+
+def cleanup_inactive_rooms():
+    """Xóa các phòng không hoạt động sau 2 giờ"""
+    try:
+        current_time = time.time()
+        pattern = "room:*"
+        for key in redis_client.scan_iter(match=pattern):
+            room_data = redis_client.get(key)
+            if room_data:
+                room = json.loads(room_data)
+                if current_time - room["created_at"] > 7200:  # 2 giờ
+                    redis_client.delete(key)
+                    print(f"Cleaned up inactive room: {key}")
+    except Exception as e:
+        print(f"Error in cleanup_inactive_rooms: {e}")
+
+# Chạy cleanup mỗi giờ
+from apscheduler.schedulers.background import BackgroundScheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(cleanup_inactive_rooms, 'interval', hours=1)
+scheduler.start()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
