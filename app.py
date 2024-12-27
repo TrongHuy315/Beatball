@@ -231,7 +231,7 @@ def end_match():
         return jsonify({"success": True})
     else:
         return jsonify({"success": False, "error": "Failed to update stats"}), 500
-
+    
 @app.route("/create-room", methods=["POST"])
 @login_required
 def create_room():
@@ -256,14 +256,6 @@ def create_room():
 
         room_id = str(random.randint(id_min, id_max))
         print(f"Generated Room ID: {room_id}")
-
-        # Kiểm tra Redis connection
-        try:
-            redis_client.ping()
-            print("Redis connection successful")
-        except Exception as e:
-            print(f"Redis connection error: {e}")
-            return jsonify({"error": "Database connection error"}), 500
 
         # Khởi tạo room data
         player_slots = [None] * max_players
@@ -297,17 +289,23 @@ def create_room():
             json.dumps(room_data)
         )
 
-        # Verify room was saved
+        # Verify Redis connection
+        try:
+            redis_client.ping()
+            print("Redis connection verified")
+        except Exception as e:
+            print(f"Redis connection failed: {e}")
+            return jsonify({"error": "Database connection error"}), 500
+
+        # After saving to Redis
         saved_data = redis_client.get(f"room:{room_id}")
-        if not saved_data:
-            print("Failed to save room to Redis")
-            return jsonify({"error": "Failed to save room"}), 500
-
-        print(f"Room {room_id} created successfully")
-        print(f"Room data: {json.dumps(room_data, indent=2)}")
-
-        # Thêm room ID vào session
-        session['current_room'] = room_id
+        print(f"Saved room data verification: {saved_data is not None}")
+        
+        if saved_data:
+            # Set session data
+            session['current_room'] = room_id
+            session['is_room_creator'] = True
+            print(f"Session updated with room ID: {room_id}")
 
         return jsonify({
             "success": True,
@@ -1025,15 +1023,25 @@ def on_disconnect():
         if 'current_room' in session:
             room_id = session['current_room']
             user_id = session.get('user_id')
-            room_data = redis_client.get(f"room:{room_id}")
-
+            
             print(f"\n=== Socket Disconnect ===")
             print(f"Room ID: {room_id}")
             print(f"User ID: {user_id}")
-
+            
+            # Thêm kiểm tra xem người dùng có phải là người tạo phòng không
+            is_room_creator = False
+            
+            room_data = redis_client.get(f"room:{room_id}")
             if room_data:
                 room = json.loads(room_data)
+                is_room_creator = room.get("created_by") == user_id
+                print(f"User is room creator: {is_room_creator}")
                 
+                # Nếu là người tạo phòng và phòng vừa được tạo, không xóa phòng
+                if is_room_creator and (time.time() - room.get("created_at", 0) < 5):
+                    print("Room recently created, skipping disconnect handling")
+                    return
+
                 # Kiểm tra xem có phải đang reload không
                 is_reloading = False
                 for slot in room["player_slots"]:
@@ -1041,7 +1049,9 @@ def on_disconnect():
                         is_reloading = slot.get("is_reloading", False)
                         break
 
-                if not is_reloading:  # Chỉ xử lý rời phòng nếu không phải reload
+                print(f"Is reloading: {is_reloading}")
+
+                if not is_reloading:
                     # Tìm và xóa người chơi khỏi slot
                     slot_index = None
                     for i, slot in enumerate(room["player_slots"]):
@@ -1081,6 +1091,9 @@ def on_disconnect():
                                 'room_id': room_id,
                                 'message': 'Room has been deleted'
                             }, room=room_id)
+                else:
+                    print("User is reloading, keeping in room")
+                    
     except Exception as e:
         print(f"Error in disconnect handler: {e}")
 
@@ -1344,6 +1357,7 @@ def handle_reload(data):
     try:
         room_id = data.get('room_id')
         user_id = data.get('user_id')
+        is_creator = data.get('is_creator', False)
         
         if room_id and user_id:
             room_data = redis_client.get(f"room:{room_id}")
@@ -1354,10 +1368,15 @@ def handle_reload(data):
                 for slot in room["player_slots"]:
                     if slot and slot.get("user_id") == user_id:
                         slot["is_reloading"] = True
+                        # Nếu là người tạo phòng, đặt flag đặc biệt
+                        if is_creator:
+                            slot["is_creator_reloading"] = True
                         break
                 
                 redis_client.set(f"room:{room_id}", json.dumps(room))
                 print(f"Marked player {user_id} as reloading in room {room_id}")
+                # Refresh room expiration
+                redis_client.expire(f"room:{room_id}", 7200)  # Reset to 2 hours
                 
     except Exception as e:
         print(f"Error handling reload: {e}")

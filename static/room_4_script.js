@@ -11,18 +11,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isReloading = false;
     window.onbeforeunload = function() {
         isReloading = true;
-        // Đặt flag reload vào localStorage
         localStorage.setItem('is_reloading', 'true');
         localStorage.setItem('current_room', roomId);
         localStorage.setItem('current_user_id', currentUserId);
     
-        // Đảm bảo emit handle_reload được gửi đi trước khi reload
+        // Nếu phòng vừa được tạo, đặt flag
+        if (roomJustCreated) {
+            localStorage.setItem('room_just_created', 'true');
+        }
+    
         socket.emit('handle_reload', {
             room_id: roomId,
-            user_id: currentUserId
+            user_id: currentUserId,
+            is_creator: roomJustCreated
         });
     
-        // Trì hoãn reload một chút để đảm bảo emit được gửi đi
         const start = Date.now();
         while (Date.now() - start < 100) {}
         return undefined;
@@ -48,9 +51,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Xử lý khi load trang
     window.onload = function() {
         const wasReloading = sessionStorage.getItem('isReloading');
+        const wasJustCreated = localStorage.getItem('room_just_created') === 'true';
+        
         if (wasReloading) {
             console.log("Page was reloaded");
+            if (wasJustCreated) {
+                console.log("Room was just created");
+                roomJustCreated = true;
+            }
             sessionStorage.removeItem('isReloading');
+            localStorage.removeItem('room_just_created');
         }
     };
 
@@ -294,23 +304,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     // Thêm listener cho socket disconnect
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-        // Có thể thêm xử lý khi mất kết nối
-    });
-    
-    // Thêm listener cho room_deleted
-    socket.on('room_deleted', (data) => {
-        console.log('Room deleted:', data);
-        alert('Phòng đã bị xóa!');
-        // Chuyển về trang danh sách phòng
-        window.location.href = '/rooms';
-    });
-
-    // Sửa lại event listener socket disconnect
     socket.on("disconnect", () => {
         console.log("Socket disconnected, isReloading:", isReloading);
-        if (!isReloading) {
+        if (!isReloading || !roomJustCreated) {
             fetch(`/leave-room/${roomId}`, {
                 method: "POST",
                 keepalive: true
@@ -320,6 +316,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 console.error("Error leaving room:", error);
             });
         }
+    });
+    
+    // Thêm listener cho room_deleted
+    socket.on('room_deleted', (data) => {
+        console.log('Room deleted:', data);
+        alert('Phòng đã bị xóa!');
+        // Chuyển về trang danh sách phòng
+        window.location.href = '/rooms';
     });
 
     // Trong file room_4.js
