@@ -778,23 +778,17 @@ def room(room_id):
             return redirect(url_for("home"))
 
         room = json.loads(room_data)
-        username = session.get("username")
         user_id = session.get("user_id")
+        username = session.get("username")
 
-        # Đảm bảo host_id tồn tại
-        if "host_id" not in room:
-            room["host_id"] = next((slot["user_id"] for slot in room["player_slots"] if slot), user_id)
+        # Đảm bảo thông tin trong session đồng bộ
+        if session.get("current_room") != room_id:
+            session["current_room"] = room_id
 
-        # Kiểm tra xem người chơi đã có trong player_slots chưa
+        # Kiểm tra nếu người chơi đã có trong phòng
         player_exists = any(slot and slot["user_id"] == user_id for slot in room["player_slots"])
 
-        # Nếu người chơi chưa có trong player_slots và phòng còn chỗ
         if not player_exists:
-            if len([p for p in room["player_slots"] if p is not None]) >= room["max_players"]:
-                flash("Room is full.", "danger")
-                return redirect(url_for("home"))
-
-            # Tìm slot trống và thêm người chơi
             for i, slot in enumerate(room["player_slots"]):
                 if slot is None:
                     room["player_slots"][i] = {
@@ -804,18 +798,12 @@ def room(room_id):
                         "avatar": "/static/images/default-avatar.png",
                         "score": 1000,
                         "is_host": user_id == room["host_id"],
-                        "is_ready": False
+                        "is_ready": False,
                     }
+                    room["current_players"].append(username)
                     break
 
-        # Cập nhật danh sách người chơi
-        if username not in room["current_players"]:
-            room["current_players"].append(username)
-
-        # Lưu lại trạng thái phòng vào Redis và session
         redis_client.set(f"room:{room_id}", json.dumps(room))
-        session['current_room'] = room_id
-
         return render_template("room_4.html", room_id=room_id, room=room, session=session)
 
     except Exception as e:

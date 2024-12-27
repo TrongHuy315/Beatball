@@ -2,20 +2,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const socket = io();
     const roomId = document.getElementById("room-id").value; // Lấy room_id từ input hidden
     const currentRoomId = roomId; // Thêm dòng này
+    const sessionRoom = sessionStorage.getItem("current_room");
+
+    if (sessionRoom && sessionRoom !== roomId) {
+        console.warn("Inconsistent room detected. Updating to current room.");
+        sessionStorage.setItem("current_room", roomId);
+    }
 
     // Tham gia phòng qua Socket.IO
     socket.emit("join_room", { room_id: roomId });
-
-    // Giữ trạng thái phòng trong sessionStorage
-    sessionStorage.setItem("current_room", roomId);
-
-    // Thêm listener cho host_sync event
-    socket.on("host_sync", (data) => {
-        console.log("Host sync received:", data);
-        currentHostId = data.host_id;
-        renderPlayerCards(data.player_slots);
-        updateControlButtons();
-    });
 
     // Thêm flag để đánh dấu reload
     let isReloading = false;
@@ -29,6 +24,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     await fetchPlayerData();
+
+    // Kiểm tra phòng định kỳ
+    setInterval(async () => {
+        try {
+            const response = await fetch(`/check-room/${roomId}`);
+            const data = await response.json();
+            if (!data.exists) {
+                alert("Room no longer exists!");
+                window.location.href = "/home";
+            }
+        } catch (error) {
+            console.error("Error checking room:", error);
+        }
+    }, 5000); // Kiểm tra mỗi 5 giây
+
+    // Thêm listener cho host_sync event
+    socket.on("host_sync", (data) => {
+        console.log("Host sync received:", data);
+        currentHostId = data.host_id;
+        renderPlayerCards(data.player_slots);
+        updateControlButtons();
+    });
 
     const playerCardsContainer = document.getElementById("player-cards");
     let currentPlayers = [];
@@ -408,18 +425,4 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPlayerCards(data.player_slots);
         initializeDragAndDrop();  // Khởi tạo lại drag & drop sau khi render
     });
-
-    // Kiểm tra phòng định kỳ
-    setInterval(async () => {
-        try {
-            const response = await fetch(`/check-room/${roomId}`);
-            const data = await response.json();
-            if (!data.exists) {
-                alert("Room no longer exists!");
-                window.location.href = "/home";
-            }
-        } catch (error) {
-            console.error("Error checking room:", error);
-        }
-    }, 5000); // Kiểm tra mỗi 5 giây
 });
