@@ -16,9 +16,6 @@ class Player {
         const { normalKickDistance, normalKickVelocityAdd } = CONFIG.player.ballConfig;
         this.normalKickDistance = normalKickDistance;
         this.normalKickVelocityAdd = normalKickVelocityAdd;
-        console.log(this.normalKickDistance, this.normalKickVelocityAdd); 
-        this.create();
-        Matter.Events.on(this.engine, 'beforeUpdate', this.afterPhysicsUpdate.bind(this));
     }
     afterPhysicsUpdate() {
         if (this.body) {
@@ -33,6 +30,7 @@ class Player {
         this.spawnY = y;
         this.body = this.createPhysicsBody(x, y);
         Matter.World.add(this.world, this.body);
+        Matter.Events.on(this.engine, 'beforeUpdate', this.afterPhysicsUpdate.bind(this));
         return this;
     }
 

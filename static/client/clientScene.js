@@ -1,3 +1,5 @@
+const clientId = sessionStorage.getItem('clientId') || generateUniqueId();
+sessionStorage.setItem('clientId', clientId);
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
@@ -46,8 +48,6 @@ class ClientScene extends Phaser.Scene {
         // ---- SCOREBOARD ----
         this.scoreboard.draw();
 
-        this.player = new PlayerController(this); 
-        this.player.create(totalWidth / 4, totalHeight / 2)
         // ---- Socket Connection -----
         this.setupWebSocket();
         // ---- PING DISPLAY ---- 
@@ -197,14 +197,22 @@ class ClientScene extends Phaser.Scene {
     setupWebSocket() {
         this.SOCKET = io('http://localhost:3000', {
             transports: ['websocket'],
-            upgrade: false
+            upgrade: false, 
+            auth: {
+                clientType: 'gameClient',
+                version: '1.0', 
+                clientId: clientId
+            }
         }); 
         var socket = this.SOCKET;
 
         // ----- SERVER CONNECTION ------- 
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('Connected with socket ID:', socket.id);
             socket.emit('requestJoin');
+        });
+        socket.on('connect_error', (error) => {
+            console.log('Connection error:', error);
         });
         socket.on('approveJoin', (data) => {
             this.playerId = data.playerId;
@@ -218,7 +226,6 @@ class ClientScene extends Phaser.Scene {
             this.handleGameState(data);
         });
         socket.on('sendBallState', (data) => {
-            console.log("Received"); 
             this.ball.handleBallState(data); 
         }); 
 
@@ -263,9 +270,15 @@ class ClientScene extends Phaser.Scene {
             }
         });
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected:', reason);
+            if (reason === 'io server disconnect') {
+                // Server đã disconnect có chủ ý, không reconnect
+                socket.connect();
+            }
+            // Các trường hợp khác để Socket.IO tự xử lý reconnect
         });
+        
     }
 }
 
@@ -295,3 +308,8 @@ const configPhaser = {
 };
 
 const game = new Phaser.Game(configPhaser);
+window.addEventListener('beforeunload', (event) => {
+    if (game.scene.scenes[0].SOCKET) {
+        game.scene.scenes[0].SOCKET.emit('leaveGame');
+    }
+});

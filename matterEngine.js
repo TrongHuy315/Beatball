@@ -23,7 +23,8 @@ app.get('/', (req, res) => {
 });
 class PhysicsEngine {
     constructor() {
-        let cnt = 0; 
+        this.cnt = 0; 
+        this.request_counting = 0; 
         this.engine = Matter.Engine.create({
             gravity: {
                 x: 0,
@@ -32,15 +33,25 @@ class PhysicsEngine {
             },
         });
         this.world = this.engine.world;        
-        this.walls = new Wall(this.world);
         this.players = new Map();
+        this.wall = new Wall(this.world); 
         this.ball = new Ball(this.world, this.engine, io); 
+
         this.setUpConnection(); 
-        // Tracking timing
-        this.targetFrameTime = 1000 / 60; // 16.67ms per frame
+
+        this.targetFrameTime = 1000 / 60; 
         this.lastFrameTime = Date.now();
         this.frameCount = 0;
         this.lastFPSUpdate = Date.now();
+        Events.on(this.engine, 'afterAdd', (event) => {
+            const body = event.object;
+            console.log('\n=== New Body Added to World ===');
+            console.log('Body Label:', body.label);
+            console.log('Body ID:', body.id);
+            console.log('Stack trace:');
+            console.trace();
+            console.log('================================\n');
+        });
 
         const gameLoop = () => {
             const currentTime = Date.now();
@@ -75,11 +86,68 @@ class PhysicsEngine {
                 const bodyA = pair.bodyA;
                 const bodyB = pair.bodyB;
                 if ((bodyA.label == 'player' && bodyB.label == 'ball') || (bodyB.label == 'player' && bodyA.label == 'ball')) {
-                    cnt++; 
-                    console.log(`Collision between: ${bodyA.label} and ${bodyB.label}`, cnt, `times`);
+                    this.cnt++; 
+                    console.log(`Collision between: ${bodyA.label} and ${bodyB.label}`, this.cnt, `times`);
                 }
             });
         });
+        this.authenticatedClients = new Set();
+        setInterval(() => {
+            this.logPlayerStats(); 
+        }, 4000); 
+        setInterval(() => {
+            this.logWorldState(); 
+        }, 7000); 
+        setInterval(() => {
+            console.log("Number of request: ", this.request_counting); 
+        }, 1000); 
+        setInterval(() => {
+            this.cleanupGhostPlayers();
+        }, 30000);
+    }
+    logPlayerStats() {
+        console.log('\n=== Player Statistics ===');
+        console.log(`Total Connected Players: ${this.players.size}`);
+        
+        if (this.players.size > 0) {
+            console.log('\nActive Players:');
+            this.players.forEach((player, id) => {
+                console.log(`- Player ${id}:`, {
+                    position: {
+                        x: Math.round(player.body.position.x),
+                        y: Math.round(player.body.position.y)
+                    },
+                    velocity: {
+                        x: Math.round(player.body.velocity.x),
+                        y: Math.round(player.body.velocity.y)
+                    }
+                });
+            });
+        }
+    
+        console.log('========================\n');
+    }
+    logWorldState() {
+        console.log('\n=== World State ===');
+        console.log('Total bodies in world:', this.world.bodies.length);
+        
+        // Group bodies by label
+        const bodyGroups = {};
+        this.world.bodies.forEach(body => {
+            if (!bodyGroups[body.label]) {
+                bodyGroups[body.label] = [];
+            }
+            bodyGroups[body.label].push({
+                id: body.id,
+                position: body.position,
+                hasPlayer: this.players.has(body.id)
+            });
+        });
+
+        console.log('Bodies by type:', bodyGroups);
+        console.log('Players in this.players Map:', Array.from(this.players.keys()));
+        console.log('Authenticated clients:', Array.from(this.authenticatedClients));
+        console.log('===================\n');
     }
 	gameState () {
 		const state = {
@@ -103,52 +171,96 @@ class PhysicsEngine {
 	gameloop() {
         this.ball.update(); 
 	}
-	setUpConnection () {
+    getPlayerStatus(clientId) {
+        if (this.players.has(clientId)) {
+            return 'active';
+        } else if (this.disconnectedPlayers.has(clientId)) {
+            const disconnectData = this.disconnectedPlayers.get(clientId);
+            const timeLeft = this.disconnectTimeout - (Date.now() - disconnectData.timestamp);
+            return {
+                status: 'disconnected',
+                timeLeft: Math.max(0, timeLeft)
+            };
+        }
+        return 'removed';
+    }
+
+	setUpConnection () {        
         const {totalWidth, totalHeight} = CONFIG; 
+        io.use((socket, next) => {
+            const clientId = socket.handshake.auth.clientId;
+            if (!clientId) {
+                return next(new Error('No client ID'));
+            }
+            socket.clientId = clientId; // Lưu clientId vào socket
+            next();
+        });
         io.on('connection', (socket) => {            
-            // PLAYER JOIN 
+            const clientId = socket.clientId;
             socket.on('requestJoin', () => {
+                if (this.players.has(clientId)) {
+                    console.log('Player already exists:', clientId);
+                    return;
+                }
+
+                console.log("A player request joinning"); 
+                this.request_counting++; 
+
                 const newPlayer = new Player(this.world, this.engine, io);
                 newPlayer.create(totalWidth / 2, totalHeight / 2); 
-                this.players.set(socket.id, newPlayer);
-                
+                this.players.set(clientId, newPlayer);
+
                 socket.emit('approveJoin', {
-                    playerId: socket.id,
+                    playerId: clientId,
                     position: newPlayer.body.position
                 });
                 
-                socket.broadcast.emit('newPlayer', {
-                    playerId: socket.id,
+                socket.broadcast.emit('newPlayerJoin', {
+                    playerId: clientId,
                     position: newPlayer.body.position
                 });
             });
             
             // PLAYER REQUEST 
             socket.on('sendInput', (data) => {
-                const player = this.players.get(socket.id);
+                const clientId = socket.clientId; 
+                const player = this.players.get(clientId);
                 const input = data.input;
                 player.update(input, this.ball); 
                 player.lastProcessedInput = input.sequence;
             }); 
 
-            // PLAYER DISCONNECT 
-            socket.on('disconnect', () => {
-                console.log('Player disconnected:', socket.id);
-                if (this.players.has(socket.id)) {
-                    Matter.World.remove(this.world, this.players.get(socket.id).body);
-                    this.players.delete(socket.id);
+            socket.on('leaveGame', () => {
+                if (this.players.has(clientId)) {
+                    const player = this.players.get(clientId);
+                    Matter.World.remove(this.world, player.body);
+                    this.players.delete(clientId);
+                    io.emit('playerLeft', {
+                        playerId: clientId
+                    });
+                    
+                    console.log(`Player ${clientId} left the game`);
                 }
-                io.emit('playerLeft', { playerId: socket.id });
             });
-            
-            // PLAYER PING 
             socket.on('ping', () => {
                 socket.emit('pong'); 
             }); 
         });
 	}
+    cleanupGhostPlayers() {
+        const playerBodies = this.world.bodies.filter(body => body.label === 'player');
+        
+        playerBodies.forEach(body => {
+            // Nếu body có label='player' nhưng không có trong this.players Map
+            const hasMatchingPlayer = Array.from(this.players.values()).some(player => player.body.id === body.id);
+            
+            if (!hasMatchingPlayer) {
+                console.log(`Removing ghost player body ID: ${body.id}`);
+                Matter.World.remove(this.world, body);
+            }
+        });
+    }
 }
-// Khởi tạo game engine
 const physicsEngine = new PhysicsEngine();
 
 const PORT = process.env.PORT || 3000;

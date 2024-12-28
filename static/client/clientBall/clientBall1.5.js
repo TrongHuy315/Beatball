@@ -5,36 +5,28 @@ class Ball {
         this.initialize();
         this.count_damping = 0; 
         console.log("Set up ball"); 
-        // Thêm biến đếm mới
+
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
         
-        // Bắt đầu đếm
-        this.startDampingCounter();
     }
     startDampingCounter() {
-        // Reset đếm mỗi giây
         setInterval(() => {
             this.dampingPerSecond = this.count_damping - this.lastSecondDampingCount;
             this.lastSecondDampingCount = this.count_damping;
             console.log("Damping calls per second:", this.dampingPerSecond);
         }, 1000);
     }
-    initialize() {
-        this.damping = this.config.physics.damping; 
-        this.graphics = this.createGraphics();
-        this.body = this.createPhysicsBody();
-        this.scene.matter.world.on('collisionstart', (event) => {
+    setupCollisionHandlers() {
+        this.scene.matter.world.on('collisionstart', () => {
             this.isColliding = true;
         });
         
         this.scene.matter.world.on('collisionend', () => {
             this.isColliding = false;
         });
-        this.oldVelocities = new Map();
 
-        // Collision Start handler
-        this.scene.matter.world.on('beforeupdate', (event) => {
+        this.scene.matter.world.on('beforeupdate', () => {
             if (!this.isColliding) {
                 this.oldVelocities.set(this.body.id, {
                     x: this.body.velocity.x,
@@ -42,36 +34,43 @@ class Ball {
                 });
             }
         });
-    
-        // Collision Active handler - đăng ký riêng
+
         this.scene.matter.world.on('collisionactive', (event) => {
-            const oldVel = this.oldVelocities.get(this.body.id); 
-            console.log(oldVel.x, oldVel.y); 
+            const oldVel = this.oldVelocities.get(this.body.id);
+            
             event.pairs.forEach((pair) => {
                 const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-    
-                if (ball && wall) {
-                    console.log("Ball and wall"); 
-                    if (!oldVel) return;
-    
+
+                if (ball && wall && oldVel) {
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-            
                     const EPSILON = 0.0001;
-                    if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
-                        if (Math.abs(currentVel.x) < EPSILON) {
-                            this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y); 
-                        }
-                        if (Math.abs(currentVel.y) < EPSILON) {
-                            this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution); 
-                        }
+                    
+                    if (Math.abs(currentVel.x) < EPSILON) {
+                        this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y);
+                    }
+                    if (Math.abs(currentVel.y) < EPSILON) {
+                        this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution);
                     }
                 }
             });
         });
-    
+    }
+    initialize() {
+        this.damping = this.config.physics.damping; 
+        this.graphics = this.createGraphics();
+        this.body = this.createPhysicsBody();
+        this.container = this.scene.add.container(
+            this.scene.scale.width / 2,
+            this.scene.scale.height / 2,
+            [this.graphics]
+        );
+        this.scene.matter.add.gameObject(this.container, this.body);
+        this.oldVelocities = new Map();
+        this.isColliding = false; 
+        this.setupCollisionHandlers(); 
     }
     computeClosedFormFastForward(serverState) {
         const currentTime = Date.now();
@@ -108,16 +107,12 @@ class Ball {
     }
 
     handleBallState(ballState) {
-        console.log("Handle ball state called"); 
         const serverState = {
             position: { x: ballState.position.x, y: ballState.position.y },
             velocity: { x: ballState.velocity.x, y: ballState.velocity.y },
             timestamp: ballState.timestamp
         };
-
-        // Compute fast forwarded state
         const newState = this.computeClosedFormFastForward(serverState);
-        // Update state with fast forwarded values
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
     }
@@ -227,11 +222,9 @@ class Ball {
     }
 
     update() {
-        this.graphics.setPosition(this.body.position.x, this.body.position.y);
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
         this.setVelocity(xx, yy); 
-        this.count_damping++; 
     }
 
     controlSpeed() {

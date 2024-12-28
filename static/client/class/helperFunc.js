@@ -24,3 +24,13 @@ function hexToRGBA(hex, alpha) {
     let b = parseInt(hex.slice(5, 7), 16);
     return { r, g, b, a: alpha };
 }
+function generateUniqueId() {
+    // Tạo một chuỗi ngẫu nhiên 16 ký tự
+    const randomPart = Math.random().toString(36).substring(2, 10) + 
+                      Math.random().toString(36).substring(2, 10);
+    
+    // Thêm timestamp để đảm bảo tính duy nhất
+    const timestamp = Date.now().toString(36);
+    
+    return `${timestamp}-${randomPart}`;
+}
