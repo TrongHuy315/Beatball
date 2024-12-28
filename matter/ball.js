@@ -27,6 +27,7 @@ class Ball {
 
         Matter.Events.on(this.engine, 'beforeUpdate', () => {            
             if (!this.isColliding) {
+                // console.log("Ball Before Update Velocities Calculation"); 
                 this.oldVelocities.set(this.body.id, {
                     x: this.body.velocity.x,
                     y: this.body.velocity.y
@@ -35,10 +36,12 @@ class Ball {
         });
 
         Matter.Events.on(this.engine, 'collisionStart', () => {
+            console.log("Ball Start Collision Event Calculation"); 
             this.isColliding = true;
         });
 
         Matter.Events.on(this.engine, 'collisionEnd', (event) => {
+            console.log("Ball End Collision Event Calculation"); 
             this.isColliding = false;
             
             // Check các collision pairs
@@ -80,8 +83,8 @@ class Ball {
                 }
             });
         });
-
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
+            console.log("ball active collision event calculation")
             const oldVel = this.oldVelocities.get(this.body.id);
             if (!oldVel) return;
 
@@ -93,8 +96,10 @@ class Ball {
     
                 if (ball && wall) {
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-            
-                    const EPSILON = 0.0001;
+                    console.log("ball flip velocity begin")
+                    const EPSILON = 0.1;
+                    console.log("currentVel.x: ", currentVel.x); 
+                    console.log("currentVel.y: ", currentVel.y); 
                     if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
                         if (Math.abs(currentVel.x) < EPSILON) {
                             console.log("Flip x");

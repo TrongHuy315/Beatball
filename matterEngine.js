@@ -36,22 +36,12 @@ class PhysicsEngine {
         this.players = new Map();
         this.wall = new Wall(this.world); 
         this.ball = new Ball(this.world, this.engine, io); 
-
         this.setUpConnection(); 
 
         this.targetFrameTime = 1000 / 60; 
         this.lastFrameTime = Date.now();
         this.frameCount = 0;
         this.lastFPSUpdate = Date.now();
-        Events.on(this.engine, 'afterAdd', (event) => {
-            const body = event.object;
-            console.log('\n=== New Body Added to World ===');
-            console.log('Body Label:', body.label);
-            console.log('Body ID:', body.id);
-            console.log('Stack trace:');
-            console.trace();
-            console.log('================================\n');
-        });
 
         const gameLoop = () => {
             const currentTime = Date.now();
@@ -81,29 +71,6 @@ class PhysicsEngine {
             setImmediate(gameLoop);
         };
         gameLoop(); 
-        Events.on(this.engine, 'collisionStart', (event) => {
-            event.pairs.forEach((pair) => {
-                const bodyA = pair.bodyA;
-                const bodyB = pair.bodyB;
-                if ((bodyA.label == 'player' && bodyB.label == 'ball') || (bodyB.label == 'player' && bodyA.label == 'ball')) {
-                    this.cnt++; 
-                    console.log(`Collision between: ${bodyA.label} and ${bodyB.label}`, this.cnt, `times`);
-                }
-            });
-        });
-        this.authenticatedClients = new Set();
-        setInterval(() => {
-            this.logPlayerStats(); 
-        }, 4000); 
-        setInterval(() => {
-            this.logWorldState(); 
-        }, 7000); 
-        setInterval(() => {
-            console.log("Number of request: ", this.request_counting); 
-        }, 1000); 
-        setInterval(() => {
-            this.cleanupGhostPlayers();
-        }, 30000);
     }
     logPlayerStats() {
         console.log('\n=== Player Statistics ===');
@@ -146,8 +113,30 @@ class PhysicsEngine {
 
         console.log('Bodies by type:', bodyGroups);
         console.log('Players in this.players Map:', Array.from(this.players.keys()));
-        console.log('Authenticated clients:', Array.from(this.authenticatedClients));
         console.log('===================\n');
+    }
+    onCollisionShow() {
+        Events.on(this.engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                if ((bodyA.label == 'player' && bodyB.label == 'ball') || (bodyB.label == 'player' && bodyA.label == 'ball')) {
+                    this.cnt++; 
+                    console.log(`Collision between: ${bodyA.label} and ${bodyB.label}`, this.cnt, `times`);
+                }
+            });
+        });
+    }
+    onBodyAddShow() {
+        Events.on(this.engine, 'afterAdd', (event) => {
+            const body = event.object;
+            console.log('\n=== New Body Added to World ===');
+            console.log('Body Label:', body.label);
+            console.log('Body ID:', body.id);
+            console.log('Stack trace:');
+            console.trace();
+            console.log('================================\n');
+        });
     }
 	gameState () {
 		const state = {

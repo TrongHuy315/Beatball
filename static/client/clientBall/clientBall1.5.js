@@ -45,7 +45,7 @@ class Ball {
 
                 if (ball && wall && oldVel) {
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-                    const EPSILON = 0.0001;
+                    const EPSILON = 0.1;
                     
                     if (Math.abs(currentVel.x) < EPSILON) {
                         this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y);

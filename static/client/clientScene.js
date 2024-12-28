@@ -29,6 +29,9 @@ class ClientScene extends Phaser.Scene {
         this.lastFpsTime = 0;
         this.targetFPS = 60;
         this.targetFrameTime = 1000 / this.targetFPS;
+
+        this.receiveServerData = false; 
+        this.onServerBall = false; 
     }
     preload() {
         this.scoreboard = new Scoreboard();
@@ -52,7 +55,7 @@ class ClientScene extends Phaser.Scene {
         this.setupWebSocket();
         // ---- PING DISPLAY ---- 
         this.perfMonitor = new PerfMonitor(this);
-        this.ball1 = new Ball1(this, CONFIG.ball);
+        if (this.onServerBall) this.ball1 = new Ball1(this, CONFIG.ball);
 
         // Set up timing control
         this.lastUpdateTime = this.game.getTime();
@@ -128,29 +131,16 @@ class ClientScene extends Phaser.Scene {
 
     // CONSTATLY UPDATE SCENE 
     update(time) {
-        // Tính thời gian từ lần update cuối
         const currentTime = this.game.getTime();
         const deltaTime = currentTime - this.lastUpdateTime;
 
-        // Chỉ update khi đủ thời gian (1/60 giây)
         if (deltaTime >= this.targetFrameTime) {
             // Physics và game updates
             if (this.player) this.player.update(); 
             if (this.ball) this.ball.update(); 
             if (this.ball1) this.ball1.update(); 
 
-            // Reset timer
             this.lastUpdateTime = currentTime - (deltaTime % this.targetFrameTime);
-            
-            // FPS counter
-            this.frameCount++;
-            if (currentTime > this.lastFpsTime + 1000) {
-                const fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsTime));
-                this.fpsText.setText(`FPS: ${fps}`);
-                console.log(`Updates per second: ${fps}`);
-                this.frameCount = 0;
-                this.lastFpsTime = currentTime;
-            }
         }
 
         // Interpolation và smooth updates có thể chạy mỗi frame
@@ -188,10 +178,17 @@ class ClientScene extends Phaser.Scene {
                 this.players.delete(playerId);
             }
         }
-        this.ball1.serverReconciliation({
-            position: data.ball.position,
-            velocity: data.ball.velocity
-        });
+        if (this.ball1) {
+            this.ball1.serverReconciliation({
+                position: data.ball.position,
+                velocity: data.ball.velocity
+            });
+        } 
+        if (this.receiveServerData == false) {
+            this.ball.setPosition(data.ball.position.x, data.ball.position.y); 
+            this.ball.setVelocity(data.ball.velocity.x, data.ball.velocity.y); 
+            this.receiveServerData = true; 
+        }
     }
     // SET UP SOCKET EVENT 
     setupWebSocket() {
