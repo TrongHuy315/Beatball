@@ -31,7 +31,7 @@ class ClientScene extends Phaser.Scene {
         this.targetFrameTime = 1000 / this.targetFPS;
 
         this.receiveServerData = false; 
-        this.onServerBall = false; 
+        this.onServerBall = true; 
     }
     preload() {
         this.scoreboard = new Scoreboard();
@@ -67,6 +67,8 @@ class ClientScene extends Phaser.Scene {
         });
         // ---- INTERPOLATION 
         this.interpolators = new InterpolationManager(this); 
+        this.matter.world.autoUpdate = false;
+
     }
 
     // GOAL CELEBRATION 
@@ -131,10 +133,11 @@ class ClientScene extends Phaser.Scene {
 
     // CONSTATLY UPDATE SCENE 
     update(time) {
-        const currentTime = this.game.getTime();
+        const currentTime = Date.now(); 
         const deltaTime = currentTime - this.lastUpdateTime;
 
         if (deltaTime >= this.targetFrameTime) {
+            this.matter.world.step(this.targetFrameTime);
             // Physics và game updates
             if (this.player) this.player.update(); 
             if (this.ball) this.ball.update(); 
@@ -253,7 +256,7 @@ class ClientScene extends Phaser.Scene {
 
         // ----- DISCONNECTION UPDATE ------ 
         socket.on('somePlayerDisconnected', (data) => {
-            const disconnectedPlayerId = data.playerId;
+            const disconnectsedPlayerId = data.playerId;
             if (this.players.has(disconnectedPlayerId)) {
                 const playerToRemove = this.players.get(disconnectedPlayerId);
                 
@@ -297,8 +300,6 @@ const configPhaser = {
             debug: true, // Set to false in production
             gravity: { y: 0 },
             setBounds: true, 
-            positionIterations: 8,  // Tăng độ chính xác physics (default: 6)
-            velocityIterations: 6,  // Tăng độ chính xác physics (default: 4)
         }
     },
     scene: ClientScene

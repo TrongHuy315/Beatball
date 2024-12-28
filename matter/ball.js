@@ -38,6 +38,7 @@ class Ball {
         Matter.Events.on(this.engine, 'collisionStart', () => {
             console.log("Ball Start Collision Event Calculation"); 
             this.isColliding = true;
+            console.log("Colliding time: ", Date.now()); 
         });
 
         Matter.Events.on(this.engine, 'collisionEnd', (event) => {

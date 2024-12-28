@@ -45,8 +45,7 @@ class PhysicsEngine {
 
         const gameLoop = () => {
             const currentTime = Date.now();
-            const delta = currentTime - this.lastFrameTime;
-
+            const delta = currentTime - this.lastFrameTime; 
             if (delta >= this.targetFrameTime) {
                 // Update game
                 Matter.Engine.update(this.engine, this.targetFrameTime);
@@ -55,22 +54,37 @@ class PhysicsEngine {
 
                 // Update timing tracking
                 this.frameCount++;
-                this.lastFrameTime = currentTime;
+                this.lastFrameTime = currentTime - (delta - this.targetFrameTime);
 
                 // Log FPS mỗi giây
-                // if (currentTime - this.lastFPSUpdate >= 1000) {
-                //     console.log({
-                //         fps: this.frameCount,
-                //         actualFrameTime: (1000 / this.frameCount).toFixed(2) + 'ms',
-                //         targetFrameTime: this.targetFrameTime + 'ms'
-                //     });
-                //     this.frameCount = 0;
-                //     this.lastFPSUpdate = currentTime;
-                // }
+                if (currentTime - this.lastFPSUpdate >= 1000) {
+                    console.log({
+                        fps: this.frameCount,
+                        actualFrameTime: 1000 / this.frameCount + 'ms',
+                        targetFrameTime: this.targetFrameTime + 'ms'
+                    });
+                    this.frameCount = 0;
+                    this.lastFPSUpdate = currentTime;
+                }
             }
             setImmediate(gameLoop);
         };
+        
         gameLoop(); 
+    }
+    logBallVelocity() {
+        console.log('\n=== Ball Velocity ===');
+        console.log({
+            x: Math.round(this.ball.body.velocity.x * 100) / 100,
+            y: Math.round(this.ball.body.velocity.y * 100) / 100,
+            speed: Math.round(
+                Math.sqrt(
+                    Math.pow(this.ball.body.velocity.x, 2) + 
+                    Math.pow(this.ball.body.velocity.y, 2)
+                ) * 100
+            ) / 100
+        });
+        console.log('===================\n');
     }
     logPlayerStats() {
         console.log('\n=== Player Statistics ===');

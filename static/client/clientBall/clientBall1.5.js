@@ -19,6 +19,7 @@ class Ball {
     setupCollisionHandlers() {
         this.scene.matter.world.on('collisionstart', () => {
             this.isColliding = true;
+            console.log("Colliding time: ", Date.now()); 
         });
         
         this.scene.matter.world.on('collisionend', () => {
@@ -81,9 +82,16 @@ class Ball {
 
         const dampingFactor = 0.99; // Per frame damping
         const dampingPower = Math.pow(dampingFactor, frames);
-        console.log("Number of frames: ", frames); 
-        console.log("Frame Time: ", frameTime); 
-        console.log("Delta Time: ", deltaTime); 
+        // console.log("Number of frames: ", frames); 
+        // console.log("Frame Time: ", frameTime); 
+        // console.log("Delta Time: ", deltaTime); 
+        // console.log("number of frames", frames); // it is usually 0 in local testing 
+        // the client ball is not always in the same state with the server ball
+        // I think it is because of this reconcillation method, its frame at local is always 0, and it like it just recover the server position
+        // It make it feel like it teleport backward, but how I can't think it clearly 
+        // I simulate the server and the client one in local, they are not in the same position, a little bit far from each other, bu
+        // given you that server always run 60 fps
+        // the client ball and the server ball have the same damping rate (both 60 fps), I want to solve the teleport problem when server rewide problem 
         // Calculate new velocity: v₀ × dⁿ
         const newVelocity = {
             x: serverState.velocity.x * dampingPower,
@@ -219,11 +227,25 @@ class Ball {
             }
         );
     }
-
+    logBallVelocity() {
+        console.log('\n=== Ball Velocity ===');
+        console.log({
+            x: Math.round(this.body.velocity.x * 100) / 100,
+            y: Math.round(this.body.velocity.y * 100) / 100,
+            speed: Math.round(
+                Math.sqrt(
+                    Math.pow(this.body.velocity.x, 2) + 
+                    Math.pow(this.body.velocity.y, 2)
+                ) * 100
+            ) / 100
+        });
+        console.log('===================\n');
+    }
     update() {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
         this.setVelocity(xx, yy); 
+        // this.logBallVelocity(); 
     }
 
     controlSpeed() {
