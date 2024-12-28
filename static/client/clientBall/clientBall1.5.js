@@ -4,7 +4,6 @@ class Ball {
         this.config = config;
         this.initialize();
         this.count_damping = 0; 
-        console.log("Set up ball"); 
 
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;

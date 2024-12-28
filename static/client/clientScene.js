@@ -63,7 +63,7 @@ class ClientScene extends Phaser.Scene {
             fill: '#00ff00' 
         });
         // ---- INTERPOLATION 
-        // this.interpolators = new InterpolationManager(this); 
+        this.interpolators = new InterpolationManager(this); 
     }
 
     // GOAL CELEBRATION 
@@ -183,7 +183,7 @@ class ClientScene extends Phaser.Scene {
         }
         for (const [playerId, player] of this.players.entries()) {
             if (!data.players[playerId]) {
-                // this.interpolators.removePlayer(playerId); 
+                this.interpolators.removePlayer(playerId); 
                 player.destroy();
                 this.players.delete(playerId);
             }
