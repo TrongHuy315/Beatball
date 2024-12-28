@@ -248,6 +248,7 @@ const configPhaser = {
     transparent: true,
     fps: {
         target: 60, // Mục tiêu 60 FPS
+        forceSetTimeOut: true
     },
     physics: {
         default: 'matter',

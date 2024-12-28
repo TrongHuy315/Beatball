@@ -8,8 +8,22 @@ class Ball {
         this.config = require('./config.js').ball;
         this.radius = CONFIG.ball.physics.radius; 
         this.initialize();
+        this.count_damping = 0; 
+        // Thêm biến đếm mới
+        this.dampingPerSecond = 0;
+        this.lastSecondDampingCount = 0;
+        
+        // Bắt đầu đếm
+        this.startDampingCounter();
     }
-
+    startDampingCounter() {
+        // Reset đếm mỗi giây
+        setInterval(() => {
+            this.dampingPerSecond = this.count_damping - this.lastSecondDampingCount;
+            this.lastSecondDampingCount = this.count_damping;
+            console.log("Damping calls per second:", this.dampingPerSecond);
+        }, 1000);
+    }
     initialize() {
         this.damping = this.config.physics.damping; 
         this.body = this.createBody();
@@ -105,6 +119,8 @@ class Ball {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
         this.setVelocity(xx, yy); 
+        this.count_damping++; 
+        // console.log("Count_damping: ", this.count_damping); 
     }
     createBody() {
         const { physics } = this.config;
@@ -133,7 +149,7 @@ class Ball {
     reset() {
         this.setPosition(this.config.spawnX, this.config.spawnY);
         this.setVelocity(0, 0);
-        // this.damping = this.config.physics.damping;
+        this.damping = this.config.physics.damping;
     }
     
     setVelocity(x, y) {

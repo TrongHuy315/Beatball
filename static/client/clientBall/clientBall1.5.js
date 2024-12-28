@@ -3,8 +3,23 @@ class Ball {
         this.scene = scene;
         this.config = config;
         this.initialize();
+        this.count_damping = 0; 
+        console.log("Set up ball"); 
+        // Thêm biến đếm mới
+        this.dampingPerSecond = 0;
+        this.lastSecondDampingCount = 0;
+        
+        // Bắt đầu đếm
+        this.startDampingCounter();
     }
-
+    startDampingCounter() {
+        // Reset đếm mỗi giây
+        setInterval(() => {
+            this.dampingPerSecond = this.count_damping - this.lastSecondDampingCount;
+            this.lastSecondDampingCount = this.count_damping;
+            console.log("Damping calls per second:", this.dampingPerSecond);
+        }, 1000);
+    }
     initialize() {
         this.damping = this.config.physics.damping; 
         this.graphics = this.createGraphics();
@@ -61,17 +76,17 @@ class Ball {
     }
     computeClosedFormFastForward(serverState) {
         const currentTime = Date.now();
-        const deltaTime = currentTime - serverState.timestamp;
+        const deltaTime = (currentTime - serverState.timestamp) / 1000; 
         const FPS = 60;
-        const n = Math.floor(deltaTime * FPS / 1000); // Number of frames to fast forward
-        
-        // Prevent excessive frame skipping
-        const maxFrames = 60;
-        const frames = Math.min(n, maxFrames);
-        
+        const frameTime = 1 / FPS; 
+
+        const frames = Math.floor(deltaTime / frameTime); // Number of frames to fast forward
+
         const dampingFactor = 0.99; // Per frame damping
         const dampingPower = Math.pow(dampingFactor, frames);
-        
+        console.log("Number of frames: ", frames); 
+        console.log("Frame Time: ", frameTime); 
+        console.log("Delta Time: ", deltaTime); 
         // Calculate new velocity: v₀ × dⁿ
         const newVelocity = {
             x: serverState.velocity.x * dampingPower,
@@ -94,6 +109,7 @@ class Ball {
     }
 
     handleBallState(ballState) {
+        console.log("Handle ball state called"); 
         const serverState = {
             position: { x: ballState.position.x, y: ballState.position.y },
             velocity: { x: ballState.velocity.x, y: ballState.velocity.y },
@@ -101,8 +117,8 @@ class Ball {
         };
 
         // Compute fast forwarded state
-        const newState = this.computeClosedFormFastForward(serverState);
-        
+        // const newState = this.computeClosedFormFastForward(serverState);
+        const newState = serverState; 
         // Update state with fast forwarded values
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
@@ -217,6 +233,7 @@ class Ball {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
         this.setVelocity(xx, yy); 
+        this.count_damping++; 
     }
 
     controlSpeed() {

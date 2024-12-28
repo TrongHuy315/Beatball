@@ -29,6 +29,11 @@ class PhysicsEngine {
                 x: 0,
                 y: 0,
                 scale: 0
+            },
+            timing: {
+                timeScale: 1,
+                timestamp: 0,
+                lastDelta: 1000/60,  // Force 60 FPS
             }
         });
         this.world = this.engine.world;        
@@ -36,11 +41,43 @@ class PhysicsEngine {
         this.players = new Map();
         this.ball = new Ball(this.world, this.engine, io); 
         this.setUpConnection(); 
-        setInterval(() => {
-            this.gameloop(); 
-            Matter.Engine.update(this.engine);
-            io.emit('sendGameState', this.gameState()); 
-        }, 1000 / 60);
+        // Tracking timing
+        this.targetFrameTime = 1000 / 60; // 16.67ms per frame
+        this.lastFrameTime = Date.now();
+        this.frameCount = 0;
+        this.lastFPSUpdate = Date.now();
+
+        // Game loop với timing control
+        const gameLoop = () => {
+            const currentTime = Date.now();
+            const delta = currentTime - this.lastFrameTime;
+
+            if (delta >= this.targetFrameTime) {
+                // Update game
+                Matter.Engine.update(this.engine, this.targetFrameTime);
+                this.gameloop();
+                io.emit('sendGameState', this.gameState());
+
+                // Update timing tracking
+                this.frameCount++;
+                this.lastFrameTime = currentTime;
+
+                // Log FPS mỗi giây
+                if (currentTime - this.lastFPSUpdate >= 1000) {
+                    console.log({
+                        fps: this.frameCount,
+                        actualFrameTime: (1000 / this.frameCount).toFixed(2) + 'ms',
+                        targetFrameTime: this.targetFrameTime + 'ms'
+                    });
+                    this.frameCount = 0;
+                    this.lastFPSUpdate = currentTime;
+                }
+            }
+
+            // Schedule next frame ngay lập tức
+            setImmediate(gameLoop);
+        };
+        gameLoop(); 
         Events.on(this.engine, 'collisionStart', (event) => {
             event.pairs.forEach((pair) => {
                 const bodyA = pair.bodyA;
