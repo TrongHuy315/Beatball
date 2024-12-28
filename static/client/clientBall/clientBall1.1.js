@@ -181,7 +181,6 @@ class Ball1 {
         return predictedState; 
     }
     serverReconciliation(serverState) {
-        console.log("Server reconccilation"); 
         this.frameRemainder--; 
         const predictedState = this.predictedState(serverState); 
         const positionError = {

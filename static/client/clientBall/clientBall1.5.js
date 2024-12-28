@@ -24,7 +24,6 @@ class Ball {
         this.damping = this.config.physics.damping; 
         this.graphics = this.createGraphics();
         this.body = this.createPhysicsBody();
-        this.scene.events.on('update', this.update, this);
         this.scene.matter.world.on('collisionstart', (event) => {
             this.isColliding = true;
         });
@@ -117,8 +116,7 @@ class Ball {
         };
 
         // Compute fast forwarded state
-        // const newState = this.computeClosedFormFastForward(serverState);
-        const newState = serverState; 
+        const newState = this.computeClosedFormFastForward(serverState);
         // Update state with fast forwarded values
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);

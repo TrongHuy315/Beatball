@@ -30,11 +30,6 @@ class PhysicsEngine {
                 y: 0,
                 scale: 0
             },
-            timing: {
-                timeScale: 1,
-                timestamp: 0,
-                lastDelta: 1000/60,  // Force 60 FPS
-            }
         });
         this.world = this.engine.world;        
         this.walls = new Wall(this.world);
@@ -47,7 +42,6 @@ class PhysicsEngine {
         this.frameCount = 0;
         this.lastFPSUpdate = Date.now();
 
-        // Game loop với timing control
         const gameLoop = () => {
             const currentTime = Date.now();
             const delta = currentTime - this.lastFrameTime;
@@ -63,18 +57,16 @@ class PhysicsEngine {
                 this.lastFrameTime = currentTime;
 
                 // Log FPS mỗi giây
-                if (currentTime - this.lastFPSUpdate >= 1000) {
-                    console.log({
-                        fps: this.frameCount,
-                        actualFrameTime: (1000 / this.frameCount).toFixed(2) + 'ms',
-                        targetFrameTime: this.targetFrameTime + 'ms'
-                    });
-                    this.frameCount = 0;
-                    this.lastFPSUpdate = currentTime;
-                }
+                // if (currentTime - this.lastFPSUpdate >= 1000) {
+                //     console.log({
+                //         fps: this.frameCount,
+                //         actualFrameTime: (1000 / this.frameCount).toFixed(2) + 'ms',
+                //         targetFrameTime: this.targetFrameTime + 'ms'
+                //     });
+                //     this.frameCount = 0;
+                //     this.lastFPSUpdate = currentTime;
+                // }
             }
-
-            // Schedule next frame ngay lập tức
             setImmediate(gameLoop);
         };
         gameLoop(); 

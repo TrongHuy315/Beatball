@@ -22,6 +22,11 @@ class ClientScene extends Phaser.Scene {
             net: 0x0010,           // 010000
             nonGraphicBall: 0x0020 // 100000
         };
+        // Thêm FPS monitoring
+        this.frameCount = 0;
+        this.lastFpsTime = 0;
+        this.targetFPS = 60;
+        this.targetFrameTime = 1000 / this.targetFPS;
     }
     preload() {
         this.scoreboard = new Scoreboard();
@@ -49,10 +54,16 @@ class ClientScene extends Phaser.Scene {
         this.perfMonitor = new PerfMonitor(this);
         this.ball1 = new Ball1(this, CONFIG.ball);
 
+        // Set up timing control
+        this.lastUpdateTime = this.game.getTime();
+        
+        // FPS display
+        this.fpsText = this.add.text(10, 10, '', { 
+            fontSize: '16px', 
+            fill: '#00ff00' 
+        });
         // ---- INTERPOLATION 
         // this.interpolators = new InterpolationManager(this); 
-
-
     }
 
     // GOAL CELEBRATION 
@@ -116,16 +127,35 @@ class ClientScene extends Phaser.Scene {
     }
 
     // CONSTATLY UPDATE SCENE 
-    update() {
-        if (this.player) this.player.update(); 
+    update(time) {
+        // Tính thời gian từ lần update cuối
+        const currentTime = this.game.getTime();
+        const deltaTime = currentTime - this.lastUpdateTime;
+
+        // Chỉ update khi đủ thời gian (1/60 giây)
+        if (deltaTime >= this.targetFrameTime) {
+            // Physics và game updates
+            if (this.player) this.player.update(); 
+            if (this.ball) this.ball.update(); 
+            if (this.ball1) this.ball1.update(); 
+
+            // Reset timer
+            this.lastUpdateTime = currentTime - (deltaTime % this.targetFrameTime);
+            
+            // FPS counter
+            this.frameCount++;
+            if (currentTime > this.lastFpsTime + 1000) {
+                const fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsTime));
+                this.fpsText.setText(`FPS: ${fps}`);
+                console.log(`Updates per second: ${fps}`);
+                this.frameCount = 0;
+                this.lastFpsTime = currentTime;
+            }
+        }
+
+        // Interpolation và smooth updates có thể chạy mỗi frame
         if (this.interpolators) {
             this.interpolators.update(); 
-        }
-        if (this.ball) {
-            this.ball.update(); 
-        }
-        if (this.ball1) {
-            this.ball1.update(); 
         }
     }
 
@@ -240,7 +270,7 @@ class ClientScene extends Phaser.Scene {
 }
 
 const configPhaser = {
-    type: Phaser.AUTO,
+    type: Phaser.WEBGL,
     width: CONFIG.totalWidth,
     height: CONFIG.totalHeight,
     backgroundColor: 0x000000,
@@ -248,7 +278,8 @@ const configPhaser = {
     transparent: true,
     fps: {
         target: 60, // Mục tiêu 60 FPS
-        forceSetTimeOut: true
+        forceSetTimeOut: false, 
+        smoothStep: true 
     },
     physics: {
         default: 'matter',
