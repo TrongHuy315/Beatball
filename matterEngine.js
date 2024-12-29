@@ -38,39 +38,86 @@ class PhysicsEngine {
         this.ball = new Ball(this.world, this.engine, io); 
         this.setUpConnection(); 
 
-        this.targetFrameTime = 1000 / 60; 
+        this.targetInnerFPS = 1000 / 60; 
         this.lastFrameTime = Date.now();
         this.frameCount = 0;
         this.lastFPSUpdate = Date.now();
+        
+        this.targetOuterFPS = 1000 / 240; 
+
+        this.frameMonitor = {
+            lastTime: Date.now(),
+            frames: [],
+            interval: 3000, // 3 seconds
+            lastReport: Date.now()
+        };
+        let cur = Date.now(); 
+        let last = Date.now(); 
 
         const gameLoop = () => {
             const currentTime = Date.now();
             const delta = currentTime - this.lastFrameTime; 
-            if (delta >= this.targetFrameTime) {
-                // Update game
-                Matter.Engine.update(this.engine, this.targetFrameTime);
+            // this.updateFrameStats(currentTime); 
+            cur = Date.now(); 
+            if (delta >= this.targetInnerFPS) {
+                // console.log(cur - last); 
                 this.gameloop();
+                Matter.Engine.update(this.engine, this.targetInnerFPS);
+
                 io.emit('sendGameState', this.gameState());
 
                 // Update timing tracking
                 this.frameCount++;
-                this.lastFrameTime = currentTime - (delta - this.targetFrameTime);
+                this.lastFrameTime = currentTime - (delta - this.targetInnerFPS);
 
                 // Log FPS mỗi giây
                 if (currentTime - this.lastFPSUpdate >= 1000) {
-                    console.log({
-                        fps: this.frameCount,
-                        actualFrameTime: 1000 / this.frameCount + 'ms',
-                        targetFrameTime: this.targetFrameTime + 'ms'
-                    });
+                    // console.log({
+                    //     fps: this.frameCount,
+                    //     actualFrameTime: 1000 / this.frameCount + 'ms',
+                    //     targetInnerFPS: this.targetInnerFPS + 'ms'
+                    // });
                     this.frameCount = 0;
                     this.lastFPSUpdate = currentTime;
                 }
             }
+            while (Date.now() - currentTime < this.targetOuterFPS - 1) {
+            }
+            last = cur; 
             setImmediate(gameLoop);
         };
-        
         gameLoop(); 
+    }
+    updateFrameStats(currentTime) {
+        const frameTime = currentTime - this.frameMonitor.lastTime;
+        
+        if (frameTime > 0) {
+            this.frameMonitor.frames.push(frameTime);
+            this.frameMonitor.lastTime = currentTime;
+        }
+    
+        // Log mỗi 3 giây
+        if (currentTime - this.frameMonitor.lastReport >= this.frameMonitor.interval) {
+            const frames = this.frameMonitor.frames;
+            
+            if (frames.length > 0) {
+                const avgFrameTime = frames.reduce((a, b) => a + b, 0) / frames.length;
+                const avgFPS = 1000 / avgFrameTime;
+    
+                console.log('\n=== Frame Time Statistics ===');
+                console.log({
+                    samples: frames.length,
+                    averageFrameTime: avgFrameTime.toFixed(2) + 'ms',
+                    averageFPS: avgFPS.toFixed(1),
+                    targetInnerFPS: this.targetInnerFPS + 'ms'
+                });
+                console.log('==========================\n');
+            }
+    
+            // Reset cho interval tiếp theo
+            this.frameMonitor.frames = [];
+            this.frameMonitor.lastReport = currentTime;
+        }
     }
     logBallVelocity() {
         console.log('\n=== Ball Velocity ===');
@@ -248,6 +295,13 @@ class PhysicsEngine {
             socket.on('ping', () => {
                 socket.emit('pong'); 
             }); 
+            socket.on('resetBall', () => {
+                // this.ball.setVelocity(0, 0); 
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+                // this.ball.sendBallState(); 
+                this.ball.setVelocity(0, -5); 
+            }); 
+            
         });
 	}
     cleanupGhostPlayers() {

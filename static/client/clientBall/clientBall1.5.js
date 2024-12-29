@@ -7,7 +7,7 @@ class Ball {
 
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
-        
+        this.stick = false; 
     }
     startDampingCounter() {
         setInterval(() => {
@@ -17,13 +17,31 @@ class Ball {
         }, 1000);
     }
     setupCollisionHandlers() {
-        this.scene.matter.world.on('collisionstart', () => {
+        this.scene.matter.world.on('collisionstart', (event) => {
             this.isColliding = true;
             console.log("Colliding time: ", Date.now()); 
+            event.pairs.forEach((pair) => {
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+                if (ball && wall) {
+                    this.stick = true; 
+                }
+            }); 
         });
         
-        this.scene.matter.world.on('collisionend', () => {
+        this.scene.matter.world.on('collisionend', (event) => {
             this.isColliding = false;
+            event.pairs.forEach((pair) => {
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+                if (ball && wall) {
+                    this.stick = false; 
+                }
+            }); 
         });
 
         this.scene.matter.world.on('beforeupdate', () => {
@@ -43,15 +61,18 @@ class Ball {
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-
-                if (ball && wall && oldVel) {
+                console.log("Before Trying flipping"); 
+                if (ball && wall && oldVel && this.stick) {
+                    this.stick = false; 
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
                     const EPSILON = 0.1;
-                    
-                    if (Math.abs(currentVel.x) < EPSILON) {
+                    console.log("Trying flipping"); 
+                    if (Math.abs(currentVel.x) < EPSILON && currentVel.x * oldVel.x >= 0) {
+                        console.log("Flip x"); 
                         this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y);
                     }
                     if (Math.abs(currentVel.y) < EPSILON) {
+                        console.log("Flip y"); 
                         this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution);
                     }
                 }
@@ -73,53 +94,77 @@ class Ball {
         this.setupCollisionHandlers(); 
     }
     computeClosedFormFastForward(serverState) {
+        console.log("Ball reconcile with server"); 
         const currentTime = Date.now();
         const deltaTime = (currentTime - serverState.timestamp) / 1000; 
         const FPS = 60;
         const frameTime = 1 / FPS; 
 
         const frames = Math.floor(deltaTime / frameTime); // Number of frames to fast forward
+        const dampingFactor = this.config.physics.damping;
+        const v0 = serverState.velocity;  // v0.x, v0.y
+        const p0 = serverState.position;  // p0.x, p0.y
 
-        const dampingFactor = 0.99; // Per frame damping
-        const dampingPower = Math.pow(dampingFactor, frames);
-        // console.log("Number of frames: ", frames); 
-        // console.log("Frame Time: ", frameTime); 
-        // console.log("Delta Time: ", deltaTime); 
-        // console.log("number of frames", frames); // it is usually 0 in local testing 
-        // the client ball is not always in the same state with the server ball
-        // I think it is because of this reconcillation method, its frame at local is always 0, and it like it just recover the server position
-        // It make it feel like it teleport backward, but how I can't think it clearly 
-        // I simulate the server and the client one in local, they are not in the same position, a little bit far from each other, bu
-        // given you that server always run 60 fps
-        // the client ball and the server ball have the same damping rate (both 60 fps), I want to solve the teleport problem when server rewide problem 
-        // Calculate new velocity: v₀ × dⁿ
-        const newVelocity = {
-            x: serverState.velocity.x * dampingPower,
-            y: serverState.velocity.y * dampingPower
-        };
-        
-        // Calculate geometric series sum: v₀ × (1 - dⁿ) / (1 - d)
-        const geometricSum = (1 - dampingPower) / (1 - dampingFactor);
-        
-        // Calculate new position: p₀ + v₀ × (1 - dⁿ) / (1 - d)
-        const newPosition = {
-            x: serverState.position.x + serverState.velocity.x * geometricSum,
-            y: serverState.position.y + serverState.velocity.y * geometricSum
-        };
-        
-        return {
-            position: newPosition,
-            velocity: newVelocity
-        };
+        // Nếu damping = 1 => chuyển động thẳng đều:
+        //   v không đổi
+        //   p = p0 + v0 * frames
+        if (dampingFactor === 1) {
+            const newVelocity = {
+                x: v0.x,
+                y: v0.y
+            };
+            const newPosition = {
+                x: p0.x + v0.x * frames,
+                y: p0.y + v0.y * frames
+            };
+            return {
+                position: newPosition,
+                velocity: newVelocity
+            };
+        } 
+
+        // Ngược lại, nếu damping != 1 => chuyển động giảm tốc theo công thức hình học:
+        //   newVelocity = v0 * d^frames
+        //   displacement = v0 * (1 - d^frames) / (1 - d)
+        //   position = p0 + displacement
+        else {
+            const dampingPower = Math.pow(dampingFactor, frames);
+
+            // Tính vận tốc mới sau 'frames' bước
+            const newVelocity = {
+                x: v0.x * dampingPower,
+                y: v0.y * dampingPower
+            };
+
+            // Tổng quãng đường (theo vector) bóng đi được sau 'frames' bước
+            //   = v0 × (1 - d^frames) / (1 - d)
+            const geometricSum = (1 - dampingPower) / (1 - dampingFactor);
+
+            const newPosition = {
+                x: p0.x + v0.x * geometricSum,
+                y: p0.y + v0.y * geometricSum
+            };
+
+            return {
+                position: newPosition,
+                velocity: newVelocity
+            };
+        }
     }
 
     handleBallState(ballState) {
+        return; 
         const serverState = {
             position: { x: ballState.position.x, y: ballState.position.y },
             velocity: { x: ballState.velocity.x, y: ballState.velocity.y },
             timestamp: ballState.timestamp
         };
-        const newState = this.computeClosedFormFastForward(serverState);
+        const newState = serverState; 
+        this.setPosition(newState.position.x, newState.position.y);
+        this.setVelocity(newState.velocity.x, newState.velocity.y);
+        return; 
+        // const newState = this.computeClosedFormFastForward(serverState);
+        // if (newState == null) return; 
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
     }
@@ -244,7 +289,7 @@ class Ball {
     update() {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
-        this.setVelocity(xx, yy); 
+        // this.setVelocity(xx, yy); 
         // this.logBallVelocity(); 
     }
 

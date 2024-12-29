@@ -9,6 +9,7 @@ class Ball {
         this.radius = CONFIG.ball.physics.radius; 
         this.initialize();
         this.count_damping = 0; 
+        this.stick = false; 
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
     }
@@ -18,6 +19,14 @@ class Ball {
             this.lastSecondDampingCount = this.count_damping;
             console.log("Damping calls per second:", this.dampingPerSecond);
         }, 1000);
+    }
+    sendBallState() {
+        const ballState = {
+            position: this.body.position, 
+            velocity: this.body.velocity, 
+            timestamp: Date.now(),
+        };
+        this.io.emit('sendBallState', ballState);
     }
     initialize() {
         this.damping = this.config.physics.damping; 
@@ -35,10 +44,18 @@ class Ball {
             }
         });
 
-        Matter.Events.on(this.engine, 'collisionStart', () => {
+        Matter.Events.on(this.engine, 'collisionStart', (event) => {
             console.log("Ball Start Collision Event Calculation"); 
             this.isColliding = true;
-            console.log("Colliding time: ", Date.now()); 
+            event.pairs.forEach((pair) => {
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+                if (ball && wall) {
+                    this.stick = true; 
+                }
+            }); 
         });
 
         Matter.Events.on(this.engine, 'collisionEnd', (event) => {
@@ -62,27 +79,19 @@ class Ball {
                     const otherBody = ball === bodyA ? bodyB : bodyA;
                     
                     if (otherBody.label === 'wall' || otherBody.label.startsWith('player')) {
-                        try {
-                            const ballState = {
-                                position: ball.position, 
-                                velocity: ball.velocity, 
-                                timestamp: Date.now(),
-                            };
-        
-                            this.io.emit('sendBallState', ballState);
-        
-                        } catch (error) {
-                            console.error('Error sending collision end ball state:', error);
-                            
-                            this.io.emit('sendBallState', {
-                                position: ball.position,
-                                velocity: ball.velocity, 
-                                timestamp: Date.now()
-                            });
-                        }
+                        // this.sendBallState(); 
                     }
                 }
             });
+            event.pairs.forEach((pair) => {
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+                if (ball && wall) {
+                    this.stick = false; 
+                }
+            }); 
         });
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
             console.log("ball active collision event calculation")
@@ -95,7 +104,8 @@ class Ball {
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
     
-                if (ball && wall) {
+                if (ball && wall && this.stick) {
+                    this.stick = false; 
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
                     console.log("ball flip velocity begin")
                     const EPSILON = 0.1;

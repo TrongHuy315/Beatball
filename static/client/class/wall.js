@@ -10,6 +10,7 @@ function createWalls(scene) {
             friction: wall.friction,
             density: 1000, 
             timeScale: 1, 
+            label: 'wall', 
             net: false, 
             slop: wall.slop, 
             collideWorldBounds: false, 

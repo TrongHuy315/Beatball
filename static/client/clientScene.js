@@ -9,6 +9,8 @@ class ClientScene extends Phaser.Scene {
         this.scoreboard = null;
         this.players = new Map();
         this.playerId;
+        this.frameCount = 0; 
+        this.lastFrameTime = 0; 
         this.gameState = {
             celebrating: false,
             scores: {
@@ -27,11 +29,23 @@ class ClientScene extends Phaser.Scene {
         // Thêm FPS monitoring
         this.frameCount = 0;
         this.lastFpsTime = 0;
-        this.targetFPS = 60;
-        this.targetFrameTime = 1000 / this.targetFPS;
+        this.targetInnerFPS = 60;
+        this.targetOuterFPS = 60; 
+        this.targetFrameTime = 1000 / this.targetInnerFPS;
+        this.lastFpsTime = Date.now(); // Thêm dòng này
+        this.lastFPSUpdate = Date.now(); // Thêm dòng này 
 
         this.receiveServerData = false; 
         this.onServerBall = true; 
+
+        // Thêm tracking frame time
+        this.frameTimeLog = [];
+        this.lastFrameTimeLog = Date.now();
+        this.frameTimeLogInterval = 3000;  // Log mỗi 3 giây
+        this.maxFrameTime = 0;
+        this.minFrameTime = Infinity;
+        this.sumFrameTime = 0;
+
     }
     preload() {
         this.scoreboard = new Scoreboard();
@@ -68,7 +82,9 @@ class ClientScene extends Phaser.Scene {
         // ---- INTERPOLATION 
         this.interpolators = new InterpolationManager(this); 
         this.matter.world.autoUpdate = false;
+        this.startGameLoop(); 
 
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     // GOAL CELEBRATION 
@@ -130,25 +146,79 @@ class ClientScene extends Phaser.Scene {
             }
         });
     }
-
+    startGameLoop() {
+        var last; 
+        const gameLoop = () => {
+            const currentTime = Date.now();
+            const delta = currentTime - this.lastFrameTime;
+            var cur = Date.now(); 
+            
+            this.gameLoop();
+            this.matter.world.step(this.targetFrameTime);            
+            this.frameCount++;
+            this.lastFrameTime = currentTime; 
+            if (currentTime - this.lastFPSUpdate >= 1000) {
+                console.log({
+                    fps: this.frameCount,
+                    actualFrameTime: 1000 / this.frameCount + 'ms',
+                    targetFrameTime: this.targetFrameTime + 'ms'
+                });
+                this.frameCount = 0;
+                this.lastFPSUpdate = currentTime;
+            }
+            requestAnimationFrame(gameLoop); 
+        };
+    
+        gameLoop(); 
+    }
+    
+    gameLoop() {
+        if (this.player) this.player.update();
+        if (this.ball) this.ball.update();
+        if (this.ball1) this.ball1.update();
+        
+        // Update interpolation
+        if (this.interpolators) {
+            this.interpolators.update();
+        }
+    }
     // CONSTATLY UPDATE SCENE 
     update(time) {
-        const currentTime = Date.now(); 
-        const deltaTime = currentTime - this.lastUpdateTime;
+        // const currentTime = Date.now(); 
+        // const deltaTime = currentTime - this.lastUpdateTime;
 
-        if (deltaTime >= this.targetFrameTime) {
-            this.matter.world.step(this.targetFrameTime);
-            // Physics và game updates
-            if (this.player) this.player.update(); 
-            if (this.ball) this.ball.update(); 
-            if (this.ball1) this.ball1.update(); 
+        // if (deltaTime >= this.targetFrameTime) {
+        //     this.matter.world.step(this.targetFrameTime);
+        //     // Physics và game updates
+        //     if (this.player) this.player.update(); 
+        //     if (this.ball) this.ball.update(); 
+        //     if (this.ball1) this.ball1.update(); 
+        //     this.frameCount++;
+        //     this.lastFrameTime = currentTime - (deltaTime - this.targetFrameTime);
+        //     this.lastUpdateTime = currentTime - (deltaTime - this.targetFrameTime);
+        //     // Log FPS mỗi giây
+        //     if (currentTime - this.lastFpsTime >= 1000) {
+        //         console.log({
+        //             fps: this.frameCount,
+        //             actualFrameTime: 1000 / this.frameCount + 'ms',
+        //             targetFrameTime: this.targetFrameTime + 'ms'
+        //         });
+        //         this.frameCount = 0;
+        //         this.lastFpsTime = currentTime;
+        //     }
+        // }
 
-            this.lastUpdateTime = currentTime - (deltaTime % this.targetFrameTime);
-        }
-
-        // Interpolation và smooth updates có thể chạy mỗi frame
-        if (this.interpolators) {
-            this.interpolators.update(); 
+        // // Interpolation và smooth updates có thể chạy mỗi frame
+        // if (this.interpolators) {
+        //     this.interpolators.update(); 
+        // }
+        if (this.spaceKey.isDown) {
+            // Gửi yêu cầu reset bóng đến server
+            if (this.SOCKET) {
+                this.SOCKET.emit('resetBall');
+            }
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, -5); 
         }
     }
 
