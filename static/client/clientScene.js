@@ -85,6 +85,7 @@ class ClientScene extends Phaser.Scene {
         this.startGameLoop(); 
 
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     }
 
     // GOAL CELEBRATION 
@@ -217,8 +218,16 @@ class ClientScene extends Phaser.Scene {
             if (this.SOCKET) {
                 this.SOCKET.emit('resetBall');
             }
-            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            // this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
             this.ball.setVelocity(0, -5); 
+        }
+        if (this.zKey.isDown) {
+            // Gửi yêu cầu reset bóng đến server
+            if (this.SOCKET) {
+                this.SOCKET.emit('resetBallToCenter');
+            }
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, 0); 
         }
     }
 

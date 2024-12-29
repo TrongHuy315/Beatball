@@ -16,6 +16,7 @@ class Ball1 {
             [this.graphics]
         );
         this.scene.matter.add.gameObject(this.container, this.body);
+        this.stick = 0; 
     }
     createGraphicss(ballId = 1) {
         const { radius } = this.config.physics;
@@ -205,13 +206,15 @@ class Ball1 {
     
         const errorThreshold = 40;
         const velocityErrorThreshold = 20;
-    
+        this.setPosition(predictedState.position.x, predictedState.position.y);
+        this.setVelocity(predictedState.velocity.x, predictedState.velocity.y);
+        return; 
         if (distanceError > errorThreshold || velocityErrorMagnitude > velocityErrorThreshold) {
             this.setPosition(predictedState.position.x, predictedState.position.y);
             this.setVelocity(predictedState.velocity.x, predictedState.velocity.y);
         } else {
-            const lerpFactor = Math.min(0.3, distanceError / errorThreshold);
-            const velocityLerpFactor = Math.min(0.3, velocityErrorMagnitude / velocityErrorThreshold);
+            const lerpFactor = Math.min(1, distanceError / errorThreshold);
+            const velocityLerpFactor = Math.min(1, velocityErrorMagnitude / velocityErrorThreshold);
     
             const newX = this.body.position.x + (predictedState.position.x - this.body.position.x) * lerpFactor;
             const newY = this.body.position.y + (predictedState.position.y - this.body.position.y) * lerpFactor;

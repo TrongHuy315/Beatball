@@ -7,7 +7,7 @@ function createWalls(scene) {
         const wallOptions = {
             isStatic: true,
             restitution: wall.bounciness,
-            friction: wall.friction,
+            friction: 0,
             density: 1000, 
             timeScale: 1, 
             label: 'wall', 

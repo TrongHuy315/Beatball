@@ -19,7 +19,7 @@ class Wall {
             label: 'wall', 
             isStatic: true,
             restitution: CONFIG.wall.bounciness,
-            friction: CONFIG.wall.friction,
+            friction: 0,
             density: 1000,
             slop: CONFIG.wall.slop, 
             collisionFilter: {

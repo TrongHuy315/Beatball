@@ -9,7 +9,7 @@ class Ball {
         this.radius = CONFIG.ball.physics.radius; 
         this.initialize();
         this.count_damping = 0; 
-        this.stick = false; 
+        this.stick = 0; 
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
     }
@@ -53,9 +53,10 @@ class Ball {
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 if (ball && wall) {
-                    this.stick = true; 
+                    console.log("Ying"); 
+                    this.stick++; 
                 }
-            }); 
+            });  
         });
 
         Matter.Events.on(this.engine, 'collisionEnd', (event) => {
@@ -89,7 +90,8 @@ class Ball {
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 if (ball && wall) {
-                    this.stick = false; 
+                    console.log("Yang"); 
+                    this.stick--; 
                 }
             }); 
         });
@@ -104,21 +106,26 @@ class Ball {
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
     
-                if (ball && wall && this.stick) {
-                    this.stick = false; 
+                if (ball && wall && this.stick > 0) {
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
                     console.log("ball flip velocity begin")
                     const EPSILON = 0.1;
                     console.log("currentVel.x: ", currentVel.x); 
                     console.log("currentVel.y: ", currentVel.y); 
+                    var ball_restitution = this.config.physics.restitution; 
+                    var wall_restitution = CONFIG.wall.bounciness; 
+                    console.log("Ball restitution: ", ball_restitution); 
+                    console.log("Wall restitution: ", wall_restitution); 
+                    var combinedRestitution = this.config.physics.restitution * CONFIG.wall.bounciness;
+                    console.log("Combine restitution: ", combinedRestitution); 
                     if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
                         if (Math.abs(currentVel.x) < EPSILON) {
                             console.log("Flip x");
-                            this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y); 
+                            this.setVelocity(-oldVel.x * combinedRestitution, currentVel.y); 
                         }
                         if (Math.abs(currentVel.y) < EPSILON) {
                             console.log("Flip y");
-                            this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution); 
+                            this.setVelocity(currentVel.x, -oldVel.y * combinedRestitution); 
                         }
                     }
                 }
@@ -129,8 +136,16 @@ class Ball {
     update() {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
-        this.setVelocity(xx, yy); 
+        // this.setVelocity(xx, yy); 
+        // this.logVelocity(); 
+        // this.logPosition(); 
         this.count_damping++; 
+    }
+    logVelocity () {
+        console.log("Velocity: ", this.body.velocity.x, this.body.velocity.y); 
+    }
+    logPosition () {
+        console.log("Position: ", this.body.position.x, this.body.position.y); 
     }
     createBody() {
         const { physics } = this.config;

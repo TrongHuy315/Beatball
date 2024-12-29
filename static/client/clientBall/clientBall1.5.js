@@ -19,14 +19,14 @@ class Ball {
     setupCollisionHandlers() {
         this.scene.matter.world.on('collisionstart', (event) => {
             this.isColliding = true;
-            console.log("Colliding time: ", Date.now()); 
             event.pairs.forEach((pair) => {
                 const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 if (ball && wall) {
-                    this.stick = true; 
+                    console.log("Ying"); 
+                    this.stick++; 
                 }
             }); 
         });
@@ -39,13 +39,14 @@ class Ball {
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 if (ball && wall) {
-                    this.stick = false; 
+                    console.log("Yang"); 
+                    this.stick--; 
                 }
             }); 
         });
 
         this.scene.matter.world.on('beforeupdate', () => {
-            if (!this.isColliding) {
+            if (this.stick == 0) {
                 this.oldVelocities.set(this.body.id, {
                     x: this.body.velocity.x,
                     y: this.body.velocity.y
@@ -61,23 +62,31 @@ class Ball {
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-                console.log("Before Trying flipping"); 
-                if (ball && wall && oldVel && this.stick) {
-                    this.stick = false; 
+                console.log("Before Trying flipping");
+                console.log("Stick: ", this.stick); 
+                if (ball && wall && oldVel && this.stick > 0) {
                     const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
                     const EPSILON = 0.1;
                     console.log("Trying flipping"); 
-                    if (Math.abs(currentVel.x) < EPSILON && currentVel.x * oldVel.x >= 0) {
-                        console.log("Flip x"); 
-                        this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y);
-                    }
-                    if (Math.abs(currentVel.y) < EPSILON) {
-                        console.log("Flip y"); 
-                        this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution);
+                    var ball_restitution = this.config.physics.restitution; 
+                    var wall_restitution = CONFIG.wall.bounciness; 
+                    var combinedRestitution = this.config.physics.restitution * CONFIG.wall.bounciness;
+                    if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
+                        if (Math.abs(currentVel.x) < EPSILON) {
+                            console.log("Flip x");
+                            this.setVelocity(-oldVel.x * combinedRestitution, currentVel.y); 
+                        }
+                        if (Math.abs(currentVel.y) < EPSILON) {
+                            console.log("Flip y");
+                            this.setVelocity(currentVel.x, -oldVel.y * combinedRestitution); 
+                        }
                     }
                 }
             });
         });
+    }
+    logVelocity () {
+        console.log("Velocity: ", this.body.velocity.x, this.body.velocity.y); 
     }
     initialize() {
         this.damping = this.config.physics.damping; 
@@ -291,8 +300,14 @@ class Ball {
         var yy = this.body.velocity.y * this.damping; 
         // this.setVelocity(xx, yy); 
         // this.logBallVelocity(); 
+        // this.logPosition(); 
     }
-
+    logVelocity () {
+        console.log("Velocity: ", this.body.velocity.x, this.body.velocity.y); 
+    }
+    logPosition () {
+        console.log("Position: ", this.body.position.x, this.body.position.y); 
+    }
     controlSpeed() {
 		const velocity = this.body.velocity;
 		const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);

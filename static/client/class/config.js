@@ -190,7 +190,7 @@ window.CONFIG = {
         slop: 0, 
         wall_distance: 2, 
         wall_thickness: 40, 
-		bounciness: 0.5, 
+		bounciness: 1, 
 		friction: 1, 
         world_bound_offset: 0, 
 	}, 

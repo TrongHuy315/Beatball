@@ -297,11 +297,13 @@ class PhysicsEngine {
             }); 
             socket.on('resetBall', () => {
                 // this.ball.setVelocity(0, 0); 
-                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-                // this.ball.sendBallState(); 
                 this.ball.setVelocity(0, -5); 
             }); 
-            
+            socket.on('resetBallToCenter', () => {
+                // this.ball.setVelocity(0, 0); 
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+                this.ball.setVelocity(0, 0); 
+            }); 
         });
 	}
     cleanupGhostPlayers() {
