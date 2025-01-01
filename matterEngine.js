@@ -43,7 +43,7 @@ class PhysicsEngine {
         this.frameCount = 0;
         this.lastFPSUpdate = Date.now();
         
-        this.targetOuterFPS = 1000 / 240; 
+        this.targetOuterFPS = 1000 / 120; 
 
         this.frameMonitor = {
             lastTime: Date.now(),
@@ -60,12 +60,11 @@ class PhysicsEngine {
             // this.updateFrameStats(currentTime); 
             cur = Date.now(); 
             if (delta >= this.targetInnerFPS) {
+                // console.log(this.targetInnerFPS, delta); 
                 // console.log(cur - last); 
                 this.gameloop();
                 Matter.Engine.update(this.engine, this.targetInnerFPS);
-
                 io.emit('sendGameState', this.gameState());
-
                 // Update timing tracking
                 this.frameCount++;
                 this.lastFrameTime = currentTime - (delta - this.targetInnerFPS);
@@ -88,6 +87,7 @@ class PhysicsEngine {
         };
         gameLoop(); 
     }
+    
     updateFrameStats(currentTime) {
         const frameTime = currentTime - this.frameMonitor.lastTime;
         
@@ -295,14 +295,55 @@ class PhysicsEngine {
             socket.on('ping', () => {
                 socket.emit('pong'); 
             }); 
-            socket.on('resetBall', () => {
+
+            // DEVELOPER MODE 
+            socket.on('ballMoveUpward', () => {
                 // this.ball.setVelocity(0, 0); 
                 this.ball.setVelocity(0, -5); 
+            }); 
+            socket.on('diagionalTestCombo', () => {
+                const OFFSET = 170; 
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET);  
+                this.ball.setVelocity(-5, -3); 
             }); 
             socket.on('resetBallToCenter', () => {
                 // this.ball.setVelocity(0, 0); 
                 this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
                 this.ball.setVelocity(0, 0); 
+            }); 
+            socket.on('requestPutNextToBall', () => {
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+                this.ball.setVelocity(0, 0); 
+                // Lấy player hiện tại
+                const player = this.players.get(socket.clientId);
+                if (player) {
+                    const OFFSET_X = 50; // Khoảng cách theo trục X từ player đến ball
+
+                    const newPlayerPosition = {
+                        x: this.ball.body.position.x - OFFSET_X, // Đặt bên trái bóng
+                        y: this.ball.body.position.y // Cùng độ cao với bóng
+                    };
+
+                    player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
+                    player.setVelocity(0, 0); // Dừng player
+                }
+            }); 
+            socket.on('requestPutDiagionalToBall', () => {
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+                this.ball.setVelocity(0, 0); 
+                // Lấy player hiện tại
+                const player = this.players.get(socket.clientId);
+                if (player) {
+                    const OFFSET = 50; // Khoảng cách theo trục X từ player đến ball
+
+                    const newPlayerPosition = {
+                        x: this.ball.body.position.x - OFFSET, // Đặt bên trái bóng
+                        y: this.ball.body.position.y - OFFSET// Cùng độ cao với bóng
+                    };
+
+                    player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
+                    player.setVelocity(0, 0); // Dừng player
+                }
             }); 
         });
 	}

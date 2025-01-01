@@ -1,4 +1,4 @@
-class Ball1 {
+class Ball2 {
     constructor(scene, config) {
         this.scene = scene;
         this.config = config;

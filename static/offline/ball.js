@@ -10,13 +10,59 @@ class Ball {
         this.graphics = this.createGraphics();
         this.body = this.createPhysicsBody();
         this.scene.events.on('update', this.update, this);
+        this.stick = 0; 
         this.scene.matter.world.on('beforeupdate', this.afterPhysicsUpdate, this);
         this.scene.matter.world.on('collisionstart', (event) => {
             this.isColliding = true;
+            this.stick++; 
+            if (this.stick == 1) {
+                event.pairs.forEach((pair) => {
+                    const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                                (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+                    const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                                (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+        
+                    if (ball && wall) {
+                        const oldVel = this.oldVelocities.get(this.body.id);
+                        if (!oldVel) return;
+        
+                        const pushDirection = wall.customType; // Lấy hướng đẩy từ wall
+                        const PUSH_FORCE = 2; // Hệ số đẩy, có thể điều chỉnh
+                        console.log("Ready to push"); 
+                        switch(pushDirection) {
+                            case 'U': // Đẩy lên
+                                this.setVelocity(
+                                    ball.velocity.x,
+                                    -Math.abs(oldVel.y * 0.46)
+                                );
+                                break;
+                            case 'D': // Đẩy xuống
+                                this.setVelocity(
+                                    ball.velocity.x,
+                                    Math.abs(oldVel.y * 0.46)
+                                );
+                                break;
+                            case 'L': // Đẩy sang trái 
+                                this.setVelocity(
+                                    -Math.abs(oldVel.x * 0.46),
+                                    ball.velocity.y
+                                );
+                                break;
+                            case 'R': // Đẩy sang phải
+                                this.setVelocity(
+                                    Math.abs(oldVel.x * 0.46),
+                                    ball.velocity.y
+                                );
+                                break;
+                        }
+                    }
+                });
+            }
         });
         
         this.scene.matter.world.on('collisionend', () => {
             this.isColliding = false;
+            this.stick--; 
         });
         this.oldVelocities = new Map();
 
@@ -29,36 +75,6 @@ class Ball {
                 });
             }
         });
-    
-        // Collision Active handler - đăng ký riêng
-        this.scene.matter.world.on('collisionactive', (event) => {
-            const oldVel = this.oldVelocities.get(this.body.id); 
-            console.log(oldVel.x, oldVel.y); 
-            event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-    
-                if (ball && wall) {
-                    console.log("Ball and wall"); 
-                    if (!oldVel) return;
-    
-                    const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-            
-                    const EPSILON = 0.0001;
-                    if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
-                        if (Math.abs(currentVel.x) < EPSILON) {
-                            this.setVelocity(-oldVel.x * this.config.physics.restitution, currentVel.y); 
-                        }
-                        if (Math.abs(currentVel.y) < EPSILON) {
-                            this.setVelocity(currentVel.x, -oldVel.y * this.config.physics.restitution); 
-                        }
-                    }
-                }
-            });
-        });
-    
     }
     afterPhysicsUpdate() {
     }

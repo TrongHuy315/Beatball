@@ -6,7 +6,7 @@ class Wall {
         this.world = world;
         this.createWalls();
     }
-    createRectangle(x, y, width, height, direction = null, isInner) {
+    createRectangle(push, x, y, width, height, direction = null, isInner) {
         const categories = {
             outer: 0x0001,  // 00001
             inner: 0x0002,  // 00010
@@ -21,7 +21,8 @@ class Wall {
             restitution: CONFIG.wall.bounciness,
             friction: 0,
             density: 1000,
-            slop: CONFIG.wall.slop, 
+            slop: CONFIG.wall.slop,
+            customType: push, // Thêm thuộc tính push
             collisionFilter: {
                 category: isInner ? categories.inner : categories.outer,
                 mask: isInner ? ~categories.player : 0xFFFFFFFF
@@ -32,7 +33,6 @@ class Wall {
         World.add(this.world, wall);
         direction = null; 
         if (!direction) return;
-
         let offsetX = 0, offsetY = 0;
         if (direction === 'U') offsetY = -CONFIG.wall.wall_distance;
         else if (direction === 'D') offsetY = CONFIG.wall.wall_distance;
@@ -51,8 +51,9 @@ class Wall {
         const { Bodies, World } = Matter;
         const { pitch, nets, totalWidth, totalHeight, offset_vertical, offset_horizontal} = CONFIG;
 
-            // Top wall
+        // Top wall - đẩy xuống
         this.createRectangle(
+            'D',
             totalWidth / 2,
             pitch.borderWidth / 2 + offset_vertical,
             pitch.width + pitch.borderWidth * 2,
@@ -61,8 +62,9 @@ class Wall {
             true
         );
 
-        // Bottom wall
+        // Bottom wall - đẩy lên
         this.createRectangle(
+            'U',
             totalWidth / 2,
             totalHeight - pitch.borderWidth / 2 - offset_vertical,
             pitch.width + pitch.borderWidth * 2,
@@ -73,8 +75,9 @@ class Wall {
 
         const side_wall_length = (pitch.height + pitch.borderWidth * 2 - nets.height) / 2;
 
-        // Left-up wall
+        // Left-up wall - đẩy sang phải
         this.createRectangle(
+            'R',
             nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,
             side_wall_length / 2 + offset_vertical, 
             pitch.borderWidth,
@@ -83,8 +86,9 @@ class Wall {
             true
         );
 
-        // Left-down wall
+        // Left-down wall - đẩy sang phải
         this.createRectangle(
+            'R',
             nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,
             totalHeight - side_wall_length / 2 - offset_vertical,
             pitch.borderWidth,
@@ -92,8 +96,10 @@ class Wall {
             'L', 
             true
         );
-        // Right-up wall
+
+        // Right-up wall - đẩy sang trái
         this.createRectangle(
+            'L',
             totalWidth - (nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal), 
             side_wall_length / 2 + offset_vertical, 
             pitch.borderWidth,
@@ -101,8 +107,10 @@ class Wall {
             'L',
             true 
         );
-        // Right-down wall
+
+        // Right-down wall - đẩy sang trái
         this.createRectangle(
+            'L',
             totalWidth - (nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal), 
             totalHeight - side_wall_length / 2 - offset_vertical,
             pitch.borderWidth,
@@ -110,61 +118,79 @@ class Wall {
             'L',
             true 
         );
-        // Left net - left wall
+
+        // Left net - left wall - đẩy sang phải
         this.createRectangle(
+            'R',
             nets.borderWidth / 2 + offset_horizontal,
             totalHeight / 2,
             nets.borderWidth,
-            nets.height + nets.borderWidth * 2, 'L', false
+            nets.height + nets.borderWidth * 2, 
+            'L', 
+            false
         );
 
-        // Right net - right wall
+        // Right net - right wall - đẩy sang trái
         this.createRectangle(
+            'L',
             totalWidth - nets.borderWidth / 2 - offset_horizontal,
             totalHeight / 2,
             nets.borderWidth,
-            nets.height + nets.borderWidth * 2, 'R', false
+            nets.height + nets.borderWidth * 2, 
+            'R', 
+            false
         );
 
-        // Left net - up wall
+        // Left net - up wall - đẩy xuống
         this.createRectangle(
+            'D',
             nets.borderWidth + nets.width / 2 + offset_horizontal,
             side_wall_length - nets.borderWidth / 2 + offset_vertical,
             nets.width + nets.borderWidth + pitch.borderWidth,
             nets.borderWidth,
-            'U', false
+            'U', 
+            false
         );
 
-        // Left net - down wall
+        // Left net - down wall - đẩy lên
         this.createRectangle(
+            'U',
             nets.borderWidth + nets.width / 2 + offset_horizontal,
             totalHeight - (side_wall_length - nets.borderWidth / 2 + offset_vertical),
             nets.width + nets.borderWidth + pitch.borderWidth,
             nets.borderWidth,
-            'D', false
+            'D', 
+            false
         );
 
-        // Right net - up wall
+        // Right net - up wall - đẩy xuống
         this.createRectangle(
+            'D',
             totalWidth - nets.borderWidth - nets.width / 2 - offset_horizontal, 
             side_wall_length - nets.borderWidth / 2 + offset_vertical,
             nets.width + nets.borderWidth + pitch.borderWidth,
             nets.borderWidth,
-            'U', false
+            'U', 
+            false
         );
 
-        // Right net - down wall
+        // Right net - down wall - đẩy lên
         this.createRectangle(
+            'U',
             totalWidth - nets.borderWidth - nets.width / 2 - offset_horizontal,
             totalHeight - (side_wall_length - nets.borderWidth / 2 + offset_vertical),
             nets.width + nets.borderWidth + pitch.borderWidth,
             nets.borderWidth,
-            'D', false
+            'D', 
+            false
         );
-        this.createRectangle(totalWidth / 2, 0, totalWidth, 2); 
-        this.createRectangle(totalWidth / 2, totalHeight, totalWidth, 2); 
-        this.createRectangle(0, totalHeight / 2, 2, totalHeight);
-        this.createRectangle(totalWidth, totalHeight / 2, 2, totalHeight); 
+
+        // Các tường biên ngoài
+        this.createRectangle('D', totalWidth / 2, 0, totalWidth, 2); // Top
+        this.createRectangle('U', totalWidth / 2, totalHeight, totalWidth, 2); // Bottom
+        this.createRectangle('R', 0, totalHeight / 2, 2, totalHeight); // Left
+        this.createRectangle('L', totalWidth, totalHeight / 2, 2, totalHeight); // Right
+
         // Net sensors
         const leftNet = Bodies.rectangle(
             CONFIG.nets.borderWidth + CONFIG.nets.width / 2,

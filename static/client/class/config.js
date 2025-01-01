@@ -159,7 +159,7 @@ window.CONFIG = {
         physics: {
             damping: 1, 
             mass: 1,
-            restitution: 0.5,      // độ nảy 0.5
+            restitution: 0,      // độ nảy 0.5
             friction: 0,        // ma sát với vật thể khác
             frictionAir: 0.00,    // ma sát không khí
             radius: 11,            // bán kính vật lý và đồ họa
@@ -190,7 +190,7 @@ window.CONFIG = {
         slop: 0, 
         wall_distance: 2, 
         wall_thickness: 40, 
-		bounciness: 1, 
+		bounciness: 0, 
 		friction: 1, 
         world_bound_offset: 0, 
 	}, 

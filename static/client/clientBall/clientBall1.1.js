@@ -4,6 +4,8 @@ class Ball1 {
         this.config = config;
         this.frameRemainder = 0; 
         this.initialize();
+        this.cur = Date.now(); 
+        this.last = Date.now();
     }
 
     initialize() {
@@ -16,7 +18,7 @@ class Ball1 {
             [this.graphics]
         );
         this.scene.matter.add.gameObject(this.container, this.body);
-        this.stick = 0; 
+        this.stick = 0;     
     }
     createGraphicss(ballId = 1) {
         const { radius } = this.config.physics;
@@ -137,7 +139,8 @@ class Ball1 {
             player: 0x0004,        // 000100
             ball: 0x0008,          // 001000
             net: 0x0010,           // 010000
-            nonGraphicBall: 0x0020 // 100000
+            nonGraphicBall: 0x0020, // 100000
+            predictBall: 0x0040
         };
         return this.scene.matter.add.circle(
             this.scene.scale.width / 2,
@@ -146,7 +149,7 @@ class Ball1 {
             {
                 label: 'ball', 
                 mass: physics.mass,
-                restitution: physics.restitution,
+                restitution: 0,
                 friction: physics.friction,
                 frictionAir: physics.frictionAir,
                 inertia: physics.inertia,
@@ -156,7 +159,7 @@ class Ball1 {
                 velocity: { x: 0, y: 0 }, 
                 collisionFilter: {
                     category: categories.nonGraphicBall, 
-                    mask: ~categories.ball 
+                    mask: ~(categories.ball | categories.predictBall) 
                 }
             }
         );
@@ -165,6 +168,9 @@ class Ball1 {
     update() {
         this.frameRemainder++; 
         if (this.frameRemainder > 100) this.frameRemainder = 100; 
+        if (this.body.velocity.x > 0 || this.body.velocity.y > 0 || this.body.velocity.x < 0 || this.body.velocity.y < 0) {
+            console.log("Ball Velocity Is Greater Than Zero"); 
+        }
     }
     predictedState(serverState) {
         const predictedState = {
@@ -177,37 +183,19 @@ class Ball1 {
                 y: serverState.velocity.y 
             }
         };
-        predictedState.x += predictedState.velocity.x * this.frameRemainder; 
-        predictedState.y += predictedState.velocity.y * this.frameRemainder; 
         return predictedState; 
     }
     serverReconciliation(serverState) {
         this.frameRemainder--; 
         const predictedState = this.predictedState(serverState); 
-        const positionError = {
-            x: this.body.position.x - predictedState.position.x,
-            y: this.body.position.y - predictedState.position.y
-        };
-    
-        const velocityError = {
-            x: this.body.velocity.x - predictedState.velocity.x,
-            y: this.body.velocity.y - predictedState.velocity.y
-        };
-    
-        const distanceError = Math.sqrt(
-            Math.pow(positionError.x, 2) + 
-            Math.pow(positionError.y, 2)
-        );
-    
-        const velocityErrorMagnitude = Math.sqrt(
-            Math.pow(velocityError.x, 2) + 
-            Math.pow(velocityError.y, 2)
-        );
-    
-        const errorThreshold = 40;
-        const velocityErrorThreshold = 20;
         this.setPosition(predictedState.position.x, predictedState.position.y);
-        this.setVelocity(predictedState.velocity.x, predictedState.velocity.y);
+        if (this.container) {
+            this.container.setPosition(predictedState.position.x, predictedState.position.y);
+        }
+        this.setVelocity(0, 0);
+        this.cur = Date.now(); 
+        // console.log("Difference between reconciliation: ", this.cur - this.last); 
+        this.last = Date.now(); 
         return; 
         if (distanceError > errorThreshold || velocityErrorMagnitude > velocityErrorThreshold) {
             this.setPosition(predictedState.position.x, predictedState.position.y);

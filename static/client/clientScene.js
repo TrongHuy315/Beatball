@@ -1,5 +1,6 @@
 const clientId = sessionStorage.getItem('clientId') || generateUniqueId();
 sessionStorage.setItem('clientId', clientId);
+const { Engine, Runner } = Matter;
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
@@ -32,11 +33,15 @@ class ClientScene extends Phaser.Scene {
         this.targetInnerFPS = 60;
         this.targetOuterFPS = 60; 
         this.targetFrameTime = 1000 / this.targetInnerFPS;
+        this.lastUpdateTime = Date.now(); 
+
         this.lastFpsTime = Date.now(); // Thêm dòng này
         this.lastFPSUpdate = Date.now(); // Thêm dòng này 
 
         this.receiveServerData = false; 
-        this.onServerBall = true; 
+        this.visibleServerBall = true; 
+        this.visibleClientBall = true;  
+        this.visibleLerpBall = true; 
 
         // Thêm tracking frame time
         this.frameTimeLog = [];
@@ -45,6 +50,13 @@ class ClientScene extends Phaser.Scene {
         this.maxFrameTime = 0;
         this.minFrameTime = Infinity;
         this.sumFrameTime = 0;
+        
+        this.last = Date.now(); 
+        this.cur = Date.now(); 
+
+        // Thêm thuộc tính cho runner
+        this.runner = null;
+        this.isRunnerActive = false;
 
     }
     preload() {
@@ -61,6 +73,8 @@ class ClientScene extends Phaser.Scene {
         createWalls(this); 
         // ----- BALL -----
         this.ball = new Ball(this, CONFIG.ball);
+        this.ball3 = new Ball3(this, CONFIG.ball);
+        this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
 
         // ---- SCOREBOARD ----
         this.scoreboard.draw();
@@ -69,8 +83,7 @@ class ClientScene extends Phaser.Scene {
         this.setupWebSocket();
         // ---- PING DISPLAY ---- 
         this.perfMonitor = new PerfMonitor(this);
-        if (this.onServerBall) this.ball1 = new Ball1(this, CONFIG.ball);
-
+        if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
         // Set up timing control
         this.lastUpdateTime = this.game.getTime();
         
@@ -86,6 +99,12 @@ class ClientScene extends Phaser.Scene {
 
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+        this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+        this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
+        this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+
+        // this.initializeRunner();
     }
 
     // GOAL CELEBRATION 
@@ -151,26 +170,106 @@ class ClientScene extends Phaser.Scene {
         var last; 
         const gameLoop = () => {
             const currentTime = Date.now();
-            const delta = currentTime - this.lastFrameTime;
             var cur = Date.now(); 
-            
-            this.gameLoop();
-            this.matter.world.step(this.targetFrameTime);            
-            this.frameCount++;
-            this.lastFrameTime = currentTime; 
-            if (currentTime - this.lastFPSUpdate >= 1000) {
-                console.log({
-                    fps: this.frameCount,
-                    actualFrameTime: 1000 / this.frameCount + 'ms',
-                    targetFrameTime: this.targetFrameTime + 'ms'
-                });
-                this.frameCount = 0;
-                this.lastFPSUpdate = currentTime;
+            if (currentTime - this.lastFrameTime >= 1000 / this.targetInnerFPS) {
+                this.gameLoop();
+                this.matter.world.step(this.targetFrameTime);            
+                this.frameCount++;
+                this.lastFrameTime = currentTime - (currentTime - this.lastFrameTime - 1000 / this.targetInnerFPS); 
+                // if (currentTime - this.lastFPSUpdate >= 1000) {
+                //     console.log({
+                //         fps: this.frameCount,
+                //         actualFrameTime: 1000 / this.frameCount + 'ms',
+                //         targetFrameTime: this.targetFrameTime + 'ms'
+                //     });
+                //     this.frameCount = 0;
+                //     this.lastFPSUpdate = currentTime;
+                // }
             }
+            last = cur; 
             requestAnimationFrame(gameLoop); 
         };
     
         gameLoop(); 
+    }
+    initializeRunner() {
+        // Tạo runner với các options được định nghĩa trong API
+        this.runner = Runner.create({
+            delta: 1000 / this.targetInnerFPS,       // Fixed timestep size (16.666ms for 60fps)
+            enabled: true,                           // Enable runner by default
+            maxFrameTime: 1000 / 30,                 // Performance budget (33.333ms)
+            frameDeltaSmoothing: true,              // Enable frame rate smoothing
+            frameDeltaSnapping: true,               // Round frame delta to nearest 1 Hz
+            maxUpdates: 4                           // Limit max updates per frame
+        });
+    
+        // Đăng ký các events theo API
+        Matter.Events.on(this.runner, 'beforeTick', (event) => {
+            // Logic trước mỗi tick
+            if (this.interpolators) {
+                this.interpolators.update();
+            }
+        });
+    
+        Matter.Events.on(this.runner, 'tick', (event) => {
+            // Logic chính trong mỗi tick
+            this.gameLoop();
+        });
+    
+        Matter.Events.on(this.runner, 'afterTick', (event) => {
+            // FPS tracking
+            const currentTime = Date.now();
+            this.frameCount++;
+            
+            if (currentTime - this.lastFPSUpdate >= 1000) {
+                console.log({
+                    fps: this.frameCount,
+                    frameDelta: this.runner.frameDelta + 'ms',
+                    actualFrameTime: 1000 / this.frameCount + 'ms',
+                    engineDelta: this.runner.delta + 'ms'
+                });
+                this.frameCount = 0;
+                this.lastFPSUpdate = currentTime;
+            }
+        });
+    
+        Matter.Events.on(this.runner, 'beforeUpdate', (event) => {
+            // Logic trước mỗi engine update
+        });
+    
+        Matter.Events.on(this.runner, 'afterUpdate', (event) => {
+            // Logic sau mỗi engine update
+        });
+    
+        // Khởi động runner với engine
+        Runner.run(this.runner, this.matter.world.engine);
+    }
+    
+    // Thêm phương thức để dừng/tiếp tục runner
+    stopRunner() {
+        if (this.runner) {
+            this.runner.enabled = false;  // Pause runner
+        }
+    }
+    
+    startRunner() {
+        if (this.runner) {
+            this.runner.enabled = true;   // Resume runner
+        }
+    }
+    
+    // Thêm phương thức để destroy runner khi cần
+    destroyRunner() {
+        if (this.runner) {
+            Runner.stop(this.runner);
+            // Xóa tất cả events
+            Matter.Events.off(this.runner, 'beforeTick');
+            Matter.Events.off(this.runner, 'tick');
+            Matter.Events.off(this.runner, 'afterTick');
+            Matter.Events.off(this.runner, 'beforeUpdate');
+            Matter.Events.off(this.runner, 'afterUpdate');
+            this.runner = null;
+        }
     }
     
     gameLoop() {
@@ -183,40 +282,13 @@ class ClientScene extends Phaser.Scene {
             this.interpolators.update();
         }
     }
+
     // CONSTATLY UPDATE SCENE 
-    update(time) {
-        // const currentTime = Date.now(); 
-        // const deltaTime = currentTime - this.lastUpdateTime;
-
-        // if (deltaTime >= this.targetFrameTime) {
-        //     this.matter.world.step(this.targetFrameTime);
-        //     // Physics và game updates
-        //     if (this.player) this.player.update(); 
-        //     if (this.ball) this.ball.update(); 
-        //     if (this.ball1) this.ball1.update(); 
-        //     this.frameCount++;
-        //     this.lastFrameTime = currentTime - (deltaTime - this.targetFrameTime);
-        //     this.lastUpdateTime = currentTime - (deltaTime - this.targetFrameTime);
-        //     // Log FPS mỗi giây
-        //     if (currentTime - this.lastFpsTime >= 1000) {
-        //         console.log({
-        //             fps: this.frameCount,
-        //             actualFrameTime: 1000 / this.frameCount + 'ms',
-        //             targetFrameTime: this.targetFrameTime + 'ms'
-        //         });
-        //         this.frameCount = 0;
-        //         this.lastFpsTime = currentTime;
-        //     }
-        // }
-
-        // // Interpolation và smooth updates có thể chạy mỗi frame
-        // if (this.interpolators) {
-        //     this.interpolators.update(); 
-        // }
+    update() {
         if (this.spaceKey.isDown) {
             // Gửi yêu cầu reset bóng đến server
             if (this.SOCKET) {
-                this.SOCKET.emit('resetBall');
+                this.SOCKET.emit('ballMoveUpward');
             }
             // this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
             this.ball.setVelocity(0, -5); 
@@ -229,6 +301,72 @@ class ClientScene extends Phaser.Scene {
             this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
             this.ball.setVelocity(0, 0); 
         }
+        if (this.xKey.isDown) {
+            if (this.SOCKET) {
+                this.SOCKET.emit('requestPutNextToBall');
+            }
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, 0); 
+            const OFFSET_X = 50; 
+            const newPlayerPosition = {
+                x: this.ball.body.position.x - OFFSET_X, 
+                y: this.ball.body.position.y 
+            };
+
+            this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
+            this.player.setVelocity(0, 0); 
+        }
+        if (this.cKey.isDown) {
+            if (this.SOCKET) {
+                this.SOCKET.emit('requestPutDiagionalToBall');
+            }
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, 0); 
+            const OFFSET = 50; 
+            const newPlayerPosition = {
+                x: this.ball.body.position.x - OFFSET, 
+                y: this.ball.body.position.y - OFFSET 
+            };
+
+            this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
+            this.player.setVelocity(0, 0); 
+        }
+        if (this.vKey.isDown) {
+            if (this.SOCKET) {
+                this.SOCKET.emit('diagionalTestCombo');
+                const OFFSET = 170; 
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET); 
+                this.ball.setVelocity(-5, -3); 
+                this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET); 
+                this.ball3.setVelocity(-5, -3); 
+            }
+        }
+        if (this.bKey.isDown) {
+            this.ball.setPosition(this.ball.body.position.x + 4, this.ball.body.position.y); 
+        }
+        if (this.ball && this.ball1) {
+            const dx = this.ball.body.position.x - this.ball1.body.position.x;
+            const dy = this.ball.body.position.y - this.ball1.body.position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Log khoảng cách và vị trí của cả 2 bóng
+            // console.log({
+            //     distance: distance.toFixed(2) + 'px',
+            //     ball: {
+            //         x: this.ball.body.position.x.toFixed(2),
+            //         y: this.ball.body.position.y.toFixed(2)
+            //     },
+            //     ball1: {
+            //         x: this.ball1.body.position.x.toFixed(2),
+            //         y: this.ball1.body.position.y.toFixed(2)
+            //     },
+            //     difference: {
+            //         x: dx.toFixed(2),
+            //         y: dy.toFixed(2)
+            //     }
+            // });
+        }
+        this.ball3.update(); 
     }
 
     // HANDLE RECEIVED DATA 
@@ -369,14 +507,14 @@ const configPhaser = {
     parent: 'player_container',
     transparent: true,
     fps: {
-        target: 60, // Mục tiêu 60 FPS
-        forceSetTimeOut: false, 
-        smoothStep: true 
+        target: 120, // Mục tiêu 60 FPS
+        forceSetTimeOut: true,
+        smoothStep: false 
     },
     physics: {
         default: 'matter',
         matter: {
-            debug: true, // Set to false in production
+            debug: false, // Set to false in production
             gravity: { y: 0 },
             setBounds: true, 
         }

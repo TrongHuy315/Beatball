@@ -1,7 +1,7 @@
 function createWalls(scene) {
     const {offset_horizontal, offset_vertical, pitch, nets, totalWidth, totalHeight, borderWidth, wall } = CONFIG;
     
-    function createRectangle(x, y, width, height, direction = null, isInner = false) {
+    function createRectangle(push, x, y, width, height, direction = null, isInner = false) {
         const {nets} = CONFIG; 
         direction = null; 
         const wallOptions = {
@@ -10,7 +10,8 @@ function createWalls(scene) {
             friction: 0,
             density: 1000, 
             timeScale: 1, 
-            label: 'wall', 
+            label: 'wall',
+            customType: push, // Thêm hướng đẩy
             net: false, 
             slop: wall.slop, 
             collideWorldBounds: false, 
@@ -35,8 +36,10 @@ function createWalls(scene) {
             scene.matter.add.rectangle(x, y, width, height, wallOptions);
         }
     }
-    // Top wall
+
+    // Top wall - đẩy xuống
     createRectangle(
+        'D',
         totalWidth / 2,
         pitch.borderWidth / 2 + offset_vertical,
         pitch.width + pitch.borderWidth * 2,
@@ -45,8 +48,9 @@ function createWalls(scene) {
         true
     );
 
-    // Bottom wall
+    // Bottom wall - đẩy lên
     createRectangle(
+        'U',
         totalWidth / 2,
         totalHeight - pitch.borderWidth / 2 - offset_vertical,
         pitch.width + pitch.borderWidth * 2,
@@ -57,8 +61,9 @@ function createWalls(scene) {
 
     const side_wall_length = (pitch.height + pitch.borderWidth * 2 - nets.height) / 2;
 
-    // Left-up wall
+    // Left-up wall - đẩy sang phải
     createRectangle(
+        'R',
         nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,
         side_wall_length / 2 + offset_vertical, 
         pitch.borderWidth,
@@ -67,8 +72,9 @@ function createWalls(scene) {
         true
     );
 
-    // Left-down wall
+    // Left-down wall - đẩy sang phải
     createRectangle(
+        'R',
         nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,
         totalHeight - side_wall_length / 2 - offset_vertical,
         pitch.borderWidth,
@@ -76,8 +82,10 @@ function createWalls(scene) {
         'L', 
         true
     );
-    // Right-up wall
+
+    // Right-up wall - đẩy sang trái
     createRectangle(
+        'L',
         totalWidth - (nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal), 
         side_wall_length / 2 + offset_vertical, 
         pitch.borderWidth,
@@ -85,8 +93,10 @@ function createWalls(scene) {
         'L',
         true 
     );
-    // Right-down wall
+
+    // Right-down wall - đẩy sang trái
     createRectangle(
+        'L',
         totalWidth - (nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal), 
         totalHeight - side_wall_length / 2 - offset_vertical,
         pitch.borderWidth,
@@ -94,81 +104,76 @@ function createWalls(scene) {
         'L',
         true 
     );
-    // Left net - left wall
+
+    // Left net - left wall - đẩy sang phải
     createRectangle(
+        'R',
         nets.borderWidth / 2 + offset_horizontal,
         totalHeight / 2,
         nets.borderWidth,
-        nets.height + nets.borderWidth * 2, 'L', false
+        nets.height + nets.borderWidth * 2, 
+        'L', 
+        false
     );
 
-    // Right net - right wall
+    // Right net - right wall - đẩy sang trái
     createRectangle(
+        'L',
         totalWidth - nets.borderWidth / 2 - offset_horizontal,
         totalHeight / 2,
         nets.borderWidth,
-        nets.height + nets.borderWidth * 2, 'R', false
+        nets.height + nets.borderWidth * 2, 
+        'R', 
+        false
     );
 
-    // Left net - up wall
+    // Left net - up wall - đẩy xuống
     createRectangle(
+        'D',
         nets.borderWidth + nets.width / 2 + offset_horizontal,
         side_wall_length - nets.borderWidth / 2 + offset_vertical,
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'U', false
+        'U', 
+        false
     );
 
-    // Left net - down wall
+    // Left net - down wall - đẩy lên
     createRectangle(
+        'U',
         nets.borderWidth + nets.width / 2 + offset_horizontal,
         totalHeight - (side_wall_length - nets.borderWidth / 2 + offset_vertical),
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'D', false
+        'D', 
+        false
     );
 
-    // Right net - up wall
+    // Right net - up wall - đẩy xuống
     createRectangle(
+        'D',
         totalWidth - nets.borderWidth - nets.width / 2 - offset_horizontal, 
         side_wall_length - nets.borderWidth / 2 + offset_vertical,
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'U', false
+        'U', 
+        false
     );
 
-    // Right net - down wall
+    // Right net - down wall - đẩy lên
     createRectangle(
+        'U',
         totalWidth - nets.borderWidth - nets.width / 2 - offset_horizontal,
         totalHeight - (side_wall_length - nets.borderWidth / 2 + offset_vertical),
         nets.width + nets.borderWidth + pitch.borderWidth,
         nets.borderWidth,
-        'D', false
+        'D', 
+        false
     );
-    createRectangle(totalWidth / 2, 0, totalWidth, 2); 
-    createRectangle(totalWidth / 2, totalHeight, totalWidth, 2); 
-    createRectangle(0, totalHeight / 2, 2, totalHeight);
-    createRectangle(totalWidth, totalHeight / 2, 2, totalHeight); 
-    // scene.matter.add.rectangle(
-    //     CONFIG.nets.borderWidth + CONFIG.nets.width / 2,
-    //     CONFIG.totalHeight / 2,
-    //     CONFIG.nets.width,
-    //     CONFIG.nets.height,
-    //     {
-    //         isSensor: true,
-    //         isStatic: true,
-    //         label: 'leftNet',
-    //     }
-    // );
-    // scene.matter.add.rectangle(
-    //     CONFIG.totalWidth - CONFIG.nets.borderWidth - CONFIG.nets.width / 2,
-    //     CONFIG.totalHeight / 2,
-    //     CONFIG.nets.width,
-    //     CONFIG.nets.height,
-    //     {
-    //         isSensor: true,
-    //         isStatic: true,
-    //         label: 'rightNet',
-    //     }
-    // );
+
+    // Tường biên - thêm hướng đẩy
+    createRectangle('D', totalWidth / 2, 0, totalWidth, 2); // Top - đẩy xuống
+    createRectangle('U', totalWidth / 2, totalHeight, totalWidth, 2); // Bottom - đẩy lên
+    createRectangle('R', 0, totalHeight / 2, 2, totalHeight); // Left - đẩy sang phải
+    createRectangle('L', totalWidth, totalHeight / 2, 2, totalHeight); // Right - đẩy sang trái
 }

@@ -17,34 +17,6 @@ class Ball {
         }, 1000);
     }
     setupCollisionHandlers() {
-        this.scene.matter.world.on('collisionstart', (event) => {
-            this.isColliding = true;
-            event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-                if (ball && wall) {
-                    console.log("Ying"); 
-                    this.stick++; 
-                }
-            }); 
-        });
-        
-        this.scene.matter.world.on('collisionend', (event) => {
-            this.isColliding = false;
-            event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-                if (ball && wall) {
-                    console.log("Yang"); 
-                    this.stick--; 
-                }
-            }); 
-        });
-
         this.scene.matter.world.on('beforeupdate', () => {
             if (this.stick == 0) {
                 this.oldVelocities.set(this.body.id, {
@@ -54,35 +26,92 @@ class Ball {
             }
         });
 
-        this.scene.matter.world.on('collisionactive', (event) => {
-            const oldVel = this.oldVelocities.get(this.body.id);
-            
+        this.scene.matter.world.on('collisionstart', (event) => {
             event.pairs.forEach((pair) => {
                 const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-                console.log("Before Trying flipping");
-                console.log("Stick: ", this.stick); 
-                if (ball && wall && oldVel && this.stick > 0) {
-                    const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-                    const EPSILON = 0.1;
-                    console.log("Trying flipping"); 
-                    var ball_restitution = this.config.physics.restitution; 
-                    var wall_restitution = CONFIG.wall.bounciness; 
-                    var combinedRestitution = this.config.physics.restitution * CONFIG.wall.bounciness;
-                    if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
-                        if (Math.abs(currentVel.x) < EPSILON) {
-                            console.log("Flip x");
-                            this.setVelocity(-oldVel.x * combinedRestitution, currentVel.y); 
-                        }
-                        if (Math.abs(currentVel.y) < EPSILON) {
-                            console.log("Flip y");
-                            this.setVelocity(currentVel.x, -oldVel.y * combinedRestitution); 
-                        }
+        
+                if (ball && wall) {
+                    this.stick++;
+                    if (this.stick > 1) return;
+                    const oldVel = this.oldVelocities.get(this.body.id);
+                    if (!oldVel) return;
+        
+                    const pushDirection = wall.customType;
+                    const dampingDirection = 0.5;
+        
+                    // Lấy vector vận tốc cũ
+                    let newVelX = oldVel.x;
+                    let newVelY = oldVel.y;
+        
+                    switch (pushDirection) {
+                        case 'U': // Đẩy lên
+                            newVelY = -newVelY; 
+                            break; 
+                        case 'D': // Đẩy xuống
+                            newVelY = -newVelY; // Đảo chiều Y
+                            break;
+                        case 'L': // Đẩy sang trái 
+                            newVelX = -newVelX; 
+                            break; 
+                        case 'R': // Đẩy sang phải
+                            newVelX = -newVelX; // Đảo chiều X
+                            break;
                     }
+        
+                    // Áp dụng dampingDirection cho toàn bộ vector
+                    this.setVelocity(
+                        newVelX * dampingDirection,
+                        newVelY * dampingDirection
+                    );
                 }
             });
+        });
+
+        this.scene.matter.world.on('collisionend', (event) => {
+            event.pairs.forEach((pair) => {
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+
+                if (ball && wall) {
+                    this.stick--;
+                }
+            });
+        });
+
+        this.scene.matter.world.on('collisionactive', (event) => {
+            const oldVel = this.oldVelocities.get(this.body.id);
+            
+            // event.pairs.forEach((pair) => {
+            //     const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+            //                 (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+            //     const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+            //                 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+            //     console.log("Before Trying flipping");
+            //     console.log("Stick: ", this.stick); 
+            //     if (ball && wall && oldVel && this.stick > 0) {
+            //         const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
+            //         const EPSILON = 0.1;
+            //         console.log("Trying flipping"); 
+            //         var ball_restitution = this.config.physics.restitution; 
+            //         var wall_restitution = CONFIG.wall.bounciness; 
+            //         var combinedRestitution = this.config.physics.restitution * CONFIG.wall.bounciness;
+            //         if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
+            //             if (Math.abs(currentVel.x) < EPSILON) {
+            //                 console.log("Flip x");
+            //                 this.setVelocity(-oldVel.x * combinedRestitution, currentVel.y); 
+            //             }
+            //             if (Math.abs(currentVel.y) < EPSILON) {
+            //                 console.log("Flip y");
+            //                 this.setVelocity(currentVel.x, -oldVel.y * combinedRestitution); 
+            //             }
+            //         }
+            //     }
+            // });
         });
     }
     logVelocity () {
@@ -101,9 +130,15 @@ class Ball {
         this.oldVelocities = new Map();
         this.isColliding = false; 
         this.setupCollisionHandlers(); 
+        this.updateBallVisibility();
+    }
+    updateBallVisibility() {
+        if (this.graphics) {
+            this.graphics.visible = this.scene.visibleClientBall;
+        }
     }
     computeClosedFormFastForward(serverState) {
-        console.log("Ball reconcile with server"); 
+        // console.log("Ball reconcile with server"); 
         const currentTime = Date.now();
         const deltaTime = (currentTime - serverState.timestamp) / 1000; 
         const FPS = 60;
@@ -113,7 +148,7 @@ class Ball {
         const dampingFactor = this.config.physics.damping;
         const v0 = serverState.velocity;  // v0.x, v0.y
         const p0 = serverState.position;  // p0.x, p0.y
-
+        // console.log("Number of frams to forward: ", frames); 
         // Nếu damping = 1 => chuyển động thẳng đều:
         //   v không đổi
         //   p = p0 + v0 * frames
@@ -162,18 +197,17 @@ class Ball {
     }
 
     handleBallState(ballState) {
-        return; 
+        // console.log("Handle Ball state"); 
         const serverState = {
             position: { x: ballState.position.x, y: ballState.position.y },
             velocity: { x: ballState.velocity.x, y: ballState.velocity.y },
             timestamp: ballState.timestamp
         };
-        const newState = serverState; 
-        this.setPosition(newState.position.x, newState.position.y);
-        this.setVelocity(newState.velocity.x, newState.velocity.y);
-        return; 
-        // const newState = this.computeClosedFormFastForward(serverState);
+        const newState = this.computeClosedFormFastForward(serverState);
         // if (newState == null) return; 
+        // console.log("Diff in time: (client - server): ", Date.now() - ballState.timestamp); 
+        // console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
+        // console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
     }
@@ -256,14 +290,15 @@ class Ball {
             player: 0x0004,        // 000100
             ball: 0x0008,          // 001000
             net: 0x0010,           // 010000
-            nonGraphicBall: 0x0020 // 100000
+            nonGraphicBall: 0x0020, // 100000
+            predictBall: 0x0040     // 1000000
         };
         return this.scene.matter.add.circle(
             this.scene.scale.width / 2,
             this.scene.scale.height / 2,
             physics.radius,
             {
-                label: 'ball', 
+                label: 'ball3', 
                 mass: physics.mass,
                 restitution: physics.restitution,
                 friction: physics.friction,
@@ -273,7 +308,7 @@ class Ball {
                 angle: physics.angle,
 				collisionFilter: {
                     category: categories.ball, 
-                    mask: ~categories.nonGraphicBall 
+                    mask: ~(categories.nonGraphicBall | categories.predictBall) 
                 }, 
                 isStatic: false,
                 slop: physics.slop, 
@@ -298,9 +333,7 @@ class Ball {
     update() {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
-        // this.setVelocity(xx, yy); 
-        // this.logBallVelocity(); 
-        // this.logPosition(); 
+        this.setVelocity(xx, yy); 
     }
     logVelocity () {
         console.log("Velocity: ", this.body.velocity.x, this.body.velocity.y); 
