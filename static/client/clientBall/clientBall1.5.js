@@ -26,49 +26,49 @@ class Ball {
             }
         });
 
-        this.scene.matter.world.on('collisionstart', (event) => {
-            event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+        // this.scene.matter.world.on('collisionstart', (event) => {
+        //     event.pairs.forEach((pair) => {
+        //         const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
+        //                     (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+        //         const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+        //                     (pair.bodyB.label === 'wall' ? pair.bodyB : null);
         
-                if (ball && wall) {
-                    this.stick++;
-                    if (this.stick > 1) return;
-                    const oldVel = this.oldVelocities.get(this.body.id);
-                    if (!oldVel) return;
+        //         if (ball && wall) {
+        //             this.stick++;
+        //             if (this.stick > 1) return;
+        //             const oldVel = this.oldVelocities.get(this.body.id);
+        //             if (!oldVel) return;
         
-                    const pushDirection = wall.customType;
-                    const dampingDirection = 0.5;
+        //             const pushDirection = wall.customType;
+        //             const dampingDirection = 0.5;
         
-                    // Lấy vector vận tốc cũ
-                    let newVelX = oldVel.x;
-                    let newVelY = oldVel.y;
+        //             // Lấy vector vận tốc cũ
+        //             let newVelX = oldVel.x;
+        //             let newVelY = oldVel.y;
         
-                    switch (pushDirection) {
-                        case 'U': // Đẩy lên
-                            newVelY = -newVelY; 
-                            break; 
-                        case 'D': // Đẩy xuống
-                            newVelY = -newVelY; // Đảo chiều Y
-                            break;
-                        case 'L': // Đẩy sang trái 
-                            newVelX = -newVelX; 
-                            break; 
-                        case 'R': // Đẩy sang phải
-                            newVelX = -newVelX; // Đảo chiều X
-                            break;
-                    }
+        //             switch (pushDirection) {
+        //                 case 'U': // Đẩy lên
+        //                     newVelY = -newVelY; 
+        //                     break; 
+        //                 case 'D': // Đẩy xuống
+        //                     newVelY = -newVelY; // Đảo chiều Y
+        //                     break;
+        //                 case 'L': // Đẩy sang trái 
+        //                     newVelX = -newVelX; 
+        //                     break; 
+        //                 case 'R': // Đẩy sang phải
+        //                     newVelX = -newVelX; // Đảo chiều X
+        //                     break;
+        //             }
         
-                    // Áp dụng dampingDirection cho toàn bộ vector
-                    this.setVelocity(
-                        newVelX * dampingDirection,
-                        newVelY * dampingDirection
-                    );
-                }
-            });
-        });
+        //             // Áp dụng dampingDirection cho toàn bộ vector
+        //             this.setVelocity(
+        //                 newVelX * dampingDirection,
+        //                 newVelY * dampingDirection
+        //             );
+        //         }
+        //     });
+        // });
 
         this.scene.matter.world.on('collisionend', (event) => {
             event.pairs.forEach((pair) => {

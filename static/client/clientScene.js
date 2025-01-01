@@ -38,9 +38,11 @@ class ClientScene extends Phaser.Scene {
         this.lastFpsTime = Date.now(); // Thêm dòng này
         this.lastFPSUpdate = Date.now(); // Thêm dòng này 
 
-        this.receiveServerData = false; 
-        this.visibleServerBall = true; 
-        this.visibleClientBall = true;  
+        this.receiveServerData = false;
+        
+        
+        this.visibleServerBall = false; 
+        this.visibleClientBall = false;  
         this.visibleLerpBall = true; 
 
         // Thêm tracking frame time
@@ -300,6 +302,8 @@ class ClientScene extends Phaser.Scene {
             }
             this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
             this.ball.setVelocity(0, 0); 
+            this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball3.setVelocity(0, 0); 
         }
         if (this.xKey.isDown) {
             if (this.SOCKET) {

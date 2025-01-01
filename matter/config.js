@@ -155,7 +155,7 @@ CONFIG = {
     }, 
 	ball: {
         physics: {
-            damping: 1, 
+            damping: 0.99, 
             mass: 1,
             restitution: 0,      // độ nảy
             friction: 0,        // ma sát với vật thể khác

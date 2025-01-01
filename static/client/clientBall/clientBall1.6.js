@@ -220,15 +220,15 @@ class Ball3 {
             // this.setPosition(authorityPos.x, authorityPos.y);
 			// this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
         } else {
-			// this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
-			if (distance > 10) {
+			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
+			if (distance > 6) {
 				// this.setPosition(this.authorityBall.body.position.x, this.authorityBall.body.position.y); 
 				console.log("Set position"); 
 			}
-            // const lerpFactor = 0.7; 
-            // const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
-            // const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
-            // this.setPosition(newX, newY);
+            const lerpFactor = 0.05; 
+            const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
+            const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
+            this.setPosition(newX, newY);
         }
     }
     setPosition(xx, yy) {
