@@ -20,19 +20,9 @@
         <input type="hidden" id="current-user-id" value="{{ session.get('user_id') }}">
         <input type="hidden" id="is-host" value="{{ 'true' if session.user_id == room.host_id else 'false' }}">
 
-        <div class="player-cards" id="player-cards">
+        <div class="player-cards" draggable="true" id="player-cards">
             <div class="team team-1">
                 {% for i in range(2) %}
-                <div class="player-card" data-slot="{{ i }}">
-                    <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
-                    <p class="player-name">Waiting...</p>
-                    <p class="player-score"></p>
-                </div>
-                {% endfor %}
-            </div>
-            
-            <div class="team team-2">
-                {% for i in range(2, 4) %}
                 <div class="player-card" data-slot="{{ i }}">
                     <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
                     <p class="player-name">Waiting...</p>

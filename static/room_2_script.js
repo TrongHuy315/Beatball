@@ -154,6 +154,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Thêm các đội và biểu tượng VS vào container
         playerCardsContainer.appendChild(team1);
         playerCardsContainer.appendChild(team2);
+        
+        initializeDragAndDrop();
     }
 
     socket.on("player_left", (data) => {
@@ -240,6 +242,61 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
     }
+
+    function initializeDragAndDrop() {
+        const playerCards = document.querySelectorAll('.player-card');
+        let draggedCard = null;
+    
+        playerCards.forEach(card => {
+            // Chỉ cho phép kéo thả nếu slot có người chơi
+            const playerName = card.querySelector('.player-name')?.textContent || 'Waiting...';
+            if (playerName !== 'Waiting...') {
+                card.setAttribute('draggable', true);
+    
+                card.addEventListener('dragstart', (e) => {
+                    draggedCard = card;
+                    e.dataTransfer.setData('text/plain', card.dataset.slot);
+                    card.classList.add('dragging');
+                });
+    
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (draggedCard && draggedCard !== card) {
+                        card.classList.add('drag-over');
+                    }
+                });
+    
+                card.addEventListener('dragleave', () => {
+                    card.classList.remove('drag-over');
+                });
+    
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over');
+    
+                    if (draggedCard && draggedCard !== card) {
+                        const fromSlot = parseInt(draggedCard.dataset.slot, 10);
+                        const toSlot = parseInt(card.dataset.slot, 10);
+    
+                        if (!isNaN(fromSlot) && !isNaN(toSlot) && fromSlot !== toSlot) {
+                            socket.emit('swap_slots', {
+                                room_id: currentRoomId,
+                                from_slot: fromSlot,
+                                to_slot: toSlot
+                            });
+                        }
+                    }
+                });
+    
+                card.addEventListener('dragend', () => {
+                    draggedCard.classList.remove('dragging');
+                    draggedCard = null;
+                });
+            } else {
+                card.removeAttribute('draggable');
+            }
+        });
+    }    
 
     socket.on('slots_swapped', (data) => {
         renderPlayerCards(data.player_slots);
