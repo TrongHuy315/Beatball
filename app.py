@@ -1235,6 +1235,9 @@ def handle_swap_slots(data):
         from_slot = data.get('from_slot')
         to_slot = data.get('to_slot')
 
+        if from_slot == to_slot:
+            return  # Không thực hiện nếu hai slot giống nhau
+
         room = get_room(room_id)
         if not room:
             return
