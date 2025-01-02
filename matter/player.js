@@ -159,6 +159,7 @@ class Player {
                 }, 
                 timestamp: Date.now()
             });
+            this.io.emit('kickingSound'); 
         }
     }
 

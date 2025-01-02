@@ -60,11 +60,67 @@ class ClientScene extends Phaser.Scene {
         this.runner = null;
         this.isRunnerActive = false;
 
+        this.kickSounds = [
+        ];
+
     }
     preload() {
+        this.load.on('filecomplete', (key, type, data) => {
+            console.log('Successfully loaded:', key, type);
+        });
+    
+        this.load.on('loaderror', (file) => {
+            console.error('Error loading file:', file.key);
+            console.error('File URL:', file.url);
+        });
+
+        this.load.audio('kick1', '/sound/normalKick1.mp3');
         this.scoreboard = new Scoreboard();
     }
     create() {
+        const unlockAudio = () => {
+            if (this.sound.locked) {
+                console.log('Attempting to unlock audio...');
+                this.sound.context.resume()
+                    .then(() => {
+                        console.log('AudioContext unlocked successfully');
+                    })
+                    .catch(e => console.error('Error unlocking AudioContext:', e));
+            }
+        };
+    
+        // Thêm event listeners cho user interaction
+        this.input.on('pointerdown', unlockAudio);
+        this.input.keyboard.on('keydown', unlockAudio);
+    
+        // Thêm text hướng dẫn
+        const instructionText = this.add.text(
+            CONFIG.totalWidth / 2,
+            50,
+            'Click anywhere or press any key to enable sound',
+            {
+                fontSize: '20px',
+                fill: '#ffffff'
+            }
+        ).setOrigin(0.5);
+    
+        // Xóa text khi audio được unlock
+        this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
+            console.log('Audio system unlocked');
+            instructionText.destroy();
+        });
+    
+        // Debug sound state
+        this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
+            console.log('Sound system unlocked');
+        });
+
+
+
+
+        
+        this.kickSound = this.sound.add('kick1');
+        this.kickSounds = [this.kickSound];
         const { totalWidth, totalHeight } = CONFIG;
         const { wall, nets, pitch } = CONFIG;
         // ----- SET UP PHYSICS WORLD -----
@@ -72,7 +128,7 @@ class ClientScene extends Phaser.Scene {
         this.matter.world.setGravity(0, 0);
 
         // ----- SET UP WALLS WORLD ----- 
-        // createWalls(this); 
+        createWalls(this); 
         // ----- BALL -----
         this.ball = new Ball(this, CONFIG.ball);
         this.ball3 = new Ball3(this, CONFIG.ball);
@@ -635,7 +691,6 @@ class ClientScene extends Phaser.Scene {
             this.scoreboard.updateScore(data.side, data.score);
             this.gameState.scores = data.scores;
         });
-
         socket.on('goalScored', (data) => {
             this.scoreboard.updateScore(data.team, data.score[data.team]);
             this.gameState.scores = data.score;            
@@ -650,6 +705,15 @@ class ClientScene extends Phaser.Scene {
             this.scoreboard.updateScore('right', data.scores.right);
         });
 
+        // ----- SOUND UPDATE ------- 
+        socket.on('kickingSound',() => {
+            var soundType = CONFIG.sound.type; 
+            if (this.kickSounds[soundType - 1]) {
+                console.log("Sound being played"); 
+                this.kickSounds[soundType - 1].play();
+            }
+            // Tôi có một list các sound sút bóng đã được tải rồi, giờ làm sao tôi có thể sắp xếp thứ tự nó từ 1 đến n, và play cái sound thứ soundType ? 
+        }); 
         // ----- DISCONNECTION UPDATE ------ 
         socket.on('somePlayerDisconnected', (data) => {
             const disconnectsedPlayerId = data.playerId;

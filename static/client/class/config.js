@@ -28,6 +28,9 @@ window.CONFIG = {
         goalPercent: 0.3, 
         cheerPercent: 0.4 
     }, 
+    sound: {
+        type: 1, 
+    },     
     scoreboard: {
         distance: 80,       // Khoảng cách giữa 2 số
         yOffset: 15,        // Khoảng cách từ mép trên

@@ -10,16 +10,26 @@ canvas.style.left = `${(window.innerWidth - CONFIG.totalWidth) / 2}px`; // Cente
 canvas.style.top = `0px`; 
 canvas.style.zIndex = "0";
 
-            // ----- player_container ----------- 
-const phaserContainer = document.getElementById("player_container");
-phaserContainer.style.position = "absolute";
-phaserContainer.style.left = canvas.style.left;
-phaserContainer.style.top = canvas.style.top;
-phaserContainer.style.width = `${CONFIG.totalWidth}px`;
-phaserContainer.style.height = `${CONFIG.totalHeight}px`;
-phaserContainer.style.zIndex = "10"; // Phaser nằm trên sân
-phaserContainer.style.pointerEvents = "none"; // Cho phép các sự kiện chuột đi qua
-phaserContainer.style.overflow = 'visible';
+// Cấu hình cho canvas lưới
+const netsCanvas = document.getElementById("nets_canvas");
+const netsCtx = netsCanvas.getContext("2d");
+netsCanvas.width = CONFIG.totalWidth;
+netsCanvas.height = CONFIG.totalHeight;
+netsCanvas.style.position = "absolute";
+netsCanvas.style.left = canvas.style.left;
+netsCanvas.style.top = `0px`;
+netsCanvas.style.zIndex = "15";  // z-index cao hơn player_container
+
+// ----- player_container ----------- 
+const playerContainer = document.getElementById("player_container");
+playerContainer.style.position = "absolute";
+playerContainer.style.left = canvas.style.left;
+playerContainer.style.top = canvas.style.top;
+playerContainer.style.width = `${CONFIG.totalWidth}px`;
+playerContainer.style.height = `${CONFIG.totalHeight}px`;
+playerContainer.style.zIndex = "10"; // Phaser nằm trên sân
+playerContainer.style.pointerEvents = "none"; // Cho phép các sự kiện chuột đi qua
+playerContainer.style.overflow = 'visible';
 
 
 
@@ -125,7 +135,8 @@ function drawLeftNets() {
 
     // FILL LEFT GOAL 
     ctx.fillStyle = nets.leftNetBackgroundColor; 
-    ctx.fillRect( 
+    netsCtx.fillStyle = nets.leftNetBackgroundColor; 
+    netsCtx.fillRect( 
         nets.borderWidth + offset_horizontal, 
         totalHeight / 2 - nets.height / 2,
         nets.width + pitch.borderWidth, 
@@ -182,7 +193,8 @@ function drawRightNets() {
 
     // FILL RIGHT GOAL 
     ctx.fillStyle = nets.rightNetBackgroundColor; 
-    ctx.fillRect( 
+    netsCtx.fillStyle = nets.rightNetBackgroundColor; 
+    netsCtx.fillRect( 
         totalWidth - nets.borderWidth - nets.width - pitch.borderWidth - offset_horizontal,
         totalHeight / 2 - nets.height / 2,
         nets.width + pitch.borderWidth, 
@@ -287,10 +299,11 @@ function render() {
     ctx.clearRect(0, 0, CONFIG.totalWidth, CONFIG.totalHeight); // Clear canvas
     drawBackground(); 
     drawPitch(); 
-    drawPenaltyAreas();
-    drawLeftNets();  
-    drawRightNets(); 
+    drawPenaltyAreas(); 
     drawCenterLineAndCircle();
     drawPenaltyArcs(); 
+
+    drawLeftNets();  
+    drawRightNets();
 }
 render();

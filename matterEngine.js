@@ -18,6 +18,7 @@ const io = require('socket.io')(http, {
 // Serve static files từ nhiều thư mục
 app.use('/client', express.static(path.join(__dirname, 'static/client')));
 app.use('/matter', express.static(path.join(__dirname, 'matter')));
+app.use('/sound', express.static(path.join(__dirname, 'sound')));
 // Serve HTML khi truy cập root URL
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'clientGame.html'));
