@@ -265,54 +265,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     function initializeDragAndDrop() {
         const playerCards = document.querySelectorAll('.player-card');
         let draggedCard = null;
-        let isDragging = false;
     
         playerCards.forEach(card => {
-            // Chỉ cho phép kéo thả card có người chơi
-            const playerName = card.querySelector('.player-name').textContent;
+            const playerName = card.querySelector('.player-name')?.textContent || 'Waiting...';
+    
+            // Chỉ cho phép kéo thả nếu slot có người chơi
             if (playerName !== 'Waiting...') {
                 card.setAttribute('draggable', true);
     
-                // Bắt đầu kéo thẻ
+                // Khi bắt đầu kéo thẻ
                 card.addEventListener('dragstart', (e) => {
-                    isDragging = true;
                     draggedCard = card;
                     e.dataTransfer.setData('text/plain', card.dataset.slot);
                     card.classList.add('dragging');
                 });
     
-                // Kết thúc kéo thẻ
-                card.addEventListener('dragend', () => {
-                    isDragging = false;
-                    draggedCard = null;
-                    card.classList.remove('dragging');
-                });
-    
-                // Khi thẻ khác đang ở trên vùng kéo thả
+                // Khi đang kéo thẻ
                 card.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    if (isDragging && draggedCard !== card) {
+                    e.preventDefault(); // Cho phép thả
+                    if (draggedCard && draggedCard !== card) {
                         card.classList.add('drag-over');
                     }
                 });
     
-                // Khi thẻ rời khỏi vùng kéo thả
+                // Khi rời khỏi vùng thả
                 card.addEventListener('dragleave', () => {
                     card.classList.remove('drag-over');
                 });
     
-                // Khi thả thẻ vào vùng thẻ khác
+                // Khi thả thẻ
                 card.addEventListener('drop', (e) => {
                     e.preventDefault();
                     card.classList.remove('drag-over');
     
-                    if (draggedCard) {
-                        const fromSlot = parseInt(draggedCard.dataset.slot);
-                        const toSlot = parseInt(card.dataset.slot);
+                    if (draggedCard && draggedCard !== card) {
+                        const fromSlot = parseInt(draggedCard.dataset.slot, 10);
+                        const toSlot = parseInt(card.dataset.slot, 10);
     
-                        // Kiểm tra slot hợp lệ trước khi gửi yêu cầu
-                        if (fromSlot !== toSlot && !isNaN(fromSlot) && !isNaN(toSlot)) {
-                            // Gửi yêu cầu swap slots lên server
+                        // Kiểm tra tính hợp lệ trước khi gửi
+                        if (!isNaN(fromSlot) && !isNaN(toSlot) && fromSlot !== toSlot) {
                             socket.emit('swap_slots', {
                                 room_id: currentRoomId,
                                 from_slot: fromSlot,
@@ -321,12 +312,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                         }
                     }
                 });
+    
+                // Khi kết thúc kéo thả
+                card.addEventListener('dragend', () => {
+                    draggedCard?.classList.remove('dragging');
+                    draggedCard = null;
+                });
             } else {
-                // Đảm bảo thẻ trống không thể kéo
+                // Slot trống không thể kéo
                 card.removeAttribute('draggable');
             }
         });
-    }    
+    }        
 
     function updateControlButtons() {
         const currentUserId = document.getElementById("current-user-id")?.value;

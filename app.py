@@ -1240,6 +1240,7 @@ def handle_swap_slots(data):
 
         room = get_room(room_id)
         if not room:
+            emit('error', {'message': 'Room not found'}, room=room_id)
             return
 
         room["player_slots"][from_slot], room["player_slots"][to_slot] = \
@@ -1252,6 +1253,10 @@ def handle_swap_slots(data):
             room["player_slots"][to_slot]["slot"] = to_slot
 
         save_room(room_id, room)
+
+        # Log trạng thái sau khi đổi chỗ
+        print(f"Room {room_id} - Swapped slots: {from_slot} <-> {to_slot}")
+        print(f"Updated slots: {room['player_slots']}")
 
         emit('slots_swapped', {
             'player_slots': room["player_slots"]
