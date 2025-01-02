@@ -24,7 +24,7 @@
         <div class="player-cards" id="player-cards">
             <div class="team team-1">
                 {% for i in range(2) %}
-                <div class="player-card" data-slot="{{ i }}">
+                <div class="player-card" draggable="true" data-slot="{{ i }}">
                     <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
                     <p class="player-name">Waiting...</p>
                     <p class="player-score"></p>
@@ -38,7 +38,7 @@
             
             <div class="team team-2">
                 {% for i in range(2, 4) %}
-                <div class="player-card" data-slot="{{ i }}">
+                <div class="player-card" draggable="true" data-slot="{{ i }}">
                     <div class="avatar" style="background-image: url('/static/images/default-avatar.png')"></div>
                     <p class="player-name">Waiting...</p>
                     <p class="player-score"></p>
