@@ -12,6 +12,10 @@ class Player {
         this.sequence = 0;
         this.lastProcessedInput = null;
         this.io = io; 
+        this.goals = 0; 
+        this.assists = 0;
+        this.points = 0;  
+        this.side = 0; 
         // Ball kick config 
         const { normalKickDistance, normalKickVelocityAdd } = CONFIG.player.ballConfig;
         this.normalKickDistance = normalKickDistance;

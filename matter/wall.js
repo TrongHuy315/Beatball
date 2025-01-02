@@ -190,29 +190,33 @@ class Wall {
         this.createRectangle('U', totalWidth / 2, totalHeight, totalWidth, 2); // Bottom
         this.createRectangle('R', 0, totalHeight / 2, 2, totalHeight); // Left
         this.createRectangle('L', totalWidth, totalHeight / 2, 2, totalHeight); // Right
-
+        var ballRadius = CONFIG.ball.physics.radius;
+        var percentBallGoal = CONFIG.nets.percentBallGoal; 
+        var cut = ballRadius * percentBallGoal;  
+        var width = nets.width - cut; 
+        var height = nets.height; 
         // Net sensors
         const leftNet = Bodies.rectangle(
-            CONFIG.nets.borderWidth + CONFIG.nets.width / 2,
-            CONFIG.totalHeight / 2,
-            CONFIG.nets.width,
-            CONFIG.nets.height,
+            offset_horizontal + nets.borderWidth + width / 2,
+            totalHeight / 2,
+            width,
+            height,
             {
                 isSensor: true,
                 isStatic: true,
-                label: 'leftNet'
+                label: 'leftGoalDetection'
             }
         );
 
         const rightNet = Bodies.rectangle(
-            CONFIG.totalWidth - CONFIG.nets.borderWidth - CONFIG.nets.width / 2,
-            CONFIG.totalHeight / 2,
-            CONFIG.nets.width,
-            CONFIG.nets.height,
+            totalWidth - offset_horizontal - nets.borderWidth - width / 2, 
+            totalHeight / 2, 
+            width,
+            height,
             {
                 isSensor: true,
                 isStatic: true,
-                label: 'rightNet'
+                label: 'rightGoalDetection'
             }
         );
 

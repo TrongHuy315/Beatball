@@ -2,7 +2,7 @@
 
 window.CONFIG = {
     offset_vertical: 90, 
-    offset_horizontal: 75, 
+    offset_horizontal: 170, 
     pitch: {
         width: 1100,  
         height: 550, 
@@ -18,13 +18,15 @@ window.CONFIG = {
         borderWidth: 5, 
     }, 
     outer: {
-        backgroundColor:'rgba(38, 193, 123, 0.12)', 
+        backgroundColor:'rgba(0, 0, 0, 0.12)', 
         borderWidth: 2, 
     }, 
     gameConfig: {
-        maxPlayersPerTeam: 4, 
-        resetGameCountDown: 5, 
-        celebrationTime: 6 
+        maxPlayersPerTeam: 2, 
+        resetGameCountDown: 2, 
+        celebrationTime: 7, 
+        goalPercent: 0.3, 
+        cheerPercent: 0.4 
     }, 
     scoreboard: {
         distance: 80,       // Khoảng cách giữa 2 số
@@ -60,6 +62,7 @@ window.CONFIG = {
         }
     }, 
     nets: {
+        percentBallGoal: 0.7, 
         restitution: 0.01,  
         width: 55, 
         height: 170,

@@ -215,10 +215,10 @@ class Ball3 {
             authorityPos.x, authorityPos.y
         );
 
-        const teleportThreshold = 100; 
+        const teleportThreshold = 300; 
         if (distance > teleportThreshold) {
-            // this.setPosition(authorityPos.x, authorityPos.y);
-			// this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
+            this.setPosition(authorityPos.x, authorityPos.y);
+			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
         } else {
 			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
 			if (distance > 6) {

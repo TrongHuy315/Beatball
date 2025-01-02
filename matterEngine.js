@@ -6,6 +6,7 @@ const CONFIG = require('./matter/config.js');
 const Ball = require('./matter/ball.js');
 const express = require('express');
 const { Engine, Events } = require('matter-js');
+const { timeStamp } = require('console');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
@@ -23,8 +24,7 @@ app.get('/', (req, res) => {
 });
 class PhysicsEngine {
     constructor() {
-        this.cnt = 0; 
-        this.request_counting = 0; 
+        // ENGINE SET UP 
         this.engine = Matter.Engine.create({
             gravity: {
                 x: 0,
@@ -36,15 +36,27 @@ class PhysicsEngine {
         this.players = new Map();
         this.wall = new Wall(this.world); 
         this.ball = new Ball(this.world, this.engine, io); 
+
+        // ------ REQUEST ---- 
+        this.cnt = 0; 
+        this.request_counting = 0; 
+        // ----- CELEBRATING / SCOREBOARD ----- 
+        this.scores = {
+            left: 0,
+            right: 0
+        }; 
+        this.setUpGoalCheckEvent(); 
+        this.isCelebrating = false; 
+
+        // -- SET UP CONNECTION ----- 
         this.setUpConnection(); 
 
+        // -------- FPS --------- 
         this.targetInnerFPS = 1000 / 60; 
         this.lastFrameTime = Date.now();
         this.frameCount = 0;
         this.lastFPSUpdate = Date.now();
-        
         this.targetOuterFPS = 1000 / 120; 
-
         this.frameMonitor = {
             lastTime: Date.now(),
             frames: [],
@@ -53,7 +65,8 @@ class PhysicsEngine {
         };
         let cur = Date.now(); 
         let last = Date.now(); 
-
+        
+        // ------ GAME LOOP ---------
         const gameLoop = () => {
             const currentTime = Date.now();
             const delta = currentTime - this.lastFrameTime; 
@@ -118,6 +131,26 @@ class PhysicsEngine {
             this.frameMonitor.frames = [];
             this.frameMonitor.lastReport = currentTime;
         }
+    }
+    setUpGoalCheckEvent () {
+        Events.on(this.engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                
+                // Check va chạm với left goal
+                if ((bodyA.label === 'ball' && bodyB.label === 'leftGoalDetection') ||
+                    (bodyB.label === 'ball' && bodyA.label === 'leftGoalDetection')) {
+                    this.handleGoal('right'); 
+                }
+                
+                // Check va chạm với right goal
+                if ((bodyA.label === 'ball' && bodyB.label === 'rightGoalDetection') ||
+                    (bodyB.label === 'ball' && bodyA.label === 'rightGoalDetection')) {
+                    this.handleGoal('left'); 
+                }
+            });
+        });        
     }
     logBallVelocity() {
         console.log('\n=== Ball Velocity ===');
@@ -234,7 +267,95 @@ class PhysicsEngine {
         }
         return 'removed';
     }
-
+    handleGoal (side) {
+        if (this.isCelebrating) return; 
+        this.isCelebrating = true; 
+        this.scores[side]++; 
+        const goalState = {
+            score: "Sita69", 
+            assist: "Sati96", 
+            side: side, 
+            timeStamp: Date.now(),  
+            scores: {  // thêm tỉ số hiện tại
+                left: this.scores.left,
+                right: this.scores.right
+            }
+        }; 
+        io.emit('celebration', goalState)
+        var celebrationTime = CONFIG.gameConfig.celebrationTime; 
+        var countDownResetGame = CONFIG.gameConfig.resetGameCountDown; 
+        var resetGameDelay = celebrationTime + countDownResetGame; 
+        
+        setTimeout(() => {
+            this.resetGame();
+            this.isCelebrating = false; 
+        }, resetGameDelay * 1000);
+    }
+    getTeamForNewPlayer () {
+        const leftTeamCount = Array.from(this.players.values()).filter(p => p.side === 'left').length;
+        const rightTeamCount = Array.from(this.players.values()).filter(p => p.side === 'right').length;
+        
+        let assignedSide;
+        if (leftTeamCount <= rightTeamCount && leftTeamCount < CONFIG.gameConfig.maxPlayersPerTeam) {
+            assignedSide = 'left';
+        } else if (rightTeamCount < CONFIG.gameConfig.maxPlayersPerTeam) {
+            assignedSide = 'right';
+        } else {
+            socket.emit('joinRejected', { reason: 'Game is full' });
+            return 'none'; 
+        }
+        return assignedSide; 
+    }
+    getSpawnPosition(side) {
+        const { totalWidth, totalHeight, pitch, offset_horizontal, nets} = CONFIG;
+        const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;         
+        // Tính toán vị trí dựa trên tỷ lệ so với pitch
+        if (side === 'left') {
+            return {
+                x: pitchLeft + pitch.width * 0.25, // 1/4 chiều ngang sân
+                y: totalHeight / 2
+            };
+        } else {
+            return {
+                x: pitchLeft + pitch.width * 0.75, // 3/4 chiều ngang sân
+                y: totalHeight / 2
+            };
+        }
+    }
+    resetGame() {
+        // Reset ball to center
+        this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+        this.ball.setVelocity(0, 0);
+    
+        // Reset players based on their assigned sides
+        const { pitch, offset_horizontal, nets} = CONFIG;
+        const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
+        const pitchWidth = pitch.width;
+    
+        // Separate players by team
+        const leftTeam = Array.from(this.players.values()).filter(p => p.side === 'left');
+        const rightTeam = Array.from(this.players.values()).filter(p => p.side === 'right');
+    
+        // Reset left team
+        leftTeam.forEach((player, index) => {
+            const yOffset = (index + 1) / (leftTeam.length + 1) * pitch.height;
+            player.setPosition(
+                pitchLeft + pitchWidth * 0.25,
+                CONFIG.offset_vertical + pitch.borderWidth + yOffset
+            );
+            player.setVelocity(0, 0);
+        });
+    
+        // Reset right team
+        rightTeam.forEach((player, index) => {
+            const yOffset = (index + 1) / (rightTeam.length + 1) * pitch.height;
+            player.setPosition(
+                pitchLeft + pitchWidth * 0.75,
+                CONFIG.offset_vertical + pitch.borderWidth + yOffset
+            );
+            player.setVelocity(0, 0);
+        });
+    }
 	setUpConnection () {        
         const {totalWidth, totalHeight} = CONFIG; 
         io.use((socket, next) => {
@@ -252,22 +373,26 @@ class PhysicsEngine {
                     console.log('Player already exists:', clientId);
                     return;
                 }
-
-                console.log("A player request joinning"); 
                 this.request_counting++; 
+                var assignedSide = this.getTeamForNewPlayer(); 
 
                 const newPlayer = new Player(this.world, this.engine, io);
-                newPlayer.create(totalWidth / 2, totalHeight / 2); 
+                const spawnPosition = this.getSpawnPosition(assignedSide);
+                newPlayer.create(spawnPosition.x, spawnPosition.y); 
+                newPlayer.side = assignedSide; 
                 this.players.set(clientId, newPlayer);
 
                 socket.emit('approveJoin', {
                     playerId: clientId,
-                    position: newPlayer.body.position
+                    position: newPlayer.body.position, 
+                    scores: this.scores,
+                    side: assignedSide
                 });
                 
                 socket.broadcast.emit('newPlayerJoin', {
                     playerId: clientId,
-                    position: newPlayer.body.position
+                    position: newPlayer.body.position, 
+                    side: assignedSide 
                 });
             });
             

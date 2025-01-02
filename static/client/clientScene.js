@@ -42,7 +42,7 @@ class ClientScene extends Phaser.Scene {
         
         
         this.visibleServerBall = false; 
-        this.visibleClientBall = false;  
+        this.visibleClientBall = true;  
         this.visibleLerpBall = true; 
 
         // Thêm tracking frame time
@@ -72,7 +72,7 @@ class ClientScene extends Phaser.Scene {
         this.matter.world.setGravity(0, 0);
 
         // ----- SET UP WALLS WORLD ----- 
-        createWalls(this); 
+        // createWalls(this); 
         // ----- BALL -----
         this.ball = new Ball(this, CONFIG.ball);
         this.ball3 = new Ball3(this, CONFIG.ball);
@@ -414,9 +414,176 @@ class ClientScene extends Phaser.Scene {
             this.receiveServerData = true; 
         }
     }
+    letCelebrate (data) {
+        const {gameConfig} = CONFIG; 
+        const timeElapsed = Date.now() - data.timeStamp;
+        const remainingCelebrationTime = Math.max(0, gameConfig.celebrationTime * 1000 - timeElapsed);    
+        var goalDuration = gameConfig.goalPercent * remainingCelebrationTime; 
+        var cheerDuration = gameConfig.cheerPercent * remainingCelebrationTime; 
+        // chỗ này update scoreboard 
+        this.scoreboard.updateScore(data.side, data.scores[data.side]);
+
+        // chỗ này là show text goal cho nó cái tâm ở đâu đó 
+        const remainingTime = Math.max(0, remainingCelebrationTime - (goalDuration + cheerDuration));
+        console.log("Remaining time until countdown: ", remainingTime); 
+        // GoalText xong rồi thì chỗ này là show text cheer duration 
+
+        // xong rồi sau celebrationTime thì tính countDown reset game, kiểu ra số đếm ở giữa sân là 2 1 rồi reset game
+        // Show Goal Text
+        this.showGoalText(goalDuration, () => {
+            this.showCheerText(data, cheerDuration, () => {
+                const remainingTime = Math.max(0, remainingCelebrationTime - (goalDuration + cheerDuration));
+                console.log('Starting countdown after:', remainingTime);
+                this.time.delayedCall(remainingTime, () => {
+                    this.showCountdown();
+                });
+            });
+        });
+        
+    }
+    showGoalText(duration, callback) {
+        const container = this.add.container(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+        
+        const goalText = this.add.text(0, 0, 'GOAL!', {
+            fontSize: '120px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: 8,
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        goalText.setBlendMode(Phaser.BlendModes.ADD);
+        goalText.setPipeline('rexGlowPostFx');
+        goalText.postFX.add({
+            distance: 15,
+            outerStrength: 4,
+            innerStrength: 2,
+            color: 0xffffff
+        });
+        
+        container.add(goalText);
+        
+        // Sử dụng duration được truyền vào
+        this.tweens.add({
+            targets: goalText,
+            scaleX: { from: 0.1, to: 1.2 },
+            scaleY: { from: 0.1, to: 1.2 },
+            alpha: { from: 0, to: 1 },
+            duration: duration * 0.3, // Dành 30% thời gian cho animation vào
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                // Giữ text trong 40% thời gian
+                this.time.delayedCall(duration * 0.4, () => {
+                    // Fade out trong 30% thời gian còn lại
+                    this.tweens.add({
+                        targets: container,
+                        alpha: 0,
+                        duration: duration * 0.3,
+                        onComplete: () => {
+                            container.destroy();
+                            if (callback) callback();
+                        }
+                    });
+                });
+            }
+        });
+    }
+    showCheerText(data, duration, callback) {
+        const container = this.add.container(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+        
+        const scorerText = this.add.text(0, -30, `${data.scorer} scores!`, {
+            fontSize: '48px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF',
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        if (data.assist) {
+            const assistText = this.add.text(0, 30, `Assist: ${data.assist}`, {
+                fontSize: '32px',
+                fontFamily: 'Arial',
+                color: '#CCCCCC',
+                align: 'center'
+            }).setOrigin(0.5);
+            container.add(assistText);
+        }
+        
+        container.add(scorerText);
+        
+        // Sử dụng duration được truyền vào
+        this.tweens.add({
+            targets: container,
+            alpha: { from: 0, to: 1 },
+            duration: duration * 0.3, // Fade in trong 30% thời gian
+            ease: 'Power2',
+            onComplete: () => {
+                // Hiển thị trong 40% thời gian
+                this.time.delayedCall(duration * 0.4, () => {
+                    // Fade out trong 30% thời gian còn lại
+                    this.tweens.add({
+                        targets: container,
+                        alpha: 0,
+                        duration: duration * 0.3,
+                        onComplete: () => {
+                            container.destroy();
+                            if (callback) callback();
+                        }
+                    });
+                });
+            }
+        });
+    }
+    showCountdown() {
+        console.log('Showing countdown');
+        const countdownDuration = CONFIG.gameConfig.resetGameCountDown;
+        let timeLeft = countdownDuration;
+    
+        const countdownText = this.add.text(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2, '', {
+            fontSize: '64px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center'
+        }).setOrigin(0.5).setDepth(1000);
+    
+        const updateCountdown = () => {
+            if (timeLeft > 0) {
+                countdownText.setText(timeLeft.toString());
+                
+                this.tweens.add({
+                    targets: countdownText,
+                    scaleX: { from: 1.5, to: 1 },
+                    scaleY: { from: 1.5, to: 1 },
+                    duration: Math.min(500, 800), // Giảm duration để đảm bảo animation kết thúc trước số tiếp theo
+                    ease: 'Power2'
+                });
+    
+                timeLeft--;
+                if (timeLeft > 0) {
+                    setTimeout(updateCountdown, 1000);
+                } else {
+                    // Khi countdown kết thúc, giữ số 1 trong 500ms rồi mới fade out
+                    setTimeout(() => {
+                        this.tweens.add({
+                            targets: countdownText,
+                            alpha: 0,
+                            duration: 500,
+                            onComplete: () => {
+                                countdownText.destroy();
+                            }
+                        });
+                    }, 500);
+                }
+            }
+        };
+    
+        updateCountdown();
+    }
     // SET UP SOCKET EVENT 
     setupWebSocket() {
-        this.SOCKET = io('http://localhost:3000', {
+        this.SOCKET = io('http://localhost:3000', { 
             transports: ['websocket'],
             upgrade: false, 
             auth: {
@@ -440,6 +607,11 @@ class ClientScene extends Phaser.Scene {
             this.player = new PlayerController(this);
             this.player.create(data.x, data.y);
             this.players.set(data.playerId, this.player);
+            if (data.scores) {
+                this.gameState.scores = data.scores;
+                this.scoreboard.updateScore('left', data.scores.left);
+                this.scoreboard.updateScore('right', data.scores.right);
+            }
         });
 
         // ------ GAME STATE UPDATE -------
@@ -469,6 +641,9 @@ class ClientScene extends Phaser.Scene {
             this.gameState.scores = data.score;            
             this.showGoalCelebration(data.team);
         });
+        socket.on('celebration', (data) => {
+            this.letCelebrate(data); 
+        }); 
         socket.on('sendScoreboardState', (data) => {
             this.gameState.scores = data.scores;
             this.scoreboard.updateScore('left', data.scores.left);
