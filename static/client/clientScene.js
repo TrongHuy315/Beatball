@@ -42,7 +42,7 @@ class ClientScene extends Phaser.Scene {
         
         
         this.visibleServerBall = false; 
-        this.visibleClientBall = true;  
+        this.visibleClientBall = false;  
         this.visibleLerpBall = true; 
 
         // Thêm tracking frame time
@@ -62,6 +62,7 @@ class ClientScene extends Phaser.Scene {
 
         this.kickSounds = [
         ];
+
 
     }
     preload() {
@@ -140,7 +141,9 @@ class ClientScene extends Phaser.Scene {
         // ---- Socket Connection -----
         this.setupWebSocket();
         // ---- PING DISPLAY ---- 
-        this.perfMonitor = new PerfMonitor(this);
+
+
+
         if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
         // Set up timing control
         this.lastUpdateTime = this.game.getTime();
@@ -162,6 +165,7 @@ class ClientScene extends Phaser.Scene {
         this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
         this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
+        this.menuDisplay = new MenuDisplay(this);
         // this.initializeRunner();
     }
 
@@ -343,6 +347,9 @@ class ClientScene extends Phaser.Scene {
 
     // CONSTATLY UPDATE SCENE 
     update() {
+        if (this.menuDisplay) {
+            this.menuDisplay.update();
+        }
         if (this.spaceKey.isDown) {
             // Gửi yêu cầu reset bóng đến server
             if (this.SOCKET) {
@@ -555,8 +562,8 @@ class ClientScene extends Phaser.Scene {
             align: 'center'
         }).setOrigin(0.5);
         
-        if (data.assist) {
-            const assistText = this.add.text(0, 30, `Assist: ${data.assist}`, {
+        if (data.assister) {
+            const assistText = this.add.text(0, 30, `Assist: ${data.assister}`, {
                 fontSize: '32px',
                 fontFamily: 'Arial',
                 color: '#CCCCCC',
@@ -567,7 +574,7 @@ class ClientScene extends Phaser.Scene {
         
         container.add(scorerText);
         
-        // Sử dụng duration được truyền vào
+        // Svử dụng duration được truyền vào
         this.tweens.add({
             targets: container,
             alpha: { from: 0, to: 1 },

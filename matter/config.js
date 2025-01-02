@@ -130,7 +130,7 @@ CONFIG = {
             density: 0.001, 
             inertia: Infinity,     
 
-            restitution: 0.5,      // Bounce factor 
+            restitution: 0,      // Bounce factor 
             slop: 0, 
 
             friction: 0,       
@@ -155,7 +155,7 @@ CONFIG = {
         }, 
         ballConfig: {
             normalKickDistance: 5, 
-            normalKickFreezeTime: 0.3,
+            normalKickFreezeTime: 0.1,
             normalKickVelocityAdd: 10      
         }, 
     }, 

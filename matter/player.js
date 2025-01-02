@@ -17,9 +17,11 @@ class Player {
         this.points = 0;  
         this.side = 0; 
         // Ball kick config 
-        const { normalKickDistance, normalKickVelocityAdd } = CONFIG.player.ballConfig;
+        const { normalKickDistance, normalKickVelocityAdd, normalKickFreezeTime } = CONFIG.player.ballConfig;
         this.normalKickDistance = normalKickDistance;
         this.normalKickVelocityAdd = normalKickVelocityAdd;
+        this.normalKickFreezeTime = normalKickFreezeTime; 
+        this.lastKickTime = 0; 
     }
     afterPhysicsUpdate() {
         if (this.body) {
@@ -132,9 +134,17 @@ class Player {
     }
 
     handleKick(ball) {
+        const currentTime = Date.now();
+        
+        // Kiểm tra xem đã đủ thời gian delay chưa
+        if ((currentTime - this.lastKickTime) < (this.normalKickFreezeTime * 1000)) {
+            return; // Chưa đủ thời gian, không cho sút
+        }
+
         const { player} = CONFIG;
         const distance = this.getDistanceTo(ball.body.position);
         const minDistance = (player.graphic.radius + ball.radius + this.normalKickDistance);
+        this.lastKickTime = Date.now(); 
         if (distance <= minDistance) {
             const angle = this.getAngleTo(ball.body.position);
 

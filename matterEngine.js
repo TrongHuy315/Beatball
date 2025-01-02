@@ -19,6 +19,7 @@ const io = require('socket.io')(http, {
 app.use('/client', express.static(path.join(__dirname, 'static/client')));
 app.use('/matter', express.static(path.join(__dirname, 'matter')));
 app.use('/sound', express.static(path.join(__dirname, 'sound')));
+app.use('/image', express.static(path.join(__dirname, 'image')));
 // Serve HTML khi truy cập root URL
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'clientGame.html'));
@@ -273,8 +274,8 @@ class PhysicsEngine {
         this.isCelebrating = true; 
         this.scores[side]++; 
         const goalState = {
-            score: "Sita69", 
-            assist: "Sati96", 
+            scorer: "Sita69", 
+            assister: "Sati96", 
             side: side, 
             timeStamp: Date.now(),  
             scores: {  // thêm tỉ số hiện tại
@@ -302,7 +303,7 @@ class PhysicsEngine {
         } else if (rightTeamCount < CONFIG.gameConfig.maxPlayersPerTeam) {
             assignedSide = 'right';
         } else {
-            socket.emit('joinRejected', { reason: 'Game is full' });
+            io.emit('joinRejected', { reason: 'Game is full' });
             return 'none'; 
         }
         return assignedSide; 

@@ -81,7 +81,7 @@ class Ball {
                 if (!oldVel) return;
     
                 const pushDirection = wall.customType;
-                const dampingDirection = 0.5;
+                const dampingDirection = 0.38;
     
                 // console.log("Pre-send Velocity: ", ball.velocity);
                 // console.log("Pre-send Position: ", ball.position);
@@ -92,23 +92,23 @@ class Ball {
     
                 switch (pushDirection) {
                     case 'U': // Đẩy lên
-                        newVelY = -newVelY; 
+                        newVelY = -newVelY * dampingDirection; 
                         break; 
                     case 'D': // Đẩy xuống
-                        newVelY = -newVelY; // Đảo chiều Y
+                        newVelY = -newVelY * dampingDirection; // Đảo chiều Y
                         break;
                     case 'L': // Đẩy sang trái 
-                        newVelX = -newVelX; 
+                        newVelX = -newVelX * dampingDirection; 
                         break; 
                     case 'R': // Đẩy sang phải
-                        newVelX = -newVelX; // Đảo chiều X
+                        newVelX = -newVelX * dampingDirection; // Đảo chiều X
                         break;
                 }
     
                 // Áp dụng dampingDirection cho toàn bộ vector
                 this.setVelocity(
-                    newVelX * dampingDirection,
-                    newVelY * dampingDirection
+                    newVelX,
+                    newVelY
                 );
     
                 // console.log("After-send Velocity: ", ball.velocity);

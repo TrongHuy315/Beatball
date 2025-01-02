@@ -132,7 +132,7 @@ window.CONFIG = {
             density: 0.001, 
             inertia: Infinity,     
 
-            restitution: 0.5,      // Bounce factor 0.5
+            restitution: 0,      // Bounce factor 0.5
             slop: 0, 
 
             friction: 0,       

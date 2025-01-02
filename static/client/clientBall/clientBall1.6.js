@@ -52,30 +52,30 @@ class Ball3 {
 					if (!oldVel) return;
 	
 					const pushDirection = wall.customType;
-					const dampingDirection = 0.5;
+					const dampingDirection = 0.38;
 	
 					let newVelX = oldVel.x;
 					let newVelY = oldVel.y;
 	
 					switch (pushDirection) {
 						case 'U':
-							newVelY = -newVelY;
+							newVelY = -newVelY * dampingDirection;
 							break;
 						case 'D':
-							newVelY = -newVelY;
+							newVelY = -newVelY * dampingDirection;
 							break;
 						case 'L':
-							newVelX = -newVelX;
+							newVelX = -newVelX * dampingDirection;
 							break;
 						case 'R':
-							newVelX = -newVelX;
+							newVelX = -newVelX * dampingDirection;
 							break;
 					}
 					console.log("Old xy: ", oldVel.x, oldVel.y); 
 					console.log("New xy: ", newVelX, newVelY); 
 					this.setVelocity(
-						newVelX * dampingDirection,
-						newVelY * dampingDirection
+						newVelX,
+						newVelY
 					);
 				}
 			});
@@ -221,10 +221,6 @@ class Ball3 {
 			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
         } else {
 			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
-			if (distance > 6) {
-				// this.setPosition(this.authorityBall.body.position.x, this.authorityBall.body.position.y); 
-				console.log("Set position"); 
-			}
             const lerpFactor = 0.05; 
             const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
             const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
