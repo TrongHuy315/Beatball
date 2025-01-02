@@ -1227,26 +1227,25 @@ def sync_room_host(room_id):
 
 @socketio.on('swap_slots')
 def handle_swap_slots(data):
-    """
-    Đổi chỗ 2 slot. 
-    """
     try:
         room_id = data.get('room_id')
-        from_slot = data.get('from_slot')
+        from_slot = data.get('from_slot') 
         to_slot = data.get('to_slot')
 
         if from_slot == to_slot:
-            return  # Không thực hiện nếu hai slot giống nhau
+            return
 
         room = get_room(room_id)
         if not room:
             emit('error', {'message': 'Room not found'}, room=room_id)
             return
+        
+        # Cho phép swap cả khi slot đích trống
+        player_from = room["player_slots"][from_slot]
+        room["player_slots"][from_slot] = room["player_slots"][to_slot]  # Có thể là None
+        room["player_slots"][to_slot] = player_from
 
-        room["player_slots"][from_slot], room["player_slots"][to_slot] = \
-            room["player_slots"][to_slot], room["player_slots"][from_slot]
-
-        # Cập nhật .slot
+        # Cập nhật slot index cho player (nếu có)
         if room["player_slots"][from_slot]:
             room["player_slots"][from_slot]["slot"] = from_slot
         if room["player_slots"][to_slot]:
@@ -1254,7 +1253,6 @@ def handle_swap_slots(data):
 
         save_room(room_id, room)
 
-        # Log trạng thái sau khi đổi chỗ
         print(f"Room {room_id} - Swapped slots: {from_slot} <-> {to_slot}")
         print(f"Updated slots: {room['player_slots']}")
 
