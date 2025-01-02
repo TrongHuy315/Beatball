@@ -95,6 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!playerCardsContainer) return;
     
         const currentUsername = document.getElementById("current-username")?.value;
+        const currentUserId = document.getElementById("current-user-id")?.value;
         console.log("Rendering cards for current user:", currentUsername);
         console.log("Current host ID:", currentHostId);
     
@@ -114,9 +115,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const card = document.createElement("div");
             card.className = "player-card";
             card.dataset.slot = i;
-            
+    
             const playerData = playerSlots[i];
-            
+    
             if (playerData && playerData.username) {
                 // Xác định host dựa trên currentHostId
                 const isHost = playerData.user_id === currentHostId;
@@ -125,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     currentHostId: currentHostId,
                     isHost: isHost
                 });
-                
+    
                 card.innerHTML = `
                     <div class="avatar" style="background-image: url('${playerData.avatar || "/static/images/default-avatar.png"}')"></div>
                     <p class="player-name">${playerData.username}</p>
@@ -134,9 +135,25 @@ document.addEventListener("DOMContentLoaded", async () => {
                     ${playerData.is_ready ? '<div class="ready-marker">Ready</div>' : ''}
                 `;
     
+                // Thêm nút Kick nếu user hiện tại là host và không phải tự kick chính mình
+                if (currentUserId === currentHostId && playerData.user_id !== currentHostId) {
+                    const kickButton = document.createElement("button");
+                    kickButton.className = "kick-btn";
+                    kickButton.textContent = "Kick";
+                    kickButton.addEventListener("click", () => {
+                        if (confirm(`Are you sure you want to kick ${playerData.username}?`)) {
+                            socket.emit("kick_player", {
+                                room_id: currentRoomId,
+                                user_id: playerData.user_id
+                            });
+                        }
+                    });
+                    card.appendChild(kickButton);
+                }
+    
                 // Cho phép kéo thả nếu người chơi hiện tại là user này
                 if (playerData.username === currentUsername) {
-                    card.setAttribute('draggable', 'true');
+                    card.setAttribute("draggable", "true");
                 }
             } else {
                 // Slot trống
@@ -162,7 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         // Khởi tạo lại drag & drop
         initializeDragAndDrop();
-    }
+    }    
 
     socket.on("player_left", (data) => {
         console.log("Player left:", data);
@@ -388,5 +405,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     socket.on('game_error', (data) => {
         alert(data.message);
+    });
+
+    socket.on("player_kicked", (data) => {
+        if (data.user_id === currentUserId) {
+            alert("You have been kicked from the room.");
+            window.location.href = "/home";
+        } else {
+            renderPlayerCards(data.player_slots);
+        }
     });    
 });

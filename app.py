@@ -1266,6 +1266,53 @@ def handle_swap_slots(data):
     except Exception as e:
         print("Error swapping slots:", e)
 
+@app.route('/kick-player', methods=['POST'])
+@login_required
+def kick_player():
+    """
+    Xử lý yêu cầu kick một người chơi.
+    """
+    try:
+        data = request.get_json()
+        room_id = data.get('room_id')
+        user_id_to_kick = data.get('user_id')
+
+        room = get_room(room_id)
+        if not room:
+            return jsonify({"error": "Room not found"}), 404
+
+        # Kiểm tra quyền host
+        if room["host_id"] != session.get('user_id'):
+            return jsonify({"error": "Only the host can kick players"}), 403
+
+        # Tìm và xóa người chơi khỏi slot
+        for i, slot in enumerate(room["player_slots"]):
+            if slot and slot["user_id"] == user_id_to_kick:
+                room["player_slots"][i] = None
+                break
+
+        # Xóa khỏi danh sách current_players
+        room["current_players"] = [
+            player for player in room["current_players"]
+            if player["user_id"] != user_id_to_kick
+        ]
+
+        # Lưu lại room
+        save_room(room_id, room)
+
+        # Thông báo tới client
+        socketio.emit("player_kicked", {
+            "room_id": room_id,
+            "user_id": user_id_to_kick,
+            "player_slots": room["player_slots"]
+        }, room=room_id)
+
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print(f"Error kicking player: {e}")
+        return jsonify({"error": "Failed to kick player"}), 500
+
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
     socketio.run(app, host='0.0.0.0', port=port)
