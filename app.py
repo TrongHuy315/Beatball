@@ -918,45 +918,55 @@ def check_room(room_id):
 @login_required
 def get_user_stats():
     user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "User not logged in"}), 401
+
     firebase_query_url = f"{FIREBASE_URL[:-5]}/{user_id}.json"
     
-    response = requests.get(firebase_query_url)
-    if response.status_code == 200:
-        user_data = response.json()
-        stats = user_data.get('stats', {})
+    try:
+        response = requests.get(firebase_query_url)
         
-        matches = stats.get('matches', 0)
-        win_matches = stats.get('win_matches', 0)
-        goals = stats.get('goals', 0)
-        assists = stats.get('assists', 0)
-        rating = stats.get('point', 1000)
-        rating_change = stats.get('rating_change', 0)
+        if response.status_code == 200:
+            user_data = response.json()
+            if not user_data:
+                return jsonify({"error": "User data not found"}), 404
+            
+            stats = user_data.get('stats', {})
+            matches = stats.get('matches', 0)
+            win_matches = stats.get('win_matches', 0)
+            goals = stats.get('goals', 0)
+            assists = stats.get('assists', 0)
+            rating = stats.get('point', 1000)
+            rating_change = stats.get('rating_change', 0)
+            
+            # Tính toán các tỷ lệ
+            winrate = round((win_matches / matches * 100) if matches > 0 else 0, 2)
+            goal_ratio = round((goals / matches) if matches > 0 else 0, 2)
+            assist_ratio = round((assists / matches) if matches > 0 else 0, 2)
+            ga_ratio = round((goals / max(assists, 1)), 2)  # Tránh chia cho 0
+            
+            return jsonify({
+                'matches': matches,
+                'winrate': winrate,
+                'goals': goals,
+                'assists': assists,
+                'goal_ratio': goal_ratio,
+                'assist_ratio': assist_ratio,
+                'ga_ratio': ga_ratio,
+                'rating': rating,
+                'rating_change': rating_change
+            })
         
-        # Tính toán các tỷ lệ
-        winrate = round((win_matches / matches * 100) if matches > 0 else 0, 2)
-        goal_ratio = round((goals / matches) if matches > 0 else 0, 2)
-        assist_ratio = round((assists / matches) if matches > 0 else 0, 2)
-        ga_ratio = round((goals / assists) if assists > 0 else 0, 2)
-        
-        return jsonify({
-            'matches': matches,
-            'winrate': winrate,
-            'goals': goals,
-            'assists': assists,
-            'goal_ratio': goal_ratio,
-            'assist_ratio': assist_ratio,
-            'ga_ratio': ga_ratio,
-            'rating': rating,
-            'rating_change': rating_change
-        })
+        else:
+            return jsonify({"error": f"Failed to fetch stats. Status code: {response.status_code}"}), 500
     
-    return jsonify({'error': 'Failed to fetch stats'}), 500
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching stats for user {user_id}: {e}")
+        return jsonify({"error": "Failed to connect to the database"}), 500
 
-@app.route("/find-match")
-@login_required
-def find_match():
-    # Logic xử lý nếu cần
-    return "Redirected to Find Match page!"
+    except Exception as e:
+        print(f"Unexpected error in get_user_stats: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 # Route to render the leaderboard HTML
 @app.route("/leaderboard")
