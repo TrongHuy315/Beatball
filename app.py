@@ -1032,26 +1032,19 @@ def can_start_game(room_data):
         return False
     
     try:
-        # Lấy số người chơi hiện tại (không tính slot trống)
-        current_players = [p for p in room_data['player_slots'] if p is not None]
-        min_players = 2  # Số người chơi tối thiểu
-        
-        # Kiểm tra số lượng người chơi
-        if len(current_players) < min_players:
+        # Lấy danh sách người chơi trong từng đội
+        team1 = [player for i, player in enumerate(room_data['player_slots']) if player and i < 2]
+        team2 = [player for i, player in enumerate(room_data['player_slots']) if player and i >= 2]
+
+        # Kiểm tra mỗi đội có ít nhất 1 người
+        if not team1 or not team2:
             return False
         
         # Kiểm tra tất cả người chơi đã ready (trừ host)
-        host_username = None
-        for player in current_players:
-            if player.get('is_host'):
-                host_username = player.get('username')
-                break
-        
-        # Kiểm tra trạng thái ready của tất cả người chơi (trừ host)
-        for player in current_players:
-            if player.get('username') != host_username and not player.get('is_ready', False):
+        for player in room_data['player_slots']:
+            if player and not player.get('is_host') and not player.get('is_ready', False):
                 return False
-        
+
         return True
         
     except Exception as e:
@@ -1105,7 +1098,7 @@ def handle_start_game(data):
         # Kiểm tra điều kiện start game
         if not can_start_game(room_data):
             emit('game_error', {
-                'message': 'Cannot start game. Not all players are ready.'
+                'message': 'Cannot start game. Each team must have at least 1 player, and all players must be ready.'
             }, room=room_id)
             return
         

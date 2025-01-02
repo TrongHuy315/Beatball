@@ -330,11 +330,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         const readyBtn = document.getElementById("ready-btn");
         const startBtn = document.getElementById("start-game-btn");
     
+        const team1Players = document.querySelectorAll('.team-1 .player-card:not(:empty)');
+        const team2Players = document.querySelectorAll('.team-2 .player-card:not(:empty)');
+        const readyPlayers = document.querySelectorAll('.player-card.ready');
+    
+        // Điều kiện kiểm tra
+        const eachTeamHasPlayer = team1Players.length > 0 && team2Players.length > 0;
+        const allPlayersReady = readyPlayers.length === team1Players.length + team2Players.length - 1; // Trừ host
+    
         if (readyBtn && startBtn) {
             if (isHost) {
                 readyBtn.style.display = "none";
                 startBtn.style.display = "block";
-                console.log("Showing Start button for host");
+    
+                // Chỉ bật nút Start Game nếu điều kiện thỏa mãn
+                if (eachTeamHasPlayer && allPlayersReady) {
+                    startBtn.disabled = false;
+                    console.log("Start button enabled for host");
+                } else {
+                    startBtn.disabled = true;
+                    console.log("Start button disabled for host: Teams must have players and all must be ready");
+                }
             } else {
                 readyBtn.style.display = "block";
                 startBtn.style.display = "none";
@@ -343,9 +359,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    function canStartGame() {
+        const team1 = document.querySelectorAll('.team-1 .player-card:not(:empty)');
+        const team2 = document.querySelectorAll('.team-2 .player-card:not(:empty)');
+        const readyPlayers = document.querySelectorAll('.player-card.ready');
+    
+        // Mỗi đội phải có ít nhất 1 người
+        if (team1.length === 0 || team2.length === 0) {
+            alert("Each team must have at least 1 player.");
+            return false;
+        }
+    
+        // Tất cả người chơi (trừ host) phải sẵn sàng
+        const totalPlayers = team1.length + team2.length;
+        if (readyPlayers.length < totalPlayers - 1) {
+            alert("All players must be ready.");
+            return false;
+        }
+    
+        return true;
+    }    
+
     // Lắng nghe sự kiện cập nhật vị trí từ server
     socket.on('slots_swapped', (data) => {
         renderPlayerCards(data.player_slots);
         initializeDragAndDrop();  // Khởi tạo lại drag & drop sau khi render
     });
+
+    socket.on('game_error', (data) => {
+        alert(data.message);
+    });    
 });
