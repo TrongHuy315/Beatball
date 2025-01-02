@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Thêm các đội và biểu tượng VS vào container
         playerCardsContainer.appendChild(team1);
         playerCardsContainer.appendChild(team2);
-        
+
         initializeDragAndDrop();
     }
 
@@ -248,53 +248,58 @@ document.addEventListener("DOMContentLoaded", async () => {
         let draggedCard = null;
     
         playerCards.forEach(card => {
-            // Chỉ cho phép kéo thả nếu slot có người chơi
-            const playerName = card.querySelector('.player-name')?.textContent || 'Waiting...';
-            if (playerName !== 'Waiting...') {
-                card.setAttribute('draggable', true);
+            // Thêm event listeners cho tất cả card
+            card.setAttribute('draggable', true);
     
-                card.addEventListener('dragstart', (e) => {
-                    draggedCard = card;
-                    e.dataTransfer.setData('text/plain', card.dataset.slot);
-                    card.classList.add('dragging');
-                });
-    
-                card.addEventListener('dragover', (e) => {
+            // Khi bắt đầu kéo thẻ - chỉ cho phép kéo nếu có người chơi
+            card.addEventListener('dragstart', (e) => {
+                const playerName = card.querySelector('.player-name')?.textContent;
+                if (playerName === 'Waiting...') {
                     e.preventDefault();
-                    if (draggedCard && draggedCard !== card) {
-                        card.classList.add('drag-over');
+                    return;
+                }
+                draggedCard = card;
+                e.dataTransfer.setData('text/plain', card.dataset.slot);
+                card.classList.add('dragging');
+            });
+    
+            // Khi đang kéo thẻ - cho phép thả vào tất cả slot
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (draggedCard && draggedCard !== card) {
+                    card.classList.add('drag-over');
+                }
+            });
+    
+            // Khi rời khỏi vùng thả
+            card.addEventListener('dragleave', () => {
+                card.classList.remove('drag-over');
+            });
+    
+            // Khi thả thẻ - cho phép thả vào cả slot trống
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                card.classList.remove('drag-over');
+    
+                if (draggedCard && draggedCard !== card) {
+                    const fromSlot = parseInt(draggedCard.dataset.slot, 10);
+                    const toSlot = parseInt(card.dataset.slot, 10);
+    
+                    if (!isNaN(fromSlot) && !isNaN(toSlot) && fromSlot !== toSlot) {
+                        socket.emit('swap_slots', {
+                            room_id: currentRoomId,
+                            from_slot: fromSlot,
+                            to_slot: toSlot
+                        });
                     }
-                });
+                }
+            });
     
-                card.addEventListener('dragleave', () => {
-                    card.classList.remove('drag-over');
-                });
-    
-                card.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    card.classList.remove('drag-over');
-    
-                    if (draggedCard && draggedCard !== card) {
-                        const fromSlot = parseInt(draggedCard.dataset.slot, 10);
-                        const toSlot = parseInt(card.dataset.slot, 10);
-    
-                        if (!isNaN(fromSlot) && !isNaN(toSlot) && fromSlot !== toSlot) {
-                            socket.emit('swap_slots', {
-                                room_id: currentRoomId,
-                                from_slot: fromSlot,
-                                to_slot: toSlot
-                            });
-                        }
-                    }
-                });
-    
-                card.addEventListener('dragend', () => {
-                    draggedCard.classList.remove('dragging');
-                    draggedCard = null;
-                });
-            } else {
-                card.removeAttribute('draggable');
-            }
+            // Khi kết thúc kéo thả
+            card.addEventListener('dragend', () => {
+                draggedCard?.classList.remove('dragging');
+                draggedCard = null;
+            });
         });
     }    
 
