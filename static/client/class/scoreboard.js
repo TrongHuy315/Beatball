@@ -44,12 +44,19 @@ class Scoreboard {
         
         // Kiểm tra xem có startTime trong localStorage không
         const savedStartTime = localStorage.getItem('gameStartTime');
-        if (savedStartTime) {
-            this.startTime = parseInt(savedStartTime);
-            this.startCountDown(Date.now() - this.startTime);
-        }
-        
+        // if (savedStartTime) {
+        //     this.startTime = parseInt(savedStartTime);
+        //     this.startCountDown(Date.now() - this.startTime);
+        // }
+        this.onWarningTime = null;  // Thêm dòng này
+        this.onTimeUp = null;  
         this.draw();
+    }
+    setWarningTimeCallback(callback) {
+        this.onWarningTime = callback;
+    }   
+    setTimeUpCallback(callback) {
+        this.onTimeUp = callback;
     }
     startCountDown(elapsedTime = 0) {
         this.stopCountDown();
@@ -66,6 +73,12 @@ class Scoreboard {
             const now = Date.now();
             const elapsed = now - this.startTime;
             this.currentTime = Math.max(0, this.gameTime - elapsed);
+
+            if (this.currentTime <= this.warningTime && this.currentTime > this.warningTime - 100) {
+                if (typeof this.onWarningTime === 'function') {
+                    this.onWarningTime();
+                }
+            }
 
             this.draw();
 

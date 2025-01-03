@@ -67,6 +67,27 @@ class ClientScene extends Phaser.Scene {
 
     }
     preload() {
+        this.load.audio('endGameSound', '/sound/endGameSound/endGameSound1.mp3');
+        this.scoreboard = new Scoreboard();
+        
+        // Thêm listener cho sự kiện 9 giây cuối
+        this.scoreboard.setWarningTimeCallback(() => {
+            if (!this.isEndGameSoundPlaying && this.endGameSound) {
+                this.endGameSound.play();
+                this.isEndGameSoundPlaying = true;
+            }
+        });
+        
+        // Thêm listener cho sự kiện hết giờ
+        this.scoreboard.setTimeUpCallback(() => {
+            if (this.endGameSound && this.isEndGameSoundPlaying) {
+                this.endGameSound.stop();
+                this.isEndGameSoundPlaying = false;
+            }
+        });
+
+
+
         this.load.on('filecomplete', (key, type, data) => {
             console.log('Successfully loaded:', key, type);
         });
@@ -76,47 +97,13 @@ class ClientScene extends Phaser.Scene {
             console.error('File URL:', file.url);
         });
 
-        this.load.audio('kick1', '/sound/normalKick1.mp3');
-        this.scoreboard = new Scoreboard();
+        this.load.audio('kick1', '/sound/normalKickSound/normalKick1.mp3');
     }
     create() {
-        const unlockAudio = () => {
-            if (this.sound.locked) {
-                console.log('Attempting to unlock audio...');
-                this.sound.context.resume()
-                    .then(() => {
-                        console.log('AudioContext unlocked successfully');
-                    })
-                    .catch(e => console.error('Error unlocking AudioContext:', e));
-            }
-        };
-    
-        // Thêm event listeners cho user interaction
-        this.input.on('pointerdown', unlockAudio);
-        this.input.keyboard.on('keydown', unlockAudio);
-    
-        // Thêm text hướng dẫn
-        const instructionText = this.add.text(
-            CONFIG.totalWidth / 2,
-            50,
-            'Click anywhere or press any key to enable sound',
-            {
-                fontSize: '20px',
-                fill: '#ffffff'
-            }
-        ).setOrigin(0.5);
-    
-        // Xóa text khi audio được unlock
-        this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-            console.log('Audio system unlocked');
-            instructionText.destroy();
+        this.endGameSound = this.sound.add('endGameSound', {
+            volume: 1,
+            loop: true
         });
-    
-        // Debug sound state
-        this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-            console.log('Sound system unlocked');
-        });
-
         this.kickSound = this.sound.add('kick1');
         this.kickSounds = [this.kickSound];
         const { totalWidth, totalHeight } = CONFIG;
@@ -137,9 +124,6 @@ class ClientScene extends Phaser.Scene {
 
         // ---- Socket Connection -----
         this.setupWebSocket();
-        // ---- PING DISPLAY ---- 
-
-
 
         if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
         // Set up timing control

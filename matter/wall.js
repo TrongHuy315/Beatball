@@ -2,8 +2,9 @@ const Matter = require('matter-js');
 const CONFIG = require('./config.js');
 
 class Wall {
-    constructor(world) {
+    constructor(world, engine) {
         this.world = world;
+        this.engine = engine; 
         this.createWalls();
     }
     createRectangle(push, x, y, width, height, direction = null, isInner) {
@@ -219,8 +220,54 @@ class Wall {
                 label: 'rightGoalDetection'
             }
         );
+        const leftInnerNet = Bodies.rectangle(
+            offset_horizontal + nets.borderWidth,
+            totalHeight / 2,
+            nets.borderWidth + 10,
+            height,
+            {
+                isSensor: true,
+                isStatic: true,
+                label: 'leftInnerNet'
+            }
+        );
 
-        World.add(this.world, [leftNet, rightNet]);
+        const rightInnerNet = Bodies.rectangle(
+            totalWidth - (offset_horizontal + nets.borderWidth),
+            totalHeight / 2,
+            nets.borderWidth + 10,
+            height,
+            {
+                isSensor: true,
+                isStatic: true,
+                label: 'rightInnerNet'
+            }
+        );
+        Matter.Events.on(this.engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+    
+                if ((bodyA.label === 'leftInnerNet' || bodyA.label === 'rightInnerNet') &&
+                    (bodyB.label === 'ball' || bodyB.label === 'ball3')) {
+                    console.log("Colliding with", bodyA.label);
+                    Matter.Body.setVelocity(bodyB, {
+                        x: bodyB.velocity.x * 0.1,
+                        y: bodyB.velocity.y * 0.1
+                    });
+                }
+    
+                if ((bodyB.label === 'leftInnerNet' || bodyB.label === 'rightInnerNet') &&
+                    (bodyA.label === 'ball' || bodyA.label === 'ball3')) {
+                    console.log("Colliding with", bodyB.label);
+                    Matter.Body.setVelocity(bodyA, {
+                        x: bodyA.velocity.x * 0.1,
+                        y: bodyA.velocity.y * 0.1
+                    });
+                }
+            });
+        });
+        World.add(this.world, [leftNet, rightNet, leftInnerNet, rightInnerNet]);
     }
 }
 

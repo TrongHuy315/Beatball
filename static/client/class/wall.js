@@ -176,4 +176,49 @@ function createWalls(scene) {
     createRectangle('U', totalWidth / 2, totalHeight, totalWidth, 2); // Bottom - đẩy lên
     createRectangle('R', 0, totalHeight / 2, 2, totalHeight); // Left - đẩy sang phải
     createRectangle('L', totalWidth, totalHeight / 2, 2, totalHeight); // Right - đẩy sang trái
+
+    // Left inner net sensor
+    const leftInnerNet = scene.matter.add.rectangle(
+        offset_horizontal + nets.borderWidth,
+        totalHeight / 2,
+        nets.borderWidth,
+        nets.height,
+        {
+            isSensor: true,
+            isStatic: true,
+            label: 'leftInnerNet'
+        }
+    );
+
+    // Right inner net sensor
+    const rightInnerNet = scene.matter.add.rectangle(
+        totalWidth - (offset_horizontal + nets.borderWidth),
+        totalHeight / 2,
+        nets.borderWidth,
+        nets.height,
+        {
+            isSensor: true,
+            isStatic: true,
+            label: 'rightInnerNet'
+        }
+    );
+
+    scene.matter.world.on('collisionstart', (event) => {
+        event.pairs.forEach((pair) => {
+            const bodyA = pair.bodyA;
+            const bodyB = pair.bodyB;
+
+            if ((bodyA.label === 'leftInnerNet' || bodyA.label === 'rightInnerNet') &&
+                (bodyB.label === 'ball' || bodyB.label === 'ball3')) {
+                bodyB.gameObject.setVelocityX(bodyB.velocity.x * 0.1);
+                bodyB.gameObject.setVelocityY(bodyB.velocity.y * 0.1);
+            }
+
+            if ((bodyB.label === 'leftInnerNet' || bodyB.label === 'rightInnerNet') &&
+                (bodyA.label === 'ball' || bodyA.label === 'ball3')) {
+                bodyA.gameObject.setVelocityX(bodyA.velocity.x * 0.1);
+                bodyA.gameObject.setVelocityY(bodyA.velocity.y * 0.1);
+            }
+        });
+    });
 }

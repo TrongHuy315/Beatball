@@ -28,6 +28,7 @@ class PhysicsEngine {
     constructor() {
         // ENGINE SET UP 
         this.engine = Matter.Engine.create({
+            enableSleeping: false, 
             gravity: {
                 x: 0,
                 y: 0,
@@ -36,15 +37,15 @@ class PhysicsEngine {
         });
         this.world = this.engine.world;        
         this.players = new Map();
-        this.wall = new Wall(this.world); 
         this.ball = new Ball(this.world, this.engine, io); 
+        this.wall = new Wall(this.world, this.engine); 
 
         // ------ REQUEST ---- 
         this.cnt = 0; 
         this.request_counting = 0; 
         // ----- CELEBRATING / SCOREBOARD ----- 
         this.gameStarted = false; 
-        this.requiredPlayers = 4; 
+        this.requiredPlayers = 1; 
         this.scores = {
             left: 0,
             right: 0
