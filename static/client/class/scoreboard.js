@@ -39,14 +39,25 @@ class Scoreboard {
         this.isWarning = false;
         this.warningAlpha = 1;
         this.warningDirection = -1; // -1: fade out, 1: fade in
+
+        window.addEventListener('storage', this.handleStorageChange.bind(this));
+        
+        // Kiểm tra xem có startTime trong localStorage không
+        const savedStartTime = localStorage.getItem('gameStartTime');
+        if (savedStartTime) {
+            this.startTime = parseInt(savedStartTime);
+            this.startCountDown(Date.now() - this.startTime);
+        }
         
         this.draw();
     }
     startCountDown(elapsedTime = 0) {
         this.stopCountDown();
         
-        // Lưu thời điểm bắt đầu tuyệt đối
         this.startTime = Date.now() - elapsedTime;
+        // Lưu startTime vào localStorage
+        localStorage.setItem('gameStartTime', this.startTime.toString());
+        
         this.isRunning = true;
         
         const updateClock = () => {
@@ -63,6 +74,8 @@ class Scoreboard {
                 if (typeof this.onTimeUp === 'function') {
                     this.onTimeUp();
                 }
+                // Khi hết giờ, reset về thời gian mới
+                this.resetToNewGame();
                 return;
             }
 
@@ -71,28 +84,44 @@ class Scoreboard {
 
         updateClock();
     }
+
+    handleStorageChange(e) {
+        if (e.key === 'gameStartTime' && e.newValue) {
+            const newStartTime = parseInt(e.newValue);
+            if (newStartTime !== this.startTime) {
+                this.startTime = newStartTime;
+                this.startCountDown(Date.now() - this.startTime);
+            }
+        }
+    }
+    resetToNewGame() {
+        this.startTime = Date.now();
+        localStorage.setItem('gameStartTime', this.startTime.toString());
+        this.currentTime = this.gameTime;
+        this.startCountDown();
+    }
+
+
     handleVisibilityChange() {
         if (document.hidden) {
-            // Chỉ hủy animation frame, không động đến thời gian
             if (this.animationFrameId) {
                 cancelAnimationFrame(this.animationFrameId);
                 this.animationFrameId = null;
             }
         } else {
-            if (this.isRunning && this.startTime) {
-                // Tính toán thời gian còn lại dựa trên thời điểm bắt đầu tuyệt đối
-                const elapsed = Date.now() - this.startTime;
-                const remainingMs = Math.max(0, this.gameTime - elapsed);
+            if (this.isRunning) {
+                // Khi quay lại tab, kiểm tra startTime từ localStorage
+                const savedStartTime = localStorage.getItem('gameStartTime');
+                if (savedStartTime) {
+                    const startTime = parseInt(savedStartTime);
+                    const elapsed = Date.now() - startTime;
+                    const remainingMs = Math.max(0, this.gameTime - elapsed);
 
-                if (remainingMs > 0) {
-                    // Tiếp tục countdown với thời gian đã trôi qua
-                    this.startCountDown(elapsed);
-                } else {
-                    // Đã hết giờ
-                    this.currentTime = 0;
-                    this.stopCountDown();
-                    if (typeof this.onTimeUp === 'function') {
-                        this.onTimeUp();
+                    if (remainingMs > 0) {
+                        this.startTime = startTime;
+                        this.startCountDown(elapsed);
+                    } else {
+                        this.resetToNewGame();
                     }
                 }
             }
@@ -339,6 +368,7 @@ class Scoreboard {
     destroy() {
         this.stopCountDown();
         document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+        window.removeEventListener('storage', this.handleStorageChange);
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
         }
