@@ -43,6 +43,8 @@ class PhysicsEngine {
         this.cnt = 0; 
         this.request_counting = 0; 
         // ----- CELEBRATING / SCOREBOARD ----- 
+        this.gameStarted = false; 
+        this.requiredPlayers = 4; 
         this.scores = {
             left: 0,
             right: 0
@@ -70,6 +72,7 @@ class PhysicsEngine {
         
         // ------ GAME LOOP ---------
         const gameLoop = () => {
+            this.checkGameStart(); 
             const currentTime = Date.now();
             const delta = currentTime - this.lastFrameTime; 
             // this.updateFrameStats(currentTime); 
@@ -102,7 +105,43 @@ class PhysicsEngine {
         };
         gameLoop(); 
     }
-    
+    checkGameStart() {
+        // Đếm số lượng người chơi hiện tại
+        const totalPlayers = this.players.size;
+        
+        // Nếu đã đủ người và game chưa bắt đầu
+        if (totalPlayers === this.requiredPlayers && !this.gameStarted) {
+            
+            // Reset vị trí ban đầu cho tất cả người chơi
+            this.resetGame();
+            
+            // Gửi signal bắt đầu game với thông tin các team
+            const gameInfo = {
+                leftTeam: Array.from(this.players.values())
+                    .filter(p => p.side === 'left')
+                    .map(p => ({
+                        id: Array.from(this.players.entries())
+                            .find(entry => entry[1] === p)[0],
+                        position: p.body.position
+                    })),
+                rightTeam: Array.from(this.players.values())
+                    .filter(p => p.side === 'right')
+                    .map(p => ({
+                        id: Array.from(this.players.entries())
+                            .find(entry => entry[1] === p)[0],
+                        position: p.body.position
+                    })),
+                scores: this.scores, 
+                timeStamp: Date.now()
+            };
+            
+            io.emit('gameStart', gameInfo);
+            
+            setTimeout(() => {
+                this.gameStarted = true;
+            }, 3000);
+        }
+    }
     updateFrameStats(currentTime) {
         const frameTime = currentTime - this.frameMonitor.lastTime;
         
@@ -400,11 +439,13 @@ class PhysicsEngine {
             
             // PLAYER REQUEST 
             socket.on('sendInput', (data) => {
-                const clientId = socket.clientId; 
-                const player = this.players.get(clientId);
-                const input = data.input;
-                player.update(input, this.ball); 
-                player.lastProcessedInput = input.sequence;
+                if (this.gameStarted) {
+                    const clientId = socket.clientId; 
+                    const player = this.players.get(clientId);
+                    const input = data.input;
+                    player.update(input, this.ball); 
+                    player.lastProcessedInput = input.sequence;
+                }
             }); 
 
             socket.on('leaveGame', () => {

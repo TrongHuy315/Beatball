@@ -25,9 +25,174 @@ class Scoreboard {
 
         document.body.appendChild(this.canvas);
 
-        this.ctx = this.canvas.getContext('2d');
-        this.draw(); 
+        this.ctx = this.canvas.getContext('2d'); 
+
+        this.gameTime = 30000; // 5 minutes in miliseconds
+        this.currentTime = this.gameTime;
+        this.isCountingDown = false;
+
+        this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+
+        this.warningTime = 9000; // 9 seconds in milliseconds
+        this.isWarning = false;
+        this.warningAlpha = 1;
+        this.warningDirection = -1; // -1: fade out, 1: fade in
+        
+        this.draw();
     }
+    startCountDown(elapsedTime = 0) {
+        this.stopCountDown();
+        
+        this.startTime = Date.now() - elapsedTime;
+        this.isRunning = true;
+        
+        const updateClock = () => {
+            if (!this.isRunning) return;
+    
+            const now = Date.now();
+            const elapsed = now - this.startTime;
+            this.currentTime = Math.max(0, this.gameTime - elapsed);
+    
+            // Vẽ lại đồng hồ
+            this.draw();
+    
+            // Kiểm tra hết giờ
+            if (this.currentTime <= 0) {
+                this.stopCountDown();
+                if (typeof this.onTimeUp === 'function') {
+                    this.onTimeUp();
+                }
+                return;
+            }
+    
+            this.animationFrameId = requestAnimationFrame(updateClock);
+        };
+    
+        updateClock();
+    }
+    handleVisibilityChange() {
+        if (document.hidden) {
+            if (this.animationFrameId) {
+                cancelAnimationFrame(this.animationFrameId);
+                this.animationFrameId = null;
+            }
+        } else {
+            if (this.isRunning) {
+                const now = Date.now();
+                const elapsed = now - this.startTime;
+                const remainingMs = Math.max(0, this.gameTime - elapsed);
+                
+                if (remainingMs > 0) {
+                    // Đồng bộ lại thời gian bắt đầu
+                    this.startTime = now - (this.gameTime - remainingMs);
+                    this.startCountDown(this.gameTime - remainingMs);
+                }
+            }
+        }
+    }
+    getRemainingTime() {
+        return this.remainingTime;
+    }
+    stopCountDown() {
+        this.isRunning = false;
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+    }
+
+    formatTime(seconds) {
+        // Đổi từ milliseconds sang seconds nếu cần
+        if (seconds > 1000) {
+            seconds = Math.floor(seconds / 1000);
+        }
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+    }
+
+    drawClock() {
+        const cfg = this.config.clock;
+        const x = this.canvas.width / 2 - cfg.width / 2;
+        const y = cfg.yOffset - 15;
+
+        this.ctx.save();
+        
+        // Hiệu ứng warning khi còn 9 giây
+        if (this.currentTime <= this.warningTime) {
+            // Tính toán alpha cho hiệu ứng fade
+            this.warningAlpha += this.warningDirection * 0.05;
+            if (this.warningAlpha <= 0.3) {
+                this.warningDirection = 1;
+                this.warningAlpha = 0.3;
+            } else if (this.warningAlpha >= 1) {
+                this.warningDirection = -1;
+                this.warningAlpha = 1;
+            }
+
+            // Vẽ glow effect
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = 'rgba(255, 0, 0, ' + this.warningAlpha + ')';
+            
+            // Thay đổi màu background thành đỏ nhạt
+            this.ctx.fillStyle = `rgba(255, 0, 0, ${this.warningAlpha * 0.3})`;
+        } else {
+            this.ctx.fillStyle = cfg.backgroundColor;
+        }
+
+        this.ctx.strokeStyle = cfg.borderColor;
+        this.ctx.lineWidth = cfg.borderWidth;
+        
+        this.roundRect(
+            x, y,
+            cfg.width, cfg.height,
+            cfg.borderRadius
+        );
+
+        // Draw time text với hiệu ứng
+        if (this.currentTime <= this.warningTime) {
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${this.warningAlpha})`;
+            // Thêm hiệu ứng rung nhẹ
+            const shakeAmount = 1;
+            const offsetX = Math.random() * shakeAmount - shakeAmount/2;
+            const offsetY = Math.random() * shakeAmount - shakeAmount/2;
+            this.ctx.font = `bold ${cfg.fontSize}px Arial`; // Làm đậm text
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(
+                this.formatTime(this.currentTime),
+                x + cfg.width / 2 + offsetX,
+                y + cfg.height / 2 + offsetY
+            );
+        } else {
+            this.ctx.fillStyle = cfg.textColor;
+            this.ctx.font = `${cfg.fontWeight} ${cfg.fontSize}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(
+                this.formatTime(this.currentTime),
+                x + cfg.width / 2,
+                y + cfg.height / 2
+            );
+        }
+        
+        this.ctx.restore();
+    }
+    resetClock() {
+        this.currentTime = this.gameTime;
+        this.draw();
+    }
+
+    setTime(seconds) {
+        this.currentTime = seconds;
+        this.draw();
+    }
+
+    getCurrentTime() {
+        return this.currentTime;
+    }
+
     setScoreBoxSize(width, height) {
         this.scoreWidth = width;
         this.scoreHeight = height;
@@ -149,10 +314,10 @@ class Scoreboard {
             animateLeft
         );
         
-        this.drawSeparator(
-            this.canvas.width / 2,
-            y + this.config.height / 2 - this.config.separator.height / 2
-        );
+        // this.drawSeparator(
+        //     this.canvas.width / 2,
+        //     y + this.config.height / 2 - this.config.separator.height / 2
+        // );
         
         this.drawScore(
             this.scores.right,
@@ -160,11 +325,20 @@ class Scoreboard {
             y,
             animateRight
         );
+        this.drawClock(); 
     }
 
     destroy() {
+        this.stopCountDown();
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+        }
         if (this.canvas && this.canvas.parentNode) {
             this.canvas.parentNode.removeChild(this.canvas);
         }
+    }
+    setOnTimeUp(callback) {
+        this.onTimeUp = callback;
     }
 }

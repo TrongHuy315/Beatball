@@ -32,7 +32,7 @@ window.CONFIG = {
         type: 1, 
     },     
     scoreboard: {
-        distance: 80,       // Khoảng cách giữa 2 số
+        distance: 140,       // Khoảng cách giữa 2 số
         yOffset: 15,        // Khoảng cách từ mép trên
         fontSize: 50,
         fontWeight: '100',
@@ -45,7 +45,7 @@ window.CONFIG = {
         borderRadius: 2,    // Bo góc
         borderColor: '#333333',      // Màu viền
         borderWidth: 1,     // Độ dày viền
-        gapBetweenScores: 10,       // Khoảng cách giữa 2 bảng điểm
+        gapBetweenScores: 20,       // Khoảng cách giữa 2 bảng điểm
         separator: {                 // Dấu ngăn cách giữa 2 điểm số
             width: 5,
             height: 5,
@@ -62,6 +62,19 @@ window.CONFIG = {
             duration: 500,          // Thời gian animation (ms)
             scale: 1.2,            // Độ phóng to
             flashColor: '#FFFF00'   // Màu nhấp nháy
+        }, 
+        clock: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            textColor: '#FFFFFF',
+            yOffset: 60,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderColor: '#FFFFFF',
+            borderWidth: 2,
+            borderRadius: 3,
+            width: 80,
+            height: 40,
+            padding: 10
         }
     }, 
     nets: {

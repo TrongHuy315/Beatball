@@ -19,6 +19,7 @@ class ClientScene extends Phaser.Scene {
                 right: 0
             }
         };
+        this.gameStarted = false; 
         this.categories = {
             outer: 0x0001,         // 000001
             inner: 0x0002,         // 000010
@@ -116,10 +117,6 @@ class ClientScene extends Phaser.Scene {
             console.log('Sound system unlocked');
         });
 
-
-
-
-        
         this.kickSound = this.sound.add('kick1');
         this.kickSounds = [this.kickSound];
         const { totalWidth, totalHeight } = CONFIG;
@@ -335,7 +332,7 @@ class ClientScene extends Phaser.Scene {
     }
     
     gameLoop() {
-        if (this.player) this.player.update();
+        if (this.player && this.gameStarted) this.player.update();
         if (this.ball) this.ball.update();
         if (this.ball1) this.ball1.update();
         
@@ -684,6 +681,18 @@ class ClientScene extends Phaser.Scene {
         socket.on('sendBallState', (data) => {
             this.ball.handleBallState(data); 
         }); 
+        socket.on('gameStart', (data) => {
+            var startedTime = data.timeStamp; 
+            var remainderTime = Date.now() - data.timeStamp; 
+            var durationCountDown = Math.max(0, remainderTime - 3000);
+            var serverStarTime = 3000 + data.timeStamp; 
+            this.showStartCountdown(durationCountDown, () => {
+                var elapsedTime = Date.now() - serverStarTime; 
+                this.gameStarted = true; 
+                this.scoreboard.resetClock(); // bạn thêm giúp tôi tính năng là nó count down tại lúc mà game đã bắt đầu elapsed time ấy 
+                this.scoreboard.startCountDown(elapsedTime);
+            }); 
+        }); 
 
         // ------ PLAYERS UPDATE -------- 
         socket.on('newPlayerJoin', (data) => {
@@ -746,6 +755,148 @@ class ClientScene extends Phaser.Scene {
             // Các trường hợp khác để Socket.IO tự xử lý reconnect
         });
         
+    }
+    showStartCountdown(duration, callback) {
+        if (this.countdownContainer) {
+            this.countdownContainer.destroy();
+        }
+        
+        let countdownContainer = this.add.container(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+        this.countdownContainer = countdownContainer;
+        
+        const countdownText = this.add.text(0, 0, '3', {
+            fontSize: '144px',
+            fontFamily: 'Arial Black',
+            color: '#FFFFFF',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center',
+            resolution: 1
+        }).setOrigin(0.5);
+        
+        countdownText.setBlendMode(Phaser.BlendModes.NORMAL);
+        countdownContainer.add(countdownText);
+        countdownContainer.setDepth(9999);
+        
+        let currentNumber = 3;
+        let isDestroyed = false;
+        
+        const updateNumber = () => {
+            if (isDestroyed || !countdownText || !countdownText.scene) {
+                return;
+            }
+    
+            if (currentNumber > 0) {
+                // Fade out số hiện tại
+                this.tweens.add({
+                    targets: countdownText,
+                    alpha: 0,
+                    scale: 0.8,
+                    duration: 150,
+                    ease: 'Power1',
+                    onComplete: () => {
+                        if (!isDestroyed) {
+                            currentNumber--;
+                            if (currentNumber > 0) {
+                                // Cập nhật số mới và fade in
+                                countdownText.setText(currentNumber.toString());
+                                countdownText.setScale(1.2);
+                                
+                                this.tweens.add({
+                                    targets: countdownText,
+                                    alpha: 1,
+                                    scale: 1,
+                                    duration: 150,
+                                    ease: 'Back.easeOut',
+                                    onComplete: () => {
+                                        if (!isDestroyed) {
+                                            // Đợi một chút trước khi bắt đầu số tiếp theo
+                                            this.time.delayedCall(700, () => {
+                                                if (!isDestroyed) {
+                                                    updateNumber();
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            } else {
+                                showGo();
+                            }
+                        }
+                    }
+                });
+            }
+        };
+        
+        const showGo = () => {
+            if (isDestroyed || !countdownText || !countdownText.scene) {
+                return;
+            }
+    
+            countdownText.setText('GO!');
+            countdownText.setStyle({
+                color: '#00FF00',
+                fontSize: '144px',
+                stroke: '#000000',
+                strokeThickness: 4
+            });
+            countdownText.setScale(1.5);
+            countdownText.setAlpha(0);
+            
+            this.tweens.add({
+                targets: countdownText,
+                scale: 1,
+                alpha: 1,
+                duration: 300,
+                ease: 'Back.easeOut',
+                onComplete: () => {
+                    if (!isDestroyed) {
+                        this.time.delayedCall(500, () => {
+                            if (!isDestroyed) {
+                                this.tweens.add({
+                                    targets: countdownContainer,
+                                    alpha: 0,
+                                    duration: 200,
+                                    onComplete: () => {
+                                        isDestroyed = true;
+                                        countdownContainer.destroy();
+                                        if (callback) callback();
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+        };
+        
+        this.events.once('shutdown', () => {
+            isDestroyed = true;
+            if (countdownContainer) {
+                countdownContainer.destroy();
+            }
+        });
+        
+        // Bắt đầu với số 3
+        countdownText.setAlpha(0);
+        countdownText.setScale(1.2);
+        
+        this.tweens.add({
+            targets: countdownText,
+            alpha: 1,
+            scale: 1,
+            duration: 150,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                if (!isDestroyed) {
+                    this.time.delayedCall(700, () => {
+                        if (!isDestroyed) {
+                            updateNumber();
+                        }
+                    });
+                }
+            }
+        });
     }
 }
 
