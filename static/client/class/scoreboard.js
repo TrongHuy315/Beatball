@@ -28,6 +28,7 @@ class Scoreboard {
         this.ctx = this.canvas.getContext('2d'); 
 
         this.gameTime = 30000; // 5 minutes in miliseconds
+        this.startTime = null; // Thời điểm bắt đầu tuyệt đối
         this.currentTime = this.gameTime;
         this.isCountingDown = false;
 
@@ -44,20 +45,19 @@ class Scoreboard {
     startCountDown(elapsedTime = 0) {
         this.stopCountDown();
         
+        // Lưu thời điểm bắt đầu tuyệt đối
         this.startTime = Date.now() - elapsedTime;
         this.isRunning = true;
         
         const updateClock = () => {
             if (!this.isRunning) return;
-    
+
             const now = Date.now();
             const elapsed = now - this.startTime;
             this.currentTime = Math.max(0, this.gameTime - elapsed);
-    
-            // Vẽ lại đồng hồ
+
             this.draw();
-    
-            // Kiểm tra hết giờ
+
             if (this.currentTime <= 0) {
                 this.stopCountDown();
                 if (typeof this.onTimeUp === 'function') {
@@ -65,32 +65,40 @@ class Scoreboard {
                 }
                 return;
             }
-    
+
             this.animationFrameId = requestAnimationFrame(updateClock);
         };
-    
+
         updateClock();
     }
     handleVisibilityChange() {
         if (document.hidden) {
+            // Chỉ hủy animation frame, không động đến thời gian
             if (this.animationFrameId) {
                 cancelAnimationFrame(this.animationFrameId);
                 this.animationFrameId = null;
             }
         } else {
-            if (this.isRunning) {
-                const now = Date.now();
-                const elapsed = now - this.startTime;
+            if (this.isRunning && this.startTime) {
+                // Tính toán thời gian còn lại dựa trên thời điểm bắt đầu tuyệt đối
+                const elapsed = Date.now() - this.startTime;
                 const remainingMs = Math.max(0, this.gameTime - elapsed);
-                
+
                 if (remainingMs > 0) {
-                    // Đồng bộ lại thời gian bắt đầu
-                    this.startTime = now - (this.gameTime - remainingMs);
-                    this.startCountDown(this.gameTime - remainingMs);
+                    // Tiếp tục countdown với thời gian đã trôi qua
+                    this.startCountDown(elapsed);
+                } else {
+                    // Đã hết giờ
+                    this.currentTime = 0;
+                    this.stopCountDown();
+                    if (typeof this.onTimeUp === 'function') {
+                        this.onTimeUp();
+                    }
                 }
             }
         }
     }
+
     getRemainingTime() {
         return this.remainingTime;
     }
