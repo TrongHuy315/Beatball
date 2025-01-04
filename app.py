@@ -18,10 +18,7 @@ import smtplib
 import redis
 import json
 
-app = Flask(__name__, 
-    template_folder='.', # Cho phép tìm template từ thư mục gốc
-    static_folder='static'
-)
+app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
 #socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
 
