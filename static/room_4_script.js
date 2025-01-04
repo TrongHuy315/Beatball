@@ -342,48 +342,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     function updateControlButtons() {
         const currentUserId = document.getElementById("current-user-id")?.value;
         const isHost = currentUserId === currentHostId;
-        console.log("Updating control buttons:", { currentUserId, currentHostId, isHost });
-    
+        
         const readyBtn = document.getElementById("ready-btn");
         const startBtn = document.getElementById("start-game-btn");
     
-        const team1Players = document.querySelectorAll('.team-1 .player-card:not(:empty)');
-        const team2Players = document.querySelectorAll('.team-2 .player-card:not(:empty)');
-        
+        // Đếm số người chơi thực sự (không phải slot "Waiting...")
+        const team1Players = Array.from(document.querySelectorAll('.team-1 .player-card'))
+            .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+        const team2Players = Array.from(document.querySelectorAll('.team-2 .player-card'))
+            .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+    
         // Đếm số người chơi có ready marker
         const readyPlayers = document.querySelectorAll('.player-card .ready-marker');
-        
-        // Log để debug
-        console.log({
-            team1Count: team1Players.length,
-            team2Count: team2Players.length,
-            readyCount: readyPlayers.length
-        });
     
-        // Điều kiện kiểm tra
         const eachTeamHasPlayer = team1Players.length > 0 && team2Players.length > 0;
         const totalPlayers = team1Players.length + team2Players.length;
-        const allPlayersReady = readyPlayers.length === totalPlayers - 1; // Trừ host
+        const allPlayersReady = readyPlayers.length === totalPlayers - (isHost ? 1 : 0); // Trừ host
     
         if (readyBtn && startBtn) {
             if (isHost) {
                 readyBtn.style.display = "none"; 
                 startBtn.style.display = "block";
     
-                // Log điều kiện start
-                console.log("Start conditions:", {
-                    eachTeamHasPlayer,
-                    totalPlayers,
-                    readyPlayersCount: readyPlayers.length,
-                    allPlayersReady
-                });
-    
                 if (eachTeamHasPlayer && allPlayersReady) {
                     startBtn.disabled = false;
-                    console.log("Start button enabled for host");
                 } else {
                     startBtn.disabled = true;
-                    console.log("Start button disabled - Conditions not met");
                 }
             } else {
                 readyBtn.style.display = "block";
