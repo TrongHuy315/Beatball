@@ -151,10 +151,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     card.appendChild(kickButton);
                 }
     
-                // Cho phép kéo thả nếu người chơi hiện tại là user này
-                if (playerData.username === currentUsername) {
-                    card.setAttribute("draggable", "true");
-                }
+                // Set draggable attribute cho tất cả card có người chơi
+                card.setAttribute("draggable", "true");
             } else {
                 // Slot trống
                 card.innerHTML = `
@@ -162,6 +160,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <p class="player-name">Waiting...</p>
                     <p class="player-score"></p>
                 `;
+                // Set draggable cho cả slot trống để có thể drop vào
+                card.setAttribute("draggable", "true");
             }
     
             // Thêm card vào team1 hoặc team2
@@ -284,25 +284,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function initializeDragAndDrop() {
         const playerCards = document.querySelectorAll('.player-card');
-        let draggedCard = null;
-    
+        
         playerCards.forEach(card => {
-            // Thêm event listeners cho tất cả card
-            card.setAttribute('draggable', true);
-    
-            // Khi bắt đầu kéo thẻ - chỉ cho phép kéo nếu có người chơi
+            // Dragstart event
             card.addEventListener('dragstart', (e) => {
+                console.log('Drag started');
                 const playerName = card.querySelector('.player-name')?.textContent;
                 if (playerName === 'Waiting...') {
                     e.preventDefault();
                     return;
                 }
                 draggedCard = card;
-                e.dataTransfer.setData('text/plain', card.dataset.slot);
                 card.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', card.dataset.slot);
             });
     
-            // Khi đang kéo thẻ - cho phép thả vào tất cả slot
+            // Dragover event
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 if (draggedCard && draggedCard !== card) {
@@ -310,23 +307,26 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             });
     
-            // Khi rời khỏi vùng thả
-            card.addEventListener('dragleave', () => {
+            // Dragleave event
+            card.addEventListener('dragleave', (e) => {
                 card.classList.remove('drag-over');
             });
     
-            // Khi thả thẻ - cho phép thả vào cả slot trống
+            // Drop event
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
+                console.log('Drop event triggered');
                 card.classList.remove('drag-over');
     
                 if (draggedCard && draggedCard !== card) {
-                    const fromSlot = parseInt(draggedCard.dataset.slot, 10);
-                    const toSlot = parseInt(card.dataset.slot, 10);
+                    const fromSlot = parseInt(draggedCard.dataset.slot);
+                    const toSlot = parseInt(card.dataset.slot);
+    
+                    console.log('Swapping slots:', { fromSlot, toSlot });
     
                     if (!isNaN(fromSlot) && !isNaN(toSlot) && fromSlot !== toSlot) {
                         socket.emit('swap_slots', {
-                            room_id: currentRoomId,
+                            room_id: roomId,
                             from_slot: fromSlot,
                             to_slot: toSlot
                         });
@@ -334,13 +334,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             });
     
-            // Khi kết thúc kéo thả
-            card.addEventListener('dragend', () => {
-                draggedCard?.classList.remove('dragging');
+            // Dragend event
+            card.addEventListener('dragend', (e) => {
+                card.classList.remove('dragging');
                 draggedCard = null;
+                // Remove drag-over class from all cards
+                document.querySelectorAll('.player-card').forEach(c => {
+                    c.classList.remove('drag-over');
+                });
             });
         });
-    }        
+    }       
 
     // Thêm xử lý sự kiện ready button
     document.getElementById('ready-btn')?.addEventListener('click', function() {
