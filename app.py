@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from urllib.parse import quote
 from werkzeug.security import generate_password_hash
 from email.mime.text import MIMEText
+from logicGame import game_bp
 import os
 import time
 import  uuid
@@ -19,6 +20,7 @@ import redis
 import json
 
 app = Flask(__name__)
+app.register_blueprint(game_bp)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
 #socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
 
@@ -1263,7 +1265,7 @@ def game_page(room_id):
         user_team = current_player['team']
         
         # Sửa đường dẫn template để trỏ đến đúng vị trí
-        return render_template('./logicGame/clientGame.html',
+        return render_template('clientGame.html',
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
@@ -1272,7 +1274,7 @@ def game_page(room_id):
     except Exception as e:
         print(f"Error loading game page: {e}")
         flash('Error loading game!', 'error')
-        return redirect(url_for('leaderboard'))
+        return redirect(url_for('home'))
 
 def sync_room_host(room_id):
     room_data = redis_client.get(f"room:{room_id}")
