@@ -1248,7 +1248,7 @@ def game_page(room_id):
         game_state = redis_client.get(f"game:{room_id}")
         if not game_state:
             flash('Game state not found!', 'error')
-            return redirect(url_for('leaderboard'))
+            return redirect(url_for('home'))
 
         game_data = json.loads(game_state)
         
@@ -1256,7 +1256,7 @@ def game_page(room_id):
         current_user_id = session.get('user_id')
         if current_user_id not in game_data['players']:
             flash('You are not part of this game!', 'error')
-            return redirect(url_for('home'))
+            return redirect(url_for('leaderboard'))
 
         # Lấy thông tin team của người chơi
         current_player = game_data['players'][current_user_id]
