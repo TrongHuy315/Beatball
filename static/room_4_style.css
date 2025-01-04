@@ -222,17 +222,23 @@ body {
 }
 
 #start-game-btn {
-    display: none; /* Mặc định ẩn */
-}
-
-#start-game-btn:not([disabled]) {
+    display: block;
     background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
     cursor: pointer;
+    transition: opacity 0.3s;
 }
 
-#start-game-btn[disabled] {
-    background-color: #cccccc;
+#start-game-btn:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
+}
+
+#start-game-btn:not(:disabled):hover {
+    opacity: 0.9;
 }
 
 /* Animation cho nút */

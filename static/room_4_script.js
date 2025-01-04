@@ -384,35 +384,47 @@ document.addEventListener("DOMContentLoaded", async () => {
     function updateControlButtons() {
         const currentUserId = document.getElementById("current-user-id")?.value;
         const isHost = currentUserId === currentHostId;
-        
+        console.log("Checking host status:", {currentUserId, currentHostId, isHost});
+    
         const readyBtn = document.getElementById("ready-btn");
         const startBtn = document.getElementById("start-game-btn");
-
+    
         if (readyBtn && startBtn) {
             if (isHost) {
                 readyBtn.style.display = "none"; 
                 startBtn.style.display = "block";
-                
-                // Kiểm tra điều kiện start game
-                const nonHostPlayers = document.querySelectorAll('.player-card:not(.host-player)');
-                const readyPlayers = document.querySelectorAll('.player-card .ready-marker');
-                
-                const team1Players = Array.from(document.querySelectorAll('.team-1 .player-card'))
+    
+                // Đếm số người chơi thực sự trong mỗi team (không tính Waiting...)
+                const team1 = document.querySelectorAll('.team-1 .player-card')
                     .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
-                const team2Players = Array.from(document.querySelectorAll('.team-2 .player-card'))
+                const team2 = document.querySelectorAll('.team-2 .player-card')
                     .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
-                
-                const eachTeamHasPlayer = team1Players.length > 0 && team2Players.length > 0;
-                const allNonHostReady = readyPlayers.length === nonHostPlayers.length;
-                
-                console.log('Start game conditions:', {
-                    eachTeamHasPlayer,
-                    nonHostPlayers: nonHostPlayers.length,
-                    readyPlayers: readyPlayers.length,
-                    allNonHostReady
+    
+                // Đếm tổng số người chơi và số người ready
+                const totalPlayers = team1.length + team2.length;
+                const readyPlayers = document.querySelectorAll('.player-card .ready-marker').length;
+                const expectedReadyCount = totalPlayers - 1; // Trừ host
+    
+                console.log("Game conditions:", {
+                    team1Count: team1.length,
+                    team2Count: team2.length,
+                    totalPlayers,
+                    readyPlayers,
+                    expectedReadyCount
                 });
-
+    
+                // Check điều kiện start game
+                const eachTeamHasPlayer = team1.length > 0 && team2.length > 0;
+                const allNonHostReady = (totalPlayers === 1) || (readyPlayers === expectedReadyCount);
+    
                 startBtn.disabled = !(eachTeamHasPlayer && allNonHostReady);
+                startBtn.style.opacity = startBtn.disabled ? "0.5" : "1";
+                
+                console.log("Start button state:", {
+                    eachTeamHasPlayer,
+                    allNonHostReady,
+                    disabled: startBtn.disabled
+                });
             } else {
                 readyBtn.style.display = "block";
                 startBtn.style.display = "none";
@@ -423,9 +435,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Thêm xử lý nút Start Game
     document.getElementById('start-game-btn')?.addEventListener('click', function() {
         if (!this.disabled) {
-            socket.emit('start_game', {
-                room_id: roomId
-            });
+            console.log("Starting game...");
+            socket.emit('start_game', { room_id: roomId });
         }
     });
 
