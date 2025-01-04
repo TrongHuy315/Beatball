@@ -1232,7 +1232,8 @@ def game_page(room_id):
         current_player = game_data['players'][current_user_id]
         user_team = current_player['team']
         
-        return render_template('./logicGame/clientGame.html',
+        # Sửa đường dẫn template
+        return render_template('clientGame.html', # Đường dẫn đã sửa
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
