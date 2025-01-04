@@ -9,7 +9,6 @@ from werkzeug.utils import secure_filename
 from urllib.parse import quote
 from werkzeug.security import generate_password_hash
 from email.mime.text import MIMEText
-from logicGame.game import Game
 import os
 import time
 import  uuid
@@ -48,9 +47,6 @@ redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 
 # Thời gian TTL mặc định cho room (2 giờ)
 ROOM_TTL = 7200
-
-# Khởi tạo Game instance
-game_manager = Game(socketio, redis_client)
 
 def save_room(room_id, room_data):
     """
@@ -1205,11 +1201,6 @@ def handle_player_input(data):
         # Broadcast update cho tất cả người chơi
         emit('game_state_update', game_data, room=room_id)
 
-@socketio.on('game_update')
-def handle_game_update(data):
-    room_id = data.get('room_id')
-    game_manager.update_game_state(room_id, data)
-
 @app.route('/game/<room_id>')
 @login_required
 def game_page(room_id):
@@ -1236,7 +1227,7 @@ def game_page(room_id):
         current_player = game_data['players'][current_user_id]
         user_team = current_player['team']
         
-        return render_template('clientGame.html',
+        return render_template('./logicGame/clientGame.html',
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
