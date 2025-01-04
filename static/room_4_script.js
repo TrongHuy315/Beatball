@@ -414,5 +414,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             renderPlayerCards(data.player_slots);
         }
+    });
+
+    socket.on("player_ready_update", (data) => {
+        const { username, is_ready } = data;
+    
+        console.log(`Player ${username} is now ${is_ready ? "Ready" : "Not Ready"}`);
+        if (is_ready) {
+            readyPlayers.add(username);
+        } else {
+            readyPlayers.delete(username);
+        }
+    
+        updatePlayerCardReadyStatus(username, is_ready);
+    
+        // Cập nhật nút Start nếu là host
+        if (document.getElementById("is-host").value === "true") {
+            updateControlButtons();
+        }
     });    
 });
