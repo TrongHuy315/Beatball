@@ -90,6 +90,21 @@ function drawBackground () { // DRAW THE BACKGROUND FOR THE PART OF THE STADIUM
 function drawPitch() { // DRAW THE BACKGROUND INSIDE AND THE BORDER 
     const {offset_horizontal, offset_vertical,nets, pitch, totalHeight, totalWidth} = CONFIG;   
     ctx.fillStyle = CONFIG.pitch.backgroundColor;
+
+    
+    // Tạo gradient trước
+    const gradient = ctx.createLinearGradient(
+        0, offset_vertical,
+        0, offset_vertical + pitch.height
+    );
+    gradient.addColorStop(0, 'rgba(46, 204, 113, 1)');
+    gradient.addColorStop(0.5, 'rgba(46, 204, 113, 0.92)'); // Điều chỉnh độ trong suốt
+    gradient.addColorStop(1, 'rgba(46, 204, 113, 1)');
+    
+    // Gán gradient làm fillStyle
+    ctx.fillStyle = gradient;
+
+
     ctx.fillRect(
         CONFIG.nets.borderWidth + CONFIG.nets.width + CONFIG.pitch.borderWidth + offset_horizontal, 
         CONFIG.pitch.borderWidth + offset_vertical, 
@@ -99,7 +114,7 @@ function drawPitch() { // DRAW THE BACKGROUND INSIDE AND THE BORDER
     
     // DRAW 
     ctx.lineWidth = CONFIG.pitch.borderWidth;
-    ctx.strokeStyle = "black";
+    ctx.strokeStyle = CONFIG.pitch.lineColor;
     ctx.strokeRect(
         CONFIG.nets.borderWidth + CONFIG.nets.width + CONFIG.pitch.borderWidth / 2 + offset_horizontal, 
         CONFIG.pitch.borderWidth / 2 + offset_vertical,
@@ -107,9 +122,24 @@ function drawPitch() { // DRAW THE BACKGROUND INSIDE AND THE BORDER
         CONFIG.pitch.height + CONFIG.pitch.borderWidth
     );
 }   
+function createGrassPattern() {
+    // Tạo pattern dạng sọc hoặc ô vuông nhạt
+    const stripeWidth = 30; // độ rộng của mỗi sọc
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    
+    // Vẽ các sọc ngang/dọc xen kẽ
+    for (let x = 0; x < pitch.width; x += stripeWidth * 2) {
+        ctx.fillRect(
+            nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal + x,
+            offset_vertical + pitch.borderWidth,
+            stripeWidth,
+            pitch.height
+        );
+    }
+}
 function drawLeftNets() {
     const {offset_horizontal, offset_vertical,nets, pitch, arc, totalHeight, totalWidth} = CONFIG;   
-    ctx.lineWidth = nets.borderWidth; 
+    ctx.lineWidth = CONFIG.pitch.borderWidth; 
     ctx.strokeStyle = nets.leftNetColor; 
     ctx.fillStyle = nets.leftNetBackgroundColor; 
 
@@ -165,7 +195,7 @@ function drawLeftNets() {
 }
 function drawRightNets() {
     const {offset_horizontal, offset_vertical, nets, pitch, arc, totalHeight, totalWidth} = CONFIG;   
-    ctx.lineWidth = nets.borderWidth; 
+    ctx.lineWidth = CONFIG.pitch.borderWidth; 
     ctx.strokeStyle = nets.rightNetColor; 
     ctx.fillStyle = nets.rightNetBackgroundColor; 
     ctx.globalAlpha = 1.0 
@@ -224,8 +254,8 @@ function drawRightNets() {
 
 function drawCenterLineAndCircle() { // DRAW MIDDLE LINE AND CIRCLE 
     const {offset_horizontal, offset_vertical,nets, pitch, totalHeight, totalWidth, circle} = CONFIG;   
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = circle.borderWidth;
+    ctx.strokeStyle = CONFIG.pitch.lineColor;
+    ctx.lineWidth = CONFIG.pitch.borderWidth;;
 
     ctx.beginPath(); // DRAW THE MIDDLE LINE 
     ctx.moveTo(
@@ -250,8 +280,8 @@ function drawCenterLineAndCircle() { // DRAW MIDDLE LINE AND CIRCLE
 
 function drawPenaltyAreas() { // DRAW PENALTY BOX 
     const {offset_horizontal, offset_vertical,nets, pitch, totalHeight, totalWidth, penaltyBox} = CONFIG; 
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = penaltyBox.borderWidth;
+    ctx.strokeStyle = CONFIG.pitch.lineColor;
+    ctx.lineWidth = CONFIG.pitch.borderWidth;
     ctx.strokeRect(
         nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal, 
         totalHeight / 2 - penaltyBox.height / 2 - penaltyBox.borderWidth / 2,         
@@ -270,11 +300,12 @@ function drawPenaltyAreas() { // DRAW PENALTY BOX
 function drawPenaltyArcs() { // DRAW PENALTY BOX ARC 
     const {offset_horizontal, offset_vertical,nets, pitch, arc, totalHeight, totalWidth} = CONFIG;   
     const arcRadius = arc.radius; 
-
+    ctx.strokeStyle = CONFIG.pitch.lineColor;
+    ctx.lineWidth = CONFIG.pitch.borderWidth;
     // LEFT ARC 
     ctx.beginPath();
     ctx.arc(
-        CONFIG.nets.borderWidth + CONFIG.nets.width + CONFIG.pitch.borderWidth + CONFIG.penaltyBox.width + offset_horizontal, // Tâm X (căn mép trong khu vực cấm địa)
+        CONFIG.nets.borderWidth + CONFIG.nets.width + CONFIG.pitch.borderWidth + CONFIG.penaltyBox.width + offset_horizontal + pitch.borderWidth / 2, // Tâm X (căn mép trong khu vực cấm địa)
         CONFIG.totalHeight / 2,                                      // Tâm Y (giữa chiều cao canvas)
         arcRadius,                                              // Bán kính hình bán nguyệt
         Math.PI / 2,                                            // Góc bắt đầu: 90 độ
@@ -286,7 +317,8 @@ function drawPenaltyArcs() { // DRAW PENALTY BOX ARC
     // RIGHT ARC 
     ctx.beginPath();
     ctx.arc(
-        CONFIG.totalWidth - CONFIG.nets.borderWidth - CONFIG.nets.width - CONFIG.pitch.borderWidth - CONFIG.penaltyBox.width - offset_horizontal, // Tâm X (mép trong bên phải)
+        CONFIG.totalWidth - CONFIG.nets.borderWidth - CONFIG.nets.width - CONFIG.pitch.borderWidth - CONFIG.penaltyBox.width - offset_horizontal - 
+        pitch.borderWidth / 2, // Tâm X (mép trong bên phải)
         CONFIG.totalHeight / 2,                                                     // Tâm Y (giữa chiều cao canvas)
         arcRadius,                                                             // Bán kính hình bán nguyệt
         Math.PI * 3 / 2,                                                       // Góc bắt đầu: 270 độ
@@ -302,7 +334,6 @@ function render() {
     drawPenaltyAreas(); 
     drawCenterLineAndCircle();
     drawPenaltyArcs(); 
-
     drawLeftNets();  
     drawRightNets();
 }

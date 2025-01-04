@@ -46,6 +46,7 @@ class Ball3 {
 	
 				if (ball3 && wall) {
 					this.stick++;
+					console.log("Colliding with wall"); 
 					if (this.stick > 1) return;
 	
 					const oldVel = this.oldVelocities.get(this.body.id);

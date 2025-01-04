@@ -6,19 +6,20 @@ window.CONFIG = {
     pitch: {
         width: 1100,  
         height: 550, 
-        borderWidth: 5, 
-        backgroundColor:'rgba(110, 120, 123, 0.25)' 
+        borderWidth: 3.8, 
+        backgroundColor:'rgba(46, 204, 112, 1)',  
+        lineColor: 'rgba(255, 255, 255, 1)',  
     },
     circle: {
-        radius: 120,
+        radius: 100,
         borderWidth: 5,  
     }, 
     arc: {
-        radius: 50, 
+        radius: 45, 
         borderWidth: 5, 
     }, 
     outer: {
-        backgroundColor:'rgba(0, 0, 0, 0.12)', 
+        backgroundColor:'rgba(34, 197, 94, 0.21)', 
         borderWidth: 2, 
     }, 
     gameConfig: {
@@ -92,7 +93,7 @@ window.CONFIG = {
         rightNetBackgroundColor: 'rgba(53, 124, 255, 0.29)',  
     },
     penaltyBox: {
-        width: 200,  
+        width: 175,  
         height: 300,
         borderWidth: 5, 
     },
