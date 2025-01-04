@@ -9,7 +9,6 @@ from werkzeug.utils import secure_filename
 from urllib.parse import quote
 from werkzeug.security import generate_password_hash
 from email.mime.text import MIMEText
-from logicGame import game_bp
 import os
 import time
 import  uuid
@@ -19,8 +18,10 @@ import smtplib
 import redis
 import json
 
-app = Flask(__name__)
-app.register_blueprint(game_bp)
+template_dir = os.path.abspath('.')
+
+app = Flask(__name__,
+            template_folder=template_dir)  # Set template folder là thư mục gốc)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
 #socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
 
@@ -1265,7 +1266,7 @@ def game_page(room_id):
         user_team = current_player['team']
         
         # Sửa đường dẫn template để trỏ đến đúng vị trí
-        return render_template('clientGame.html',
+        return render_template('./logicGame/clientGame.html',
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
