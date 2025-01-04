@@ -28,8 +28,6 @@ app.secret_key = 'BeatBall@xyz'
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Ngăn JavaScript truy cập cookie
 app.config['SESSION_COOKIE_SECURE'] = True   # Chỉ bật True nếu sử dụng HTTPS
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Bảo vệ chống tấn công CSRF
-app.config['STATIC_FOLDER'] = 'logicGame/static'
-app.config['GAME_MATTER_FOLDER'] = 'logicGame/matter'
 
 UPLOAD_FOLDER = 'static/uploads/avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
