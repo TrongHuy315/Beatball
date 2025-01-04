@@ -339,42 +339,95 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }        
 
+    // Thêm xử lý sự kiện ready button
+    document.getElementById('ready-btn')?.addEventListener('click', function() {
+        const isReady = this.classList.toggle('ready');
+        socket.emit('player_ready', {
+            room_id: roomId,
+            username: document.getElementById('current-username').value,
+            is_ready: isReady
+        });
+    });
+
+    // Lắng nghe sự kiện player_ready_update từ server
+    socket.on('player_ready_update', (data) => {
+        console.log('Ready update received:', data);
+        const playerCards = document.querySelectorAll('.player-card');
+        
+        playerCards.forEach(card => {
+            const playerName = card.querySelector('.player-name');
+            if (playerName && playerName.textContent === data.username) {
+                const readyMarker = card.querySelector('.ready-marker');
+                if (data.is_ready) {
+                    if (!readyMarker) {
+                        const marker = document.createElement('div');
+                        marker.className = 'ready-marker';
+                        marker.textContent = 'Ready';
+                        card.appendChild(marker);
+                    }
+                } else if (readyMarker) {
+                    readyMarker.remove();
+                }
+            }
+        });
+        
+        // Cập nhật trạng thái nút Start Game
+        if (data.can_start) {
+            const startBtn = document.getElementById('start-game-btn');
+            if (startBtn) {
+                startBtn.disabled = false;
+            }
+        }
+    });
+
+    // Sửa lại hàm updateControlButtons
     function updateControlButtons() {
         const currentUserId = document.getElementById("current-user-id")?.value;
         const isHost = currentUserId === currentHostId;
         
         const readyBtn = document.getElementById("ready-btn");
         const startBtn = document.getElementById("start-game-btn");
-    
-        // Đếm số người chơi thực sự (không phải slot "Waiting...")
-        const team1Players = Array.from(document.querySelectorAll('.team-1 .player-card'))
-            .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
-        const team2Players = Array.from(document.querySelectorAll('.team-2 .player-card'))
-            .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
-    
-        // Đếm số người chơi có ready marker
-        const readyPlayers = document.querySelectorAll('.player-card .ready-marker');
-    
-        const eachTeamHasPlayer = team1Players.length > 0 && team2Players.length > 0;
-        const totalPlayers = team1Players.length + team2Players.length;
-        const allPlayersReady = readyPlayers.length === totalPlayers - (isHost ? 1 : 0); // Trừ host
-    
+
         if (readyBtn && startBtn) {
             if (isHost) {
                 readyBtn.style.display = "none"; 
                 startBtn.style.display = "block";
-    
-                if (eachTeamHasPlayer && allPlayersReady) {
-                    startBtn.disabled = false;
-                } else {
-                    startBtn.disabled = true;
-                }
+                
+                // Kiểm tra điều kiện start game
+                const nonHostPlayers = document.querySelectorAll('.player-card:not(.host-player)');
+                const readyPlayers = document.querySelectorAll('.player-card .ready-marker');
+                
+                const team1Players = Array.from(document.querySelectorAll('.team-1 .player-card'))
+                    .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+                const team2Players = Array.from(document.querySelectorAll('.team-2 .player-card'))
+                    .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+                
+                const eachTeamHasPlayer = team1Players.length > 0 && team2Players.length > 0;
+                const allNonHostReady = readyPlayers.length === nonHostPlayers.length;
+                
+                console.log('Start game conditions:', {
+                    eachTeamHasPlayer,
+                    nonHostPlayers: nonHostPlayers.length,
+                    readyPlayers: readyPlayers.length,
+                    allNonHostReady
+                });
+
+                startBtn.disabled = !(eachTeamHasPlayer && allNonHostReady);
             } else {
                 readyBtn.style.display = "block";
                 startBtn.style.display = "none";
             }
         }
     }
+
+    // Thêm xử lý nút Start Game
+    document.getElementById('start-game-btn')?.addEventListener('click', function() {
+        if (!this.disabled) {
+            socket.emit('start_game', {
+                room_id: roomId
+            });
+        }
+    });
 
     function canStartGame() {
         const team1 = document.querySelectorAll('.team-1 .player-card:not(:empty)');

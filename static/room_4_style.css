@@ -221,22 +221,18 @@ body {
     background: linear-gradient(145deg, #FF6347, #FF4500);
 }
 
-.start-btn {
-    background: linear-gradient(145deg, #4169E1, #0000CD);
-    color: white;
+#start-game-btn {
+    display: none; /* Mặc định ẩn */
 }
 
-.start-btn:hover {
-    background: linear-gradient(145deg, #0000CD, #00008B);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+#start-game-btn:not([disabled]) {
+    background-color: #4CAF50;
+    cursor: pointer;
 }
 
-.start-btn:disabled {
-    background: #888;
+#start-game-btn[disabled] {
+    background-color: #cccccc;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }
 
 /* Animation cho nút */

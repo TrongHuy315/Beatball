@@ -1063,36 +1063,34 @@ def can_start_game(room_data):
 
 @socketio.on('player_ready')
 def handle_player_ready(data):
-    """
-    Xử lý khi người chơi nhấn Ready
-    """
     try:
         room_id = data['room_id']
         username = data['username']
         is_ready = data['is_ready']
         
-        # Lấy thông tin phòng
-        room_data = get_room_data(room_id)
+        room_data = get_room(room_id)
         if not room_data:
             return
         
-        # Cập nhật trạng thái ready cho người chơi
+        # Cập nhật trạng thái ready cho player
         for player in room_data['player_slots']:
             if player and player.get('username') == username:
                 player['is_ready'] = is_ready
                 break
         
-        # Lưu thông tin phòng đã cập nhật
-        if save_room_data(room_id, room_data):
-            # Gửi thông báo cập nhật cho tất cả người chơi trong phòng
-            emit('player_ready_update', {
-                'username': username,
-                'is_ready': is_ready,
-                'can_start': can_start_game(room_data)  # Thêm thông tin có thể start game không
-            }, room=room_id)
-            
-            print(f"Player {username} {'ready' if is_ready else 'cancelled ready'} in room {room_id}")
-    
+        # Kiểm tra điều kiện start game
+        can_start = can_start_game(room_data)
+        
+        # Lưu room data
+        save_room(room_id, room_data)
+        
+        # Emit event cập nhật UI
+        socketio.emit('player_ready_update', {
+            'username': username,
+            'is_ready': is_ready,
+            'can_start': can_start
+        }, room=room_id)
+        
     except Exception as e:
         print(f"Error handling player ready: {e}")
 
