@@ -9,8 +9,6 @@ from werkzeug.utils import secure_filename
 from urllib.parse import quote
 from werkzeug.security import generate_password_hash
 from email.mime.text import MIMEText
-# Thêm blueprint cho logic game
-from logicGame import init
 import os
 import time
 import  uuid
@@ -21,11 +19,9 @@ import redis
 import json
 
 app = Flask(__name__, 
-    template_folder='templates',  # Thư mục chứa templates
-    static_folder='static'        # Thư mục chứa static files
+    template_folder='.', # Cho phép tìm template từ thư mục gốc
+    static_folder='static'
 )
-app.register_blueprint(init.game_bp)
-
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
 #socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=10)
 
@@ -1239,8 +1235,8 @@ def game_page(room_id):
         current_player = game_data['players'][current_user_id]
         user_team = current_player['team']
         
-        # Sửa đường dẫn template
-        return render_template('clientGame.html', # Đường dẫn đã sửa
+        # Sửa đường dẫn template để trỏ đến đúng vị trí
+        return render_template('logicGame/clientGame.html',
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
@@ -1377,12 +1373,13 @@ def kick_player():
         print(f"Error kicking player: {e}")
         return jsonify({"error": "Failed to kick player"}), 500
 
-@app.route('/game/static/<path:filename>')
-def game_static(filename):
+# Thêm route để serve các file static từ logicGame
+@app.route('/logicGame/static/<path:filename>')
+def logicgame_static(filename):
     return send_from_directory('logicGame/static', filename)
 
-@app.route('/game/matter/<path:filename>')
-def game_matter(filename):
+@app.route('/logicGame/matter/<path:filename>') 
+def logicgame_matter(filename):
     return send_from_directory('logicGame/matter', filename)
 
 if __name__ == "__main__":
