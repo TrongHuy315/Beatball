@@ -76,19 +76,19 @@ class Ball {
     
             if (ball && wall) {
                 this.stick++;
-                if (this.stick > 1) return;
+                // if (this.stick > 1) return;
                 const oldVel = this.oldVelocities.get(this.body.id);
                 if (!oldVel) return;
     
                 const pushDirection = wall.customType;
                 const dampingDirection = 0.38;
     
-                // console.log("Pre-send Velocity: ", ball.velocity);
-                // console.log("Pre-send Position: ", ball.position);
+                console.log("Pre-send Velocity: ", ball.velocity);
+                console.log("Pre-send Position: ", ball.position);
     
                 // Lấy vector vận tốc cũ
-                let newVelX = oldVel.x;
-                let newVelY = oldVel.y;
+                let newVelX = ball.velocity.x;
+                let newVelY = ball.velocity.y;
     
                 switch (pushDirection) {
                     case 'U': // Đẩy lên
@@ -111,8 +111,8 @@ class Ball {
                     newVelY
                 );
     
-                // console.log("After-send Velocity: ", ball.velocity);
-                // console.log("After-send Position: ", ball.position);
+                console.log("After-send Velocity: ", ball.velocity);
+                console.log("After-send Position: ", ball.position);
                 this.sendBallState();
             }
         });

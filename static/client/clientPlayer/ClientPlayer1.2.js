@@ -25,6 +25,8 @@ class PlayerController {
         this.cursors = null;
         this.moveType = CONFIG.player.movement.type;
         this.rangeIndicator = null;
+        this.wasKicking = false; 
+        this.maxSpeed = CONFIG.player.movement.maxSpeed; 
 
         // -------------- SET UP CLIENT PREDICTION PROPERTIES ---------
         this.pendingInputs = [];
@@ -32,8 +34,42 @@ class PlayerController {
         this.serverVelocity = {x: 0, y: 0};
         this.sequence = 0; 
         this.lastUpdatetime = performance.now(); 
+
+        // -------------- AURA ANIMATION -------- 
+        this.auraAnimation = {
+            isPlaying: false,
+            currentRadius: 0,
+            startTime: 0,
+            duration: CONFIG.player.graphic.aura_duration || 0.3, // seconds
+            maxOffset: CONFIG.player.graphic.offset_aura || 15,
+            alpha: 1
+        };
+
+        // ------------- GHOST MODE ---------
+        this.isGhostMode = false;
+        this.originalFilter = null;
+    
+        // ------------- KEYBOARD ----------
+        this.lastSpecialKeyPressTime = 0; // thời điểm lần cuối bấm LKJI
+        this.offsetKeyboard = 300; // 0.3s = 300ms
+        
+        // Thêm object để lưu trạng thái các phím đặc biệt
+        this.specialKeyStates = {
+            ghost: false,  // O
+            pushBall: false,   // L
+            powerShot: false,  // K
+            kick: false,      // J
+            curveShot: false  // I
+        };
+    }
+    playAuraAnimation() {
+        this.auraAnimation.isPlaying = true;
+        this.auraAnimation.startTime = performance.now();
+        this.auraAnimation.currentRadius = 0;
+        this.auraAnimation.alpha = 1;
     }
 
+    
 
 	// PLAYER INITIALIZATION 
     create(x = 200, y = 200) {
@@ -51,6 +87,7 @@ class PlayerController {
         );
         this.scene.matter.add.gameObject(this.container, this.body);
         this.createPlayerName();
+        this.createAuraEffect(); 
         if (this.config.graphic.rangeConfig.visible) this.createRangeIndicator();
 
         // SET UP EVENT 
@@ -66,7 +103,11 @@ class PlayerController {
             down: Phaser.Input.Keyboard.KeyCodes.S,
             left: Phaser.Input.Keyboard.KeyCodes.A,
             right: Phaser.Input.Keyboard.KeyCodes.D,
-            kick: Phaser.Input.Keyboard.KeyCodes.L
+            kick: Phaser.Input.Keyboard.KeyCodes.J,
+            ghost: Phaser.Input.Keyboard.KeyCodes.O,
+            powerShot: Phaser.Input.Keyboard.KeyCodes.K,
+            pushBall: Phaser.Input.Keyboard.KeyCodes.L,
+            curveShot: Phaser.Input.Keyboard.KeyCodes.I
         });
         return this;
     }
@@ -79,6 +120,7 @@ class PlayerController {
         var xx = this.body.velocity.x * this.config.physics.damping; 
         var yy = this.body.velocity.y * this.config.physics.damping; 
         this.setVelocity(xx, yy); 
+        this.updateAura(); 
     }
     
 
@@ -173,6 +215,21 @@ class PlayerController {
             }
         });
     }
+    updateAura() {
+        if (!this.auraSprite || !this.auraAnimation.isPlaying) return;
+        
+        const currentTime = performance.now();
+        const elapsedTime = (currentTime - this.auraAnimation.startTime) / 1000;
+        const progress = Math.min(elapsedTime / this.auraAnimation.duration, 1);
+        
+        // Hiệu ứng alpha fade out
+        this.auraSprite.setAlpha((1 - progress) * 0.8);
+        
+        if (progress >= 1) {
+            this.auraAnimation.isPlaying = false;
+            this.auraSprite.setAlpha(0);
+        }
+    }
 	createPlayerName() {
         const nameConfig = this.config.graphic.nameConfig;
         if (!nameConfig.on) return;
@@ -258,37 +315,146 @@ class PlayerController {
         if (!this.cursors) return;
         const currentTime = performance.now();
         const deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-        this.lastUpdateTime = currentTime; // Cập nhật lastUpdateTime sau khi đã tính deltaTime
-
-        // Giới hạn deltaTime để tránh physics bugs khi lag
-        const cappedDeltaTime = Math.min(deltaTime, 0.1); 
-
+        this.lastUpdateTime = currentTime;
+    
         const input = {
             sequence: this.sequence++,
-            deltaTime: cappedDeltaTime,
+            deltaTime: Math.min(deltaTime, 0.1),
             inputX: 0,
             inputY: 0,
-            kick: this.cursors.kick.isDown,
-            timestamp: currentTime 
+            kick: false,
+            powerShot: false,
+            pushBall: false,
+            curveShot: false,
+            isInvisible: false,
+            timestamp: currentTime
         };
+    
+        // Xử lý phím di chuyển WASD
         if (this.cursors.left.isDown) input.inputX -= 1;
         if (this.cursors.right.isDown) input.inputX += 1;
         if (this.cursors.up.isDown) input.inputY -= 1;
         if (this.cursors.down.isDown) input.inputY += 1;
-
+    
+        // Reset tất cả trạng thái phím đặc biệt
+        Object.keys(this.specialKeyStates).forEach(key => {
+            this.specialKeyStates[key] = false;
+        });
+    
+        // Kiểm tra các phím được bấm
+        const pressedKeys = {
+            ghost: this.cursors.ghost.isDown,
+            kick: this.cursors.kick.isDown,
+            powerShot: this.cursors.powerShot.isDown,
+            pushBall: this.cursors.pushBall.isDown,
+            curveShot: this.cursors.curveShot.isDown
+        };
+    
+        const pressedSpecialKeys = Object.entries(pressedKeys).filter(([_, isPressed]) => isPressed);
+        const pressedCount = pressedSpecialKeys.length;
+        const timeSinceLastSpecial = currentTime - this.lastSpecialKeyPressTime;
+    
+        if (pressedCount > 0) {
+            if (pressedKeys.ghost) {
+                // Nếu có O được bấm (dù một mình hay cùng phím khác)
+                this.specialKeyStates.ghost = true;
+            } else {
+                // Không có O, xử lý theo thứ tự ưu tiên J > K > L > I
+                if (timeSinceLastSpecial >= this.offsetKeyboard) {
+                    if (pressedKeys.kick) {
+                        this.specialKeyStates.kick = true;
+                        this.lastSpecialKeyPressTime = currentTime;
+                    } else if (pressedKeys.powerShot) {
+                        this.specialKeyStates.powerShot = true;
+                        this.lastSpecialKeyPressTime = currentTime;
+                    } else if (pressedKeys.pushBall) {
+                        this.specialKeyStates.pushBall = true;
+                        this.lastSpecialKeyPressTime = currentTime;
+                    } else if (pressedKeys.curveShot) {
+                        this.specialKeyStates.curveShot = true;
+                        this.lastSpecialKeyPressTime = currentTime;
+                    }
+                }
+            }
+        }
+    
+        // Áp dụng trạng thái phím vào input
+        input.isInvisible = this.specialKeyStates.ghost;
+        input.kick = this.specialKeyStates.kick;
+        input.powerShot = this.specialKeyStates.powerShot;
+        input.pushBall = this.specialKeyStates.pushBall;
+        input.curveShot = this.specialKeyStates.curveShot;
+    
+        // Xử lý các hiệu ứng
+        if (this.specialKeyStates.kick && !this.wasKicking) {
+            this.playAuraAnimation();
+        }
+        this.wasKicking = this.specialKeyStates.kick;
+    
+        if (this.specialKeyStates.ghost && !this.isGhostMode) {
+            this.activateGhostMode();
+        } else if (!this.specialKeyStates.ghost && this.isGhostMode) {
+            this.deactivateGhostMode();
+        }
+    
         // APPLY INPUT 
         this.applyInput(input);
         
         // SAVE FOR RECONCILLIATION 
         if (this.pendingInputs.length > 100) {
-            this.pendingInputs = this.pendingInputs.slice(-100); // avoid memory leak 
+            this.pendingInputs = this.pendingInputs.slice(-100);
         }
         this.pendingInputs.push(input);
         
         // SEND INPUT TO SERVER 
         this.sendInputToServer(input);
-
+    
         return input;
+    }
+    activateGhostMode() {
+        if (this.isGhostMode) return;
+        const categories = {
+			outer: 0x0001,         // 000001
+			inner: 0x0002,         // 000010
+			player: 0x0004,        // 000100
+			ball: 0x0008,          // 001000
+			net: 0x0010,           // 010000
+			nonGraphicBall: 0x0020, // 100000
+			predictBall: 0x0040     // 1000000
+		};
+        
+        this.isGhostMode = true;
+    
+        // Lưu collision filter gốc
+        this.originalFilter = this.body.collisionFilter;
+    
+        // Mask sẽ loại trừ inner wall và các loại ball
+        this.body.collisionFilter = {
+            category: categories.player,
+            // Cho phép va chạm với tất cả NGOẠI TRỪ inner, ball, nonGraphicBall, predictBall
+            mask: categories.outer | categories.player | categories.net
+            // Hoặc viết theo cách khác:
+            // mask: ~(categories.inner | categories.ball | categories.nonGraphicBall | categories.predictBall)
+        };
+    
+        // Hiệu ứng ghost
+        this.graphics.setAlpha(0.5);
+        this.graphics.setTint(0x00ffff);
+    }
+
+    deactivateGhostMode() {
+        if (!this.isGhostMode) return;
+
+        this.isGhostMode = false;
+
+        // Khôi phục collision filter gốc
+        if (this.originalFilter) {
+            this.body.collisionFilter = this.originalFilter;
+        }
+
+        // Khôi phục graphics
+        this.graphics.setAlpha(1);
+        this.graphics.clearTint();
     }
     applyInput(input) {
         const { maxSpeed, acceleration, deceleration } = CONFIG.player.movement;
@@ -312,8 +478,8 @@ class PlayerController {
     
             // Cap max speed
             const currentSpeed = Math.sqrt(vx * vx + vy * vy);
-            if (currentSpeed > maxSpeed) {
-                const scale = maxSpeed / currentSpeed;
+            if (currentSpeed > this.maxSpeed) {
+                const scale = this.maxSpeed / currentSpeed;
                 vx *= scale;
                 vy *= scale;
             }
@@ -329,6 +495,10 @@ class PlayerController {
                 inputX: input.inputX,
                 inputY: input.inputY,
                 kick: input.kick,
+                powerShot: input.powerShot,
+                pushBall: input.pushBall,
+                curveShot: input.curveShot,
+                isInvisible: input.isInvisible,
                 timestamp: input.timestamp
             },
         });
@@ -566,6 +736,50 @@ class PlayerController {
         return Date.now() + this.clientTimeOffset;
     }
 
+    // AURA 
+    createAuraEffect() {
+        const { radius } = this.config.graphic;
+        const maxRadius = radius + this.auraAnimation.maxOffset;
+        
+        // Tạo texture cho aura
+        const auraTextureName = 'aura_effect';
+        if (!this.scene.textures.exists(auraTextureName)) {
+            const canvas = document.createElement('canvas');
+            const size = maxRadius * 2;
+            canvas.width = size;
+            canvas.height = size;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Tạo radial gradient từ rìa player tới max offset
+            const gradient = ctx.createRadialGradient(
+                size/2, size/2, radius,  // bắt đầu từ rìa player
+                size/2, size/2, maxRadius // kết thúc ở max offset
+            );
+            
+            // Điều chỉnh gradient thành màu xanh lá
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)'); // Vẫn giữ trung tâm trắng
+            gradient.addColorStop(0.3, 'rgba(150, 255, 150, 0.6)'); // Xanh lá nhạt
+            gradient.addColorStop(0.6, 'rgba(50, 255, 50, 0.4)'); // Xanh lá đậm
+            gradient.addColorStop(1, 'rgba(0, 255, 0, 0)'); // Xanh lá fade out
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, maxRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            this.scene.textures.addCanvas(auraTextureName, canvas);
+        }
+        
+        // Tạo sprite cho aura với scale 1 (đã đúng kích thước)
+        this.auraSprite = this.scene.add.sprite(0, 0, auraTextureName);
+        this.auraSprite.setAlpha(0);
+        this.auraSprite.setScale(1);
+        this.auraSprite.setDepth(-1);
+        this.auraSprite.setBlendMode(Phaser.BlendModes.ADD);
+        
+        this.container.add(this.auraSprite);
+    }
 	// DESTROY 
 	destroy() {
         // 1. Remove physics event listener
@@ -634,5 +848,40 @@ class PlayerController {
         this.config = null;
         this.scene = null;
         this.position = null;
+    }
+    createTrailEffect() {
+        this.trailPositions = [];
+        this.maxTrails = 5;
+        this.trailSprites = [];
+        
+        // Tạo các sprite cho trail
+        for(let i = 0; i < this.maxTrails; i++) {
+            const trail = this.scene.add.sprite(0, 0, 'player');
+            trail.setAlpha(0.15 - (i * 0.03)); // Độ mờ giảm dần
+            trail.setTint(0x4444ff); // Tạo màu xanh cho trail
+            trail.setDepth(-1);
+            this.container.add(trail);
+            this.trailSprites.push(trail);
+        }
+    }
+    
+    updateTrail() {
+        // Thêm vị trí hiện tại vào đầu mảng
+        this.trailPositions.unshift({x: 0, y: 0});
+        
+        // Giới hạn số lượng trail
+        if(this.trailPositions.length > this.maxTrails) {
+            this.trailPositions.pop();
+        }
+    
+        // Cập nhật vị trí của các trail sprite
+        this.trailSprites.forEach((sprite, index) => {
+            if(this.trailPositions[index]) {
+                sprite.setPosition(
+                    this.trailPositions[index].x,
+                    this.trailPositions[index].y
+                );
+            }
+        });
     }
 }

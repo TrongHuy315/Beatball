@@ -19,7 +19,7 @@ window.CONFIG = {
         borderWidth: 5, 
     }, 
     outer: {
-        backgroundColor:'rgba(34, 197, 94, 0.21)', 
+        backgroundColor:'rgba(46, 204, 112, 1)', 
         borderWidth: 2, 
     }, 
     gameConfig: {
@@ -89,8 +89,8 @@ window.CONFIG = {
         cornerRadius: 5, 
         leftNetColor: 'rgb(243, 10, 29)', 
         rightNetColor: 'rgb(0, 174, 255)',
-        leftNetBackgroundColor: 'rgba(255, 0, 0, 0.23)',
-        rightNetBackgroundColor: 'rgba(53, 124, 255, 0.29)',  
+        leftNetBackgroundColor: 'rgba(255, 61, 61, 0.63)',
+        rightNetBackgroundColor: 'rgba(53, 124, 255, 0.51)',  
     },
     penaltyBox: {
         width: 175,  

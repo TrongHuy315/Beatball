@@ -87,11 +87,24 @@ function drawBackground () { // DRAW THE BACKGROUND FOR THE PART OF THE STADIUM
     //     nets.height + 2 * nets.borderWidth, 
     // )
 }
+function createGrassStripes() {
+    const {offset_horizontal, offset_vertical, nets, pitch} = CONFIG;
+    const stripeWidth = 400; // Độ rộng của mỗi sọc
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)'; // Độ mờ của sọc
+    
+    for (let y = 0; y < pitch.height; y += stripeWidth * 2) {
+        ctx.fillRect(
+            nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal,
+            offset_vertical + pitch.borderWidth + y,
+            pitch.width,
+            stripeWidth
+        );
+    }
+}
 function drawPitch() { // DRAW THE BACKGROUND INSIDE AND THE BORDER 
     const {offset_horizontal, offset_vertical,nets, pitch, totalHeight, totalWidth} = CONFIG;   
     ctx.fillStyle = CONFIG.pitch.backgroundColor;
 
-    
     // Tạo gradient trước
     const gradient = ctx.createLinearGradient(
         0, offset_vertical,
@@ -122,48 +135,36 @@ function drawPitch() { // DRAW THE BACKGROUND INSIDE AND THE BORDER
         CONFIG.pitch.height + CONFIG.pitch.borderWidth
     );
 }   
-function createGrassPattern() {
-    // Tạo pattern dạng sọc hoặc ô vuông nhạt
-    const stripeWidth = 30; // độ rộng của mỗi sọc
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    
-    // Vẽ các sọc ngang/dọc xen kẽ
-    for (let x = 0; x < pitch.width; x += stripeWidth * 2) {
-        ctx.fillRect(
-            nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal + x,
-            offset_vertical + pitch.borderWidth,
-            stripeWidth,
-            pitch.height
-        );
-    }
-}
 function drawLeftNets() {
-    const {offset_horizontal, offset_vertical,nets, pitch, arc, totalHeight, totalWidth} = CONFIG;   
+    const {offset_horizontal, offset_vertical, nets, pitch, arc, totalHeight, totalWidth} = CONFIG;   
+
+    // Code gốc của bạn giữ nguyên từ đây
     ctx.lineWidth = CONFIG.pitch.borderWidth; 
     ctx.strokeStyle = nets.leftNetColor; 
     ctx.fillStyle = nets.leftNetBackgroundColor; 
 
-    ctx.strokeRect( // STROKE IT 
+    ctx.strokeRect(
         nets.borderWidth / 2 + offset_horizontal, 
         totalHeight / 2 - nets.height / 2 - nets.borderWidth / 2,
         nets.width + nets.borderWidth / 2 + pitch.borderWidth / 2, 
         nets.height + nets.borderWidth 
     );
-    ctx.clearRect( // Clear way to receive ball 
+
+    ctx.clearRect(
         nets.borderWidth + nets.width + offset_horizontal, 
         totalHeight / 2 - nets.height / 2, 
         pitch.borderWidth, 
         nets.height
     );
-    ctx.fillStyle = 'white'; 
-    ctx.fillRect( // FILL BACKGROUND COLOR FOR LEFT GOAL 
+
+    ctx.fillStyle = 'white';
+    ctx.fillRect(
         nets.borderWidth + offset_horizontal, 
         totalHeight / 2 - nets.height / 2,
         nets.width + pitch.borderWidth, 
         nets.height 
     );
 
-    // FILL LEFT GOAL 
     ctx.fillStyle = nets.leftNetBackgroundColor; 
     netsCtx.fillStyle = nets.leftNetBackgroundColor; 
     netsCtx.fillRect( 
@@ -175,7 +176,7 @@ function drawLeftNets() {
     
     ctx.fillStyle = nets.leftNetColor; 
 
-    ctx.beginPath(); // upper corner 
+    ctx.beginPath();
     ctx.arc(
         nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,                       
         totalHeight / 2 - nets.height / 2 - nets.borderWidth / 2, 
@@ -184,7 +185,7 @@ function drawLeftNets() {
     );
     ctx.fill();
 
-    ctx.beginPath(); // lower corner 
+    ctx.beginPath();
     ctx.arc(
         nets.borderWidth + nets.width + pitch.borderWidth / 2 + offset_horizontal,                                       
         totalHeight / 2 + nets.height / 2 + nets.borderWidth / 2, 
@@ -327,6 +328,123 @@ function drawPenaltyArcs() { // DRAW PENALTY BOX ARC
     );
     ctx.stroke();
 }
+function drawCornerArcs() {
+    const {offset_horizontal, offset_vertical, nets, pitch} = CONFIG;
+    
+    // Vị trí các góc
+    const corners = [
+        // Góc trái trên
+        {
+            x: nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal,
+            y: pitch.borderWidth + offset_vertical,
+            startAngle: 0,
+            endAngle: Math.PI * 0.5,
+            color: 'rgba(255, 50, 50, 0.8)'  // Màu đỏ cho team đỏ
+        },
+        // Góc trái dưới
+        {
+            x: nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal,
+            y: pitch.borderWidth + offset_vertical + pitch.height,
+            startAngle: Math.PI * 1.5,
+            endAngle: Math.PI * 2,
+            color: 'rgba(255, 50, 50, 0.8)'  // Màu đỏ cho team đỏ
+        },
+        // Góc phải trên
+        {
+            x: nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal + pitch.width,
+            y: pitch.borderWidth + offset_vertical,
+            startAngle: Math.PI * 0.5,
+            endAngle: Math.PI,
+            color: 'rgba(50, 150, 255, 0.8)'  // Màu xanh cho team xanh
+        },
+        // Góc phải dưới
+        {
+            x: nets.borderWidth + nets.width + pitch.borderWidth + offset_horizontal + pitch.width,
+            y: pitch.borderWidth + offset_vertical + pitch.height,
+            startAngle: Math.PI,
+            endAngle: Math.PI * 1.5,
+            color: 'rgba(50, 150, 255, 0.8)'  // Màu xanh cho team xanh
+        }
+    ];
+
+    const radius = 15;
+
+    corners.forEach(corner => {
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, radius, corner.startAngle, corner.endAngle);
+        ctx.lineTo(corner.x, corner.y);
+        ctx.closePath();
+        
+        ctx.fillStyle = corner.color;
+        ctx.fill();
+
+        // Vẽ viền 1/4 hình tròn
+        ctx.strokeStyle = CONFIG.pitch.lineColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, radius, corner.startAngle, corner.endAngle);
+        ctx.stroke();
+    });
+}
+function drawStadiumLights() {
+    const {offset_horizontal, offset_vertical, nets, pitch} = CONFIG;
+    
+    // Vị trí các đèn (4 góc sân)
+    const lights = [
+        // Góc trái trên
+        {
+            x: nets.borderWidth + nets.width + offset_horizontal,
+            y: offset_vertical,
+            startAngle: 0,                // Bắt đầu từ góc 0 độ
+            endAngle: Math.PI / 2         // Đến 90 độ
+        },
+        // Góc trái dưới
+        {
+            x: nets.borderWidth + nets.width + offset_horizontal,
+            y: offset_vertical + pitch.height + pitch.borderWidth * 2,
+            startAngle: -Math.PI / 2,     // Bắt đầu từ -90 độ
+            endAngle: 0                   // Đến 0 độ
+        },
+        // Góc phải trên
+        {
+            x: nets.borderWidth + nets.width + pitch.width + pitch.borderWidth * 2 + offset_horizontal,
+            y: offset_vertical,
+            startAngle: Math.PI / 2,      // Bắt đầu từ 90 độ
+            endAngle: Math.PI             // Đến 180 độ
+        },
+        // Góc phải dưới
+        {
+            x: nets.borderWidth + nets.width + pitch.width + pitch.borderWidth * 2 + offset_horizontal,
+            y: offset_vertical + pitch.height + pitch.borderWidth * 2,
+            startAngle: -Math.PI,         // Bắt đầu từ -180 độ
+            endAngle: -Math.PI / 2        // Đến -90 độ
+        }
+    ];
+
+    lights.forEach(light => {
+        // Tạo gradient cho tia sáng
+        const gradient = ctx.createRadialGradient(
+            light.x, light.y, 0,
+            light.x, light.y, 400  // Tăng độ dài tia sáng để phủ sâu vào sân
+        );
+        
+        // Giảm độ đậm của ánh sáng thêm nữa
+        gradient.addColorStop(0, 'rgba(255, 255, 220, 0.08)');   // Vàng nhạt ở tâm
+        gradient.addColorStop(0.4, 'rgba(255, 255, 220, 0.05)');
+        gradient.addColorStop(0.7, 'rgba(255, 255, 220, 0.03)');
+        gradient.addColorStop(1, 'rgba(255, 255, 220, 0)');      // Mờ dần về cuối
+
+        ctx.fillStyle = gradient;
+
+        // Vẽ hình quạt cho tia sáng
+        ctx.beginPath();
+        ctx.arc(light.x, light.y, 400, light.startAngle, light.endAngle);
+        ctx.lineTo(light.x, light.y);
+        ctx.closePath();
+        ctx.fill();
+    });
+}
+
 function render() {
     ctx.clearRect(0, 0, CONFIG.totalWidth, CONFIG.totalHeight); // Clear canvas
     drawBackground(); 
@@ -334,7 +452,9 @@ function render() {
     drawPenaltyAreas(); 
     drawCenterLineAndCircle();
     drawPenaltyArcs(); 
+    drawStadiumLights(); 
+    drawCornerArcs(); 
     drawLeftNets();  
-    drawRightNets();
+    drawRightNets();    
 }
 render();

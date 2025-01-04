@@ -47,7 +47,7 @@ class Ball3 {
 				if (ball3 && wall) {
 					this.stick++;
 					console.log("Colliding with wall"); 
-					if (this.stick > 1) return;
+					// if (this.stick > 1) return;
 	
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
@@ -55,8 +55,8 @@ class Ball3 {
 					const pushDirection = wall.customType;
 					const dampingDirection = 0.38;
 	
-					let newVelX = oldVel.x;
-					let newVelY = oldVel.y;
+					let newVelX = ball3.velocity.x;
+                	let newVelY = ball3.velocity.y;
 	
 					switch (pushDirection) {
 						case 'U':
