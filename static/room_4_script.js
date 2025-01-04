@@ -438,8 +438,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Thêm xử lý nút Start Game
     document.getElementById('start-game-btn')?.addEventListener('click', function() {
         if (!this.disabled) {
-            console.log("Starting game...");
-            socket.emit('start_game', { room_id: roomId });
+            console.log("Checking game conditions...");
+            
+            const team1 = document.querySelectorAll('.team-1 .player-card')
+                .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+            const team2 = document.querySelectorAll('.team-2 .player-card')
+                .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+            
+            console.log("Team counts:", {
+                team1: team1.length,
+                team2: team2.length
+            });
+    
+            const readyMarkers = document.querySelectorAll('.player-card .ready-marker');
+            console.log("Ready players:", readyMarkers.length);
+    
+            if (team1.length > 0 && team2.length > 0) {
+                console.log("Starting game...");
+                socket.emit('start_game', { 
+                    room_id: roomId,
+                    teams: {
+                        team1: team1.length,
+                        team2: team2.length
+                    }
+                });
+            } else {
+                alert("Each team must have at least one player.");
+            }
         }
     });
 

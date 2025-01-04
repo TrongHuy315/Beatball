@@ -1037,30 +1037,35 @@ def get_room_data(room_id):
         return None
 
 def can_start_game(room_data):
-    """
-    Kiểm tra điều kiện để bắt đầu game
-    """
     if not room_data:
         return False
     
     try:
-        # Lấy danh sách người chơi trong từng đội
-        team1 = [player for i, player in enumerate(room_data['player_slots']) if player and i < 2]
-        team2 = [player for i, player in enumerate(room_data['player_slots']) if player and i >= 2]
+        # Lấy danh sách người chơi thực sự trong từng team
+        team1 = [player for i, player in enumerate(room_data['player_slots']) 
+                if player and i < 2 and player['username'] != 'Waiting...']
+        team2 = [player for i, player in enumerate(room_data['player_slots']) 
+                if player and i >= 2 and player['username'] != 'Waiting...']
 
         # Kiểm tra mỗi đội có ít nhất 1 người
-        if not team1 or not team2:
+        if len(team1) == 0 or len(team2) == 0:
             return False
-        
-        # Kiểm tra tất cả người chơi đã ready (trừ host)
-        for player in room_data['player_slots']:
-            if player and not player.get('is_host') and not player.get('is_ready', False):
-                return False
 
-        return True
+        # Đếm tổng số người chơi và số người ready
+        total_players = len(team1) + len(team2)
+        ready_count = sum(1 for player in room_data['player_slots'] 
+                         if player and player.get('is_ready', False))
         
+        # Tính số người cần ready (trừ host)
+        host_id = room_data.get('host_id')
+        non_host_count = sum(1 for player in room_data['player_slots']
+                            if player and player['user_id'] != host_id)
+
+        # Kiểm tra tất cả người chơi không phải host đã ready chưa
+        return ready_count == non_host_count
+
     except Exception as e:
-        print(f"Error checking game start conditions: {e}")
+        print(f"Error in can_start_game: {e}")
         return False
 
 @socketio.on('player_ready')
