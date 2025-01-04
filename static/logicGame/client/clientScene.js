@@ -67,7 +67,7 @@ class ClientScene extends Phaser.Scene {
 
     }
     preload() {
-        this.load.audio('endGameSound', './static/sound/endGameSound/endGameSound1.mp3');
+        this.load.audio('endGameSound', '/static/sound/endGameSound/endGameSound1.mp3');
         this.scoreboard = new Scoreboard();
         
         // Thêm listener cho sự kiện 9 giây cuối
@@ -97,7 +97,7 @@ class ClientScene extends Phaser.Scene {
             console.error('File URL:', file.url);
         });
 
-        this.load.audio('kick1', './static/sound/normalKickSound/normalKick1.mp3');
+        this.load.audio('kick1', '/static/sound/normalKickSound/normalKick1.mp3');
     }
     create() {
         this.endGameSound = this.sound.add('endGameSound', {

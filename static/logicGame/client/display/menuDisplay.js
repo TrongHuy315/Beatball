@@ -72,7 +72,7 @@ class MenuDisplay {
         this.settingIcon.onerror = (error) => {
             console.error('Setting icon load error:', error);
         };
-        this.settingIcon.src = 'static/images/settingIcon/icon1.png';
+        this.settingIcon.src = '/static/images/settingIcon/icon1.png';
 
         // Load leave icon
         this.leaveIcon = new Image();
@@ -82,7 +82,7 @@ class MenuDisplay {
         this.leaveIcon.onerror = (error) => {
             console.error('Leave icon load error:', error);
         };
-        this.leaveIcon.src = 'static/images/leaveIcon/icon1.png';
+        this.leaveIcon.src = '/static/images/leaveIcon/icon1.png';
     }
     renderIcons() {
         // Vẽ background cho khu vực icons
