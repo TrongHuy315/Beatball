@@ -1256,14 +1256,14 @@ def game_page(room_id):
         current_user_id = session.get('user_id')
         if current_user_id not in game_data['players']:
             flash('You are not part of this game!', 'error')
-            return redirect(url_for('leaderboard'))
+            return redirect(url_for('home'))
 
         # Lấy thông tin team của người chơi
         current_player = game_data['players'][current_user_id]
         user_team = current_player['team']
         
         # Sửa đường dẫn template để trỏ đến đúng vị trí
-        return render_template('logicGame/clientGame.html',
+        return render_template('./logicGame/clientGame.html',
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
@@ -1272,7 +1272,7 @@ def game_page(room_id):
     except Exception as e:
         print(f"Error loading game page: {e}")
         flash('Error loading game!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('leaderboard'))
 
 def sync_room_host(room_id):
     room_data = redis_client.get(f"room:{room_id}")
