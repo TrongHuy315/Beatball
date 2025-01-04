@@ -349,29 +349,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         const team1Players = document.querySelectorAll('.team-1 .player-card:not(:empty)');
         const team2Players = document.querySelectorAll('.team-2 .player-card:not(:empty)');
-        const readyPlayers = document.querySelectorAll('.player-card.ready');
+        
+        // Đếm số người chơi có ready marker
+        const readyPlayers = document.querySelectorAll('.player-card .ready-marker');
+        
+        // Log để debug
+        console.log({
+            team1Count: team1Players.length,
+            team2Count: team2Players.length,
+            readyCount: readyPlayers.length
+        });
     
         // Điều kiện kiểm tra
         const eachTeamHasPlayer = team1Players.length > 0 && team2Players.length > 0;
-        const allPlayersReady = readyPlayers.length === team1Players.length + team2Players.length - 1; // Trừ host
+        const totalPlayers = team1Players.length + team2Players.length;
+        const allPlayersReady = readyPlayers.length === totalPlayers - 1; // Trừ host
     
         if (readyBtn && startBtn) {
             if (isHost) {
-                readyBtn.style.display = "none";
+                readyBtn.style.display = "none"; 
                 startBtn.style.display = "block";
     
-                // Chỉ bật nút Start Game nếu điều kiện thỏa mãn
+                // Log điều kiện start
+                console.log("Start conditions:", {
+                    eachTeamHasPlayer,
+                    totalPlayers,
+                    readyPlayersCount: readyPlayers.length,
+                    allPlayersReady
+                });
+    
                 if (eachTeamHasPlayer && allPlayersReady) {
                     startBtn.disabled = false;
                     console.log("Start button enabled for host");
                 } else {
                     startBtn.disabled = true;
-                    console.log("Start button disabled for host: Teams must have players and all must be ready");
+                    console.log("Start button disabled - Conditions not met");
                 }
             } else {
                 readyBtn.style.display = "block";
                 startBtn.style.display = "none";
-                console.log("Showing Ready button for non-host");
             }
         }
     }
