@@ -1243,12 +1243,12 @@ def game_page(room_id):
         room = get_room(room_id)
         if not room or room['status'] != 'playing':
             flash('Game not found or not started!', 'error')
-            return redirect(url_for('leaderboard'))
+            return redirect(url_for('home'))
 
         game_state = redis_client.get(f"game:{room_id}")
         if not game_state:
             flash('Game state not found!', 'error')
-            return redirect(url_for('home'))
+            return redirect(url_for('leaderboard'))
 
         game_data = json.loads(game_state)
         
