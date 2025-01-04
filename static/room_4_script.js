@@ -252,18 +252,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Trong file room_4.js
     socket.on('game_started', (data) => {
-        const { game_state, message } = data;
+        const { room_id, game_state, message } = data;
         
+        // Lưu game state vào sessionStorage để có thể truy cập ở trang game
         sessionStorage.setItem('game_state', JSON.stringify(game_state));
+        
+        // Hiển thị loading screen
         showGameLoadingScreen();
         
+        // Redirect sau 1.5s
         setTimeout(() => {
-            window.location.href = `/game/${roomId}`; // Sửa currentRoomId thành roomId
+            window.location.href = `/game/${room_id}`;
         }, 1500);
     });
-
+    
     function showGameLoadingScreen() {
-        // Tạo và hiển thị màn hình loading
         const loadingScreen = document.createElement('div');
         loadingScreen.className = 'loading-screen';
         loadingScreen.innerHTML = `

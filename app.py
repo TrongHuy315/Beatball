@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from urllib.parse import quote
 from werkzeug.security import generate_password_hash
 from email.mime.text import MIMEText
+from logicGame.game import Game
 import os
 import time
 import  uuid
@@ -28,6 +29,8 @@ app.secret_key = 'BeatBall@xyz'
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Ngăn JavaScript truy cập cookie
 app.config['SESSION_COOKIE_SECURE'] = True   # Chỉ bật True nếu sử dụng HTTPS
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Bảo vệ chống tấn công CSRF
+app.config['GAME_STATIC_FOLDER'] = os.path.join('logicGame', 'static')
+app.config['GAME_MATTER_FOLDER'] = os.path.join('logicGame', 'matter')
 
 UPLOAD_FOLDER = 'static/uploads/avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -45,6 +48,9 @@ redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 
 # Thời gian TTL mặc định cho room (2 giờ)
 ROOM_TTL = 7200
+
+# Khởi tạo Game instance
+game_manager = Game(socketio, redis_client)
 
 def save_room(room_id, room_data):
     """
@@ -1096,36 +1102,59 @@ def handle_player_ready(data):
 
 @socketio.on('start_game')
 def handle_start_game(data):
-    """
-    Xử lý khi host nhấn Start Game
-    """
     try:
         room_id = data['room_id']
-        room_data = get_room_data(room_id)
+        room = get_room(room_id)
         
-        # Kiểm tra điều kiện start game
-        if not can_start_game(room_data):
+        if not can_start_game(room):
             emit('game_error', {
-                'message': 'Cannot start game. Each team must have at least 1 player, and all players must be ready.'
+                'message': 'Cannot start game. Check team and ready status.'
             }, room=room_id)
             return
-        
-        # Khởi tạo trạng thái game
-        game_state = initialize_game(room_data)
-        
-        # Lưu trạng thái game vào Redis
+
+        # Khởi tạo dữ liệu game và lưu vào Redis
+        game_state = {
+            'room_id': room_id,
+            'status': 'playing',
+            'players': {},
+            'teams': {
+                'left': [],
+                'right': []
+            },
+            'scores': {
+                'left': 0,
+                'right': 0
+            },
+            'timestamp': time.time()
+        }
+
+        # Phân chia team dựa trên vị trí slot
+        for i, player in enumerate(room['player_slots']):
+            if player:
+                team = 'left' if i < 2 else 'right'
+                player_data = {
+                    'id': player['user_id'],
+                    'username': player['username'],
+                    'team': team
+                }
+                game_state['players'][player['user_id']] = player_data
+                game_state['teams'][team].append(player['user_id'])
+
+        # Lưu game state vào Redis
         redis_client.set(f"game:{room_id}", json.dumps(game_state))
         
         # Cập nhật trạng thái phòng
-        room_data['game_state'] = 'playing'
-        save_room_data(room_id, room_data)
-        
-        # Thông báo game bắt đầu cho tất cả người chơi
+        room['status'] = 'playing'
+        room['game_state'] = game_state
+        save_room(room_id, room)
+
+        # Thông báo tất cả người chơi - gửi cả room_id để client redirect
         emit('game_started', {
+            'room_id': room_id,
             'game_state': game_state,
             'message': 'Game is starting!'
         }, room=room_id)
-        
+
         print(f"Game started in room {room_id}")
         
     except Exception as e:
@@ -1151,39 +1180,72 @@ def initialize_game(room_data):
     
     return game_state
 
-# Trong app.py hoặc routes.py
+@socketio.on('join_game')
+def handle_join_game(data):
+    room_id = data.get('room_id')
+    user_id = data.get('user_id')
+    
+    game_state = redis_client.get(f"game:{room_id}")
+    if game_state:
+        join_room(room_id)
+        emit('game_state_update', json.loads(game_state), room=room_id)
+
+@socketio.on('player_input')
+def handle_player_input(data):
+    room_id = data.get('room_id')
+    game_state = redis_client.get(f"game:{room_id}")
+    
+    if game_state:
+        game_data = json.loads(game_state)
+        # Xử lý input và cập nhật game state
+        
+        # Lưu game state mới
+        redis_client.set(f"game:{room_id}", json.dumps(game_data))
+        
+        # Broadcast update cho tất cả người chơi
+        emit('game_state_update', game_data, room=room_id)
+
+@socketio.on('game_update')
+def handle_game_update(data):
+    room_id = data.get('room_id')
+    game_manager.update_game_state(room_id, data)
 
 @app.route('/game/<room_id>')
 @login_required
 def game_page(room_id):
-    """
-    Render trang game
-    """
     try:
-        # Lấy thông tin phòng
-        room_data = get_room_data(room_id)
-        if not room_data:
-            flash('Room not found!', 'error')
-            return redirect(url_for('rooms'))
-            
-        # Kiểm tra người dùng có trong phòng không
+        room = get_room(room_id)
+        if not room or room['status'] != 'playing':
+            flash('Game not found or not started!', 'error')
+            return redirect(url_for('home'))
+
+        game_state = redis_client.get(f"game:{room_id}")
+        if not game_state:
+            flash('Game state not found!', 'error')
+            return redirect(url_for('home'))
+
+        game_data = json.loads(game_state)
+        
+        # Kiểm tra người chơi có trong game không
         current_user_id = session.get('user_id')
-        if not any(p and p.get('user_id') == current_user_id 
-                  for p in room_data['player_slots']):
-            flash('You are not in this room!', 'error')
-            return redirect(url_for('rooms'))
-            
-        # Render trang game
-        return render_template('game.html', 
+        if current_user_id not in game_data['players']:
+            flash('You are not part of this game!', 'error')
+            return redirect(url_for('home'))
+
+        # Lấy thông tin team của người chơi
+        current_player = game_data['players'][current_user_id]
+        user_team = current_player['team']
+        
+        return render_template('clientGame.html',
                              room_id=room_id,
-                             room_data=room_data)
-                             
+                             game_data=game_data,
+                             user_team=user_team,
+                             user_id=current_user_id)
+
     except Exception as e:
         print(f"Error loading game page: {e}")
         flash('Error loading game!', 'error')
-        return redirect(url_for('rooms'))
-    
-# app.py
+        return redirect(url_for('home'))
 
 def sync_room_host(room_id):
     room_data = redis_client.get(f"room:{room_id}")
@@ -1310,6 +1372,14 @@ def kick_player():
     except Exception as e:
         print(f"Error kicking player: {e}")
         return jsonify({"error": "Failed to kick player"}), 500
+
+@app.route('/game/static/<path:filename>')
+def game_static(filename):
+    return send_from_directory('logicGame/static', filename)
+
+@app.route('/game/matter/<path:filename>')
+def game_matter(filename):
+    return send_from_directory('logicGame/matter', filename)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
