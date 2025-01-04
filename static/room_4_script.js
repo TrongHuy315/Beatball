@@ -397,10 +397,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 readyBtn.style.display = "none"; 
                 startBtn.style.display = "block";
     
-                // Đếm số người chơi thực sự trong mỗi team (không tính Waiting...)
-                const team1 = document.querySelectorAll('.team-1 .player-card')
+                // Convert NodeList to Array before using filter
+                const team1 = Array.from(document.querySelectorAll('.team-1 .player-card'))
                     .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
-                const team2 = document.querySelectorAll('.team-2 .player-card')
+                const team2 = Array.from(document.querySelectorAll('.team-2 .player-card'))
                     .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
     
                 // Đếm tổng số người chơi và số người ready
@@ -440,9 +440,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!this.disabled) {
             console.log("Checking game conditions...");
             
-            const team1 = document.querySelectorAll('.team-1 .player-card')
+            // Convert NodeList to Array before using filter
+            const team1 = Array.from(document.querySelectorAll('.team-1 .player-card'))
                 .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
-            const team2 = document.querySelectorAll('.team-2 .player-card')
+            const team2 = Array.from(document.querySelectorAll('.team-2 .player-card'))
                 .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
             
             console.log("Team counts:", {
@@ -469,8 +470,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     function canStartGame() {
-        const team1 = document.querySelectorAll('.team-1 .player-card:not(:empty)');
-        const team2 = document.querySelectorAll('.team-2 .player-card:not(:empty)');
+        const team1 = Array.from(document.querySelectorAll('.team-1 .player-card:not(:empty)'));
+        const team2 = Array.from(document.querySelectorAll('.team-2 .player-card:not(:empty)'));
         const readyPlayers = document.querySelectorAll('.player-card.ready');
     
         // Mỗi đội phải có ít nhất 1 người
