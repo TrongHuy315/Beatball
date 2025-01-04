@@ -627,7 +627,8 @@ class ClientScene extends Phaser.Scene {
     }
     // SET UP SOCKET EVENT 
     setupWebSocket() {
-        this.SOCKET = io('http://localhost:3000', { 
+        const socketURL = window.location.origin.replace(/^http/, 'ws');
+        this.SOCKET = io(socketURL, { 
             transports: ['websocket'],
             upgrade: false, 
             auth: {
@@ -635,7 +636,8 @@ class ClientScene extends Phaser.Scene {
                 version: '1.0', 
                 clientId: clientId
             }
-        }); 
+        });
+
         var socket = this.SOCKET;
 
         // ----- SERVER CONNECTION ------- 
