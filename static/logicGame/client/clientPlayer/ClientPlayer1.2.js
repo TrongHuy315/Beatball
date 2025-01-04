@@ -1,8 +1,8 @@
 class PlayerController {
     constructor(scene) {
 		this.scene = scene;
-        this.teamInfo = teamInfo; // {team: 'left'/'right', slot: number}
-        this.config = this.getTeamConfig();
+        this.config = CONFIG.player;
+
 
 		// -------------------- SET UP PLAYER CANVA ----------------  
         this.horizontalOffset = this.config.horizontal;
@@ -34,46 +34,12 @@ class PlayerController {
         this.lastUpdatetime = performance.now(); 
     }
 
-    getTeamConfig() {
-        const baseConfig = CONFIG.player;
-        const teamColors = {
-            'left': {
-                fillColor: '#1E90FF', // Màu xanh cho team trái (1)
-                borderColor: '#4169E1',
-                rangeColor: 'rgba(30, 144, 255, 0.2)'
-            },
-            'right': {
-                fillColor: '#FF4136', // Màu đỏ cho team phải (2)
-                borderColor: '#DC143C',
-                rangeColor: 'rgba(255, 65, 54, 0.2)'
-            }
-        };
-
-        // Clone config để không ảnh hưởng config gốc
-        const teamConfig = JSON.parse(JSON.stringify(baseConfig));
-        
-        // Áp dụng màu sắc theo team
-        if (this.teamInfo && teamColors[this.teamInfo.team]) {
-            const colors = teamColors[this.teamInfo.team];
-            teamConfig.graphic.fillColor = colors.fillColor;
-            teamConfig.graphic.borderColor = colors.borderColor;
-            teamConfig.graphic.rangeConfig.color = colors.rangeColor;
-        }
-
-        return teamConfig;
-    }
 
 	// PLAYER INITIALIZATION 
     create(x = 200, y = 200) {
-        this.config = this.getTeamConfig();
+        this.config = CONFIG.player;
         this.spawnX = x;
         this.spawnY = y;
-
-        // Cập nhật thông tin người chơi
-        if (playerData) {
-            this.config.graphic.numberConfig.value = this.teamInfo.slot + 1;
-            this.config.graphic.nameConfig.value = playerData.username;
-        }
 
         // ----- SET UP PLAYER BODY -------
         this.graphics = this.createGraphics();  // SET UP GRAPHIC 
