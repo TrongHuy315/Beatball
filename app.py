@@ -1263,7 +1263,7 @@ def game_page(room_id):
         user_team = current_player['team']
         
         # Sửa đường dẫn template để trỏ đến đúng vị trí
-        return render_template('./logicGame/clientGame.html',
+        return render_template('clientGame.html',
                              room_id=room_id,
                              game_data=game_data,
                              user_team=user_team,
