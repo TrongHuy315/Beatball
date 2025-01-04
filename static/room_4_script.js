@@ -438,8 +438,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Thêm xử lý nút Start Game
     document.getElementById('start-game-btn')?.addEventListener('click', function() {
         if (!this.disabled) {
-            console.log("Starting game...");
-            socket.emit('start_game', { room_id: roomId });
+            console.log("Checking game conditions...");
+            
+            const team1 = document.querySelectorAll('.team-1 .player-card')
+                .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+            const team2 = document.querySelectorAll('.team-2 .player-card')
+                .filter(card => card.querySelector('.player-name')?.textContent !== 'Waiting...');
+            
+            console.log("Team counts:", {
+                team1: team1.length,
+                team2: team2.length
+            });
+    
+            const readyMarkers = document.querySelectorAll('.player-card .ready-marker');
+            console.log("Ready players:", readyMarkers.length);
+    
+            if (team1.length > 0 && team2.length > 0) {
+                console.log("Starting game...");
+                socket.emit('start_game', { 
+                    room_id: roomId,
+                    teams: {
+                        team1: team1.length,
+                        team2: team2.length
+                    }
+                });
+            } else {
+                alert("Each team must have at least one player.");
+            }
         }
     });
 
@@ -481,5 +506,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             renderPlayerCards(data.player_slots);
         }
-    });  
+    });
+
+    // Thêm xử lý sự kiện click Join Room
+    async function joinRoom(roomId) {
+        try {
+            console.log(`Attempting to join room ${roomId}`);
+            
+            const response = await fetch(`/join-room/${roomId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            console.log('Join room response:', data);
+
+            if (response.ok) {
+                // Redirect to room page on success
+                window.location.href = `/room/${roomId}`;
+            } else {
+                // Show error message
+                alert(data.error || 'Failed to join room');
+            }
+        } catch (error) {
+            console.error('Error joining room:', error);
+            alert('Failed to join room. Please try again.');
+        }
+    }
 });
