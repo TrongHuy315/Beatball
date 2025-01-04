@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatBall</title>
+    <style>
+        body {
+            background-color: #f0e7e786;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+        }
+    </style> 
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="stadium_canvas"></canvas>
+        <canvas id="nets_canvas"></canvas>
+        <div id="player_container"></div>
+        <canvas div id="menu-display"></canvas>
+        <canvas id="scoreboard_canvas"></canvas>
+    </div>
+
+    <!-- LIBRARY -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.87.0/phaser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+    <!-- CONFIGURATION AND UTILITIES -->
+    <script src="./logicGame/static/client/class/config.js"></script>
+    <script src="./logicGame/static/client/class/helperFunc.js"></script>
+    <script src="./logicGame/static/client/class/pingDisplay.js"></script>
+
+    <!-- GAME OBJECTS -->
+    <script src="./logicGame/static/client/class/wall.js"></script>
+    <script src="./logicGame/static/client/class/scoreboard.js"></script>
+    <script src="./logicGame/static/client/clientBall/clientBall1.5.js"></script>
+    <script src="./logicGame/static/client/clientBall/clientBall1.1.js"></script>
+    <script src="./logicGame/static/client/clientBall/clientBall1.6.js"></script>
+    <script src="./logicGame/static/client/clientPlayer/clientPlayer1.2.js"></script>
+
+    <!-- INTERPOLATION AND SCENES -->
+    <script src="./logicGame/static/client/display/menuDisplay.js"></script>
+    <script src="./logicGame/static/client/display/stadium.js"></script>
+    <script src="./logicGame/static/client/interpolation/interpolate1.2.js"></script>
+    <script src="./logicGame/static/client/clientScene.js"></script>
+</body>
+</html>
