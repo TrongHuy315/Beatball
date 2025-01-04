@@ -45,5 +45,30 @@
     <script src="/static/logicGame/client/display/stadium.js"></script>
     <script src="/static/logicGame/client/interpolation/interpolate1.2.js"></script>
     <script src="/static/logicGame/client/clientScene.js"></script>
+
+    <script>
+        // Trong clientGame.html
+        const config = {
+            type: Phaser.AUTO,
+            width: CONFIG.totalWidth,
+            height: CONFIG.totalHeight,
+            parent: 'soccer-container',
+            physics: {
+                default: 'matter',
+                matter: {
+                    debug: CONFIG.physics.debug,
+                    gravity: { y: 0 }
+                }
+            },
+            scene: GameScene,
+            // Thêm data từ server
+            gameData: {{ game_data|tojson|safe }},
+            userId: "{{ user_id }}",
+            userTeam: "{{ user_team }}"
+        };
+
+        // Create game instance
+        const game = new Phaser.Game(config);
+    </script>
 </body>
 </html>

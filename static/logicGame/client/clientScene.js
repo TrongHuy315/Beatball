@@ -100,6 +100,9 @@ class ClientScene extends Phaser.Scene {
         this.load.audio('kick1', '/static/sound/normalKickSound/normalKick1.mp3');
     }
     create() {
+        // Create players based on game_data
+        this.createPlayers();
+        
         this.endGameSound = this.sound.add('endGameSound', {
             volume: 1,
             loop: true
@@ -148,6 +151,57 @@ class ClientScene extends Phaser.Scene {
 
         this.menuDisplay = new MenuDisplay(this);
         // this.initializeRunner();
+    }
+
+    createPlayers() {
+        const game_data = this.game.config.gameData;
+        const currentUserId = this.game.config.userId;
+        
+        // Vị trí spawn cho từng team
+        const spawnPositions = {
+            left: [
+                {x: CONFIG.totalWidth * 0.25, y: CONFIG.totalHeight * 0.35},
+                {x: CONFIG.totalWidth * 0.25, y: CONFIG.totalHeight * 0.65}
+            ],
+            right: [
+                {x: CONFIG.totalWidth * 0.75, y: CONFIG.totalHeight * 0.35},
+                {x: CONFIG.totalWidth * 0.75, y: CONFIG.totalHeight * 0.65}
+            ]
+        };
+
+        // Khởi tạo containers cho players
+        this.players = {};
+        this.currentPlayer = null;
+        this.otherPlayers = {};
+
+        let leftCount = 0;
+        let rightCount = 0;
+
+        // Tạo player cho mỗi người chơi trong game_data
+        Object.entries(game_data.players).forEach(([playerId, playerData]) => {
+            const team = playerData.team; // 'left' hoặc 'right'
+            const slot = team === 'left' ? leftCount++ : rightCount++;
+            const spawnPos = spawnPositions[team][slot];
+
+            const teamInfo = {
+                team: team,
+                slot: slot
+            };
+
+            // Tạo player controller
+            const player = new PlayerController(this, teamInfo);
+            player.create(spawnPos.x, spawnPos.y, playerData);
+
+            // Lưu reference
+            this.players[playerId] = player;
+
+            // Xác định current player và other players
+            if (playerId === currentUserId) {
+                this.currentPlayer = player;
+            } else {
+                this.otherPlayers[playerId] = player;
+            }
+        });
     }
 
     // GOAL CELEBRATION 
