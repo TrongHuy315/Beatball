@@ -28,8 +28,8 @@ app.secret_key = 'BeatBall@xyz'
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Ngăn JavaScript truy cập cookie
 app.config['SESSION_COOKIE_SECURE'] = True   # Chỉ bật True nếu sử dụng HTTPS
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Bảo vệ chống tấn công CSRF
-app.config['GAME_STATIC_FOLDER'] = os.path.join('logicGame', 'static')
-app.config['GAME_MATTER_FOLDER'] = os.path.join('logicGame', 'matter')
+app.config['STATIC_FOLDER'] = 'logicGame/static'
+app.config['GAME_MATTER_FOLDER'] = 'logicGame/matter'
 
 UPLOAD_FOLDER = 'static/uploads/avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -1399,15 +1399,6 @@ def kick_player():
     except Exception as e:
         print(f"Error kicking player: {e}")
         return jsonify({"error": "Failed to kick player"}), 500
-
-# Thêm route để serve các file static từ logicGame
-@app.route('/logicGame/static/<path:filename>')
-def logicgame_static(filename):
-    return send_from_directory('logicGame/static', filename)
-
-@app.route('/logicGame/matter/<path:filename>') 
-def logicgame_matter(filename):
-    return send_from_directory('logicGame/matter', filename)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
