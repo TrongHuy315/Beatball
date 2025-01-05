@@ -50,38 +50,5 @@
     <script src="/static/logicGame/client/display/stadium.js"></script>
     <script src="/static/logicGame/client/interpolation/interpolate1.2.js"></script>
     <script src="/static/logicGame/client/clientScene.js"></script>
-
-    <script>
-        const config = {
-            type: Phaser.AUTO,
-            width: CONFIG.totalWidth,
-            height: CONFIG.totalHeight,
-            parent: 'soccer-container',
-            physics: {
-                default: 'matter',
-                matter: {
-                    gravity: { y: 0 }
-                }
-            },
-            scene: GameScene,
-            // Thêm data từ server
-            gameData: {{ game_data|tojson|safe }},
-            userId: "{{ user_id }}",
-            userTeam: "{{ user_team }}"
-        };
-
-        socket.on('game_started', (data) => {
-            const gameState = data.game_state;
-        
-            gameState.players.forEach(player => {
-                const playerObj = new PlayerController(scene);
-                playerObj.create(player.position.x, player.position.y);
-                // Gán thêm thuộc tính team nếu cần
-            });
-        
-            const ballObj = new Ball3(scene, CONFIG.ball);
-            ballObj.setPosition(gameState.ball.position.x, gameState.ball.position.y);
-        });        
-    </script>
 </body>
 </html>
