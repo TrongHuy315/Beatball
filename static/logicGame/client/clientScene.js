@@ -625,13 +625,17 @@ class ClientScene extends Phaser.Scene {
     }
     // SET UP SOCKET EVENT 
     setupWebSocket() {
-        const socketURL = window.location.origin.replace(/^http/, 'ws');
-        this.SOCKET = io(socketURL, { 
+        // Lấy URL động từ window.location
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        const socketURL = `${protocol}//${host}`;
+        
+        this.SOCKET = io(socketURL, {
             transports: ['websocket'],
-            upgrade: false, 
+            upgrade: false,
             auth: {
                 clientType: 'gameClient',
-                version: '1.0', 
+                version: '1.0',
                 clientId: clientId
             }
         });
