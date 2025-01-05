@@ -116,55 +116,92 @@ class ClientScene extends Phaser.Scene {
         });
         this.kickSound = this.sound.add('kick1');
         this.kickSounds = [this.kickSound];
-        const { totalWidth, totalHeight } = CONFIG;
-        const { wall, nets, pitch } = CONFIG;
-        // ----- SET UP PHYSICS WORLD -----
-        this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
-        this.matter.world.setGravity(0, 0);
-
-        // ----- SET UP WALLS WORLD ----- 
-        createWalls(this); 
-        // ----- BALL -----
-        this.ball = new Ball(this, CONFIG.ball);
-        this.ball3 = new Ball3(this, CONFIG.ball);
-        this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
-
-        // ---- SCOREBOARD ----
-        this.scoreboard.draw();
-
-        // ---- Socket Connection -----
-        this.setupWebSocket();
-
-        if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
         
-        // FPS display
-        this.fpsText = this.add.text(10, 10, '', { 
-            fontSize: '16px', 
-            fill: '#00ff00' 
-        });
-        // ---- INTERPOLATION 
-        this.interpolators = new InterpolationManager(this); 
-        this.matter.world.autoUpdate = false;
-        this.startGameLoop(); 
+        try {
+            const { totalWidth, totalHeight } = CONFIG;
+            const { wall, nets, pitch } = CONFIG;
+            // ----- SET UP PHYSICS WORLD -----
+            this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
+            this.matter.world.setGravity(0, 0);
 
-        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
-        this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
-        this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
-        this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
-        this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+            // ----- SET UP WALLS WORLD ----- 
+            createWalls(this); 
+            // ----- BALL -----
+            this.ball = new Ball(this, CONFIG.ball);
+            this.ball3 = new Ball3(this, CONFIG.ball);
+            this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
 
-        this.menuDisplay = new MenuDisplay(this);
-        // this.initializeRunner();
+            // ---- SCOREBOARD ----
+            this.scoreboard.draw();
 
-        // Get game data from hidden input
-        const gameData = JSON.parse(document.getElementById('game-data').value);
-        const userTeam = document.getElementById('user-team').value;
-        const userId = document.getElementById('user-id').value;
+            // ---- Socket Connection -----
+            this.setupWebSocket();
 
-        // Create players for each team
-        this.createTeamPlayers(gameData.left, 'left');
-        this.createTeamPlayers(gameData.right, 'right');
+            if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
+            
+            // FPS display
+            this.fpsText = this.add.text(10, 10, '', { 
+                fontSize: '16px', 
+                fill: '#00ff00' 
+            });
+            // ---- INTERPOLATION 
+            this.interpolators = new InterpolationManager(this); 
+            this.matter.world.autoUpdate = false;
+            this.startGameLoop(); 
+
+            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+            this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+            this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+            this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
+            this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+
+            this.menuDisplay = new MenuDisplay(this);
+            // this.initializeRunner();
+
+            // Lấy và parse game data một cách an toàn
+            const gameDataElement = document.getElementById('game-data');
+            const userTeamElement = document.getElementById('user-team');
+            const userIdElement = document.getElementById('user-id');
+
+            let gameData = null;
+            let userTeam = null;
+            let userId = null;
+
+            if (gameDataElement && gameDataElement.value) {
+                try {
+                    gameData = JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
+                } catch (e) {
+                    console.warn('Error parsing game data:', e);
+                    gameData = { left: [], right: [] };
+                }
+            }
+    
+            if (userTeamElement) {
+                userTeam = userTeamElement.value;
+            }
+    
+            if (userIdElement) {
+                userId = userIdElement.value;
+            }
+
+            console.log('Game Data:', gameData);
+            console.log('User Team:', userTeam);
+            console.log('User ID:', userId);
+
+            if (gameData) {
+                // Create players for each team
+                this.createTeamPlayers(gameData.left || [], 'left');
+                this.createTeamPlayers(gameData.right || [], 'right');
+            }
+
+            // Create players for each team
+            this.createTeamPlayers(gameData.left, 'left');
+            this.createTeamPlayers(gameData.right, 'right');
+        }
+        catch (error) {
+            console.error('Error in create():', error);
+        }
     }
 
     createTeamPlayers(teamPlayers, side) {
@@ -980,7 +1017,10 @@ const configPhaser = {
     scene: ClientScene
 };
 
-const game = new Phaser.Game(configPhaser);
+let game;
+if (typeof game === 'undefined') {
+    game = new Phaser.Game(configPhaser);
+}
 window.addEventListener('beforeunload', (event) => {
     if (game.scene.scenes[0].SOCKET) {
         game.scene.scenes[0].SOCKET.emit('leaveGame');

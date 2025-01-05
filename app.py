@@ -1269,14 +1269,20 @@ def game_page(room_id):
                     'username': slot['username'],
                     'score': slot.get('score', 1000)
                 })
-                
-                if slot['user_id'] == current_user_id:
-                    user_team = team
+
+        user_team = None
+        for i, slot in enumerate(room['player_slots']):
+            if slot and slot['user_id'] == current_user_id:
+                user_team = 'left' if i < 2 else 'right'
+                break
+
+        # Encode data properly for template
+        game_data_json = json.dumps(team_data)
 
         return render_template('clientGame.html',
                              room_id=room_id,
-                             game_data=team_data,
-                             user_team=user_team,
+                             game_data=game_data_json,
+                             user_team=user_team or '',
                              user_id=current_user_id)
 
     except Exception as e:
