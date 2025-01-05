@@ -139,6 +139,7 @@ class ClientScene extends Phaser.Scene {
         try {
             // Initialize basic elements first
             this.initializeBasicElements();
+
             // Lấy và parse game data một cách an toàn
             const gameDataElement = document.getElementById('game-data');
             const userTeamElement = document.getElementById('user-team');
@@ -483,90 +484,93 @@ class ClientScene extends Phaser.Scene {
 
     // CONSTATLY UPDATE SCENE 
     update() {
-        // Update menu if exists
         if (this.menuDisplay) {
             this.menuDisplay.update();
         }
-    
-        // Only process input if player exists and game started
-        if (this.player && this.gameStarted) {
-            if (this.spaceKey?.isDown) {
-                if (this.SOCKET) {
-                    this.SOCKET.emit('ballMoveUpward');
-                }
-                if (this.ball) {
-                    this.ball.setVelocity(0, -5); 
-                }
+        if (this.spaceKey.isDown) {
+            // Gửi yêu cầu reset bóng đến server
+            if (this.SOCKET) {
+                this.SOCKET.emit('ballMoveUpward');
             }
-    
-            if (this.zKey?.isDown) {
-                if (this.SOCKET) {
-                    this.SOCKET.emit('resetBallToCenter');
-                }
-                if (this.ball) {
-                    this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-                    this.ball.setVelocity(0, 0);
-                }
-                if (this.ball3) {
-                    this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-                    this.ball3.setVelocity(0, 0);
-                }
+            // this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, -5); 
+        }
+        if (this.zKey.isDown) {
+            // Gửi yêu cầu reset bóng đến server
+            if (this.SOCKET) {
+                this.SOCKET.emit('resetBallToCenter');
             }
-    
-            if (this.xKey?.isDown) {
-                if (this.SOCKET && this.ball && this.player) {
-                    this.SOCKET.emit('requestPutNextToBall');
-                    this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-                    this.ball.setVelocity(0, 0);
-                    
-                    const OFFSET_X = 50;
-                    const newPlayerPosition = {
-                        x: this.ball.body.position.x - OFFSET_X,
-                        y: this.ball.body.position.y
-                    };
-                    this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-                    this.player.setVelocity(0, 0);
-                }
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, 0); 
+            this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball3.setVelocity(0, 0); 
+        }
+        if (this.xKey.isDown) {
+            if (this.SOCKET) {
+                this.SOCKET.emit('requestPutNextToBall');
             }
-    
-            if (this.cKey?.isDown) {
-                if (this.SOCKET && this.ball && this.player) {
-                    this.SOCKET.emit('requestPutDiagionalToBall');
-                    this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-                    this.ball.setVelocity(0, 0);
-                    
-                    const OFFSET = 50;
-                    const newPlayerPosition = {
-                        x: this.ball.body.position.x - OFFSET,
-                        y: this.ball.body.position.y - OFFSET
-                    };
-                    this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-                    this.player.setVelocity(0, 0);
-                }
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, 0); 
+            const OFFSET_X = 50; 
+            const newPlayerPosition = {
+                x: this.ball.body.position.x - OFFSET_X, 
+                y: this.ball.body.position.y 
+            };
+
+            this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
+            this.player.setVelocity(0, 0); 
+        }
+        if (this.cKey.isDown) {
+            if (this.SOCKET) {
+                this.SOCKET.emit('requestPutDiagionalToBall');
             }
-    
-            if (this.vKey?.isDown) {
-                if (this.SOCKET) {
-                    this.SOCKET.emit('diagionalTestCombo');
-                    if (this.ball && this.ball3) {
-                        const OFFSET = 170;
-                        this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET);
-                        this.ball.setVelocity(-5, -3);
-                        this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET);
-                        this.ball3.setVelocity(-5, -3);
-                    }
-                }
-            }
-    
-            if (this.bKey?.isDown && this.ball) {
-                this.ball.setPosition(this.ball.body.position.x + 4, this.ball.body.position.y);
+            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
+            this.ball.setVelocity(0, 0); 
+            const OFFSET = 50; 
+            const newPlayerPosition = {
+                x: this.ball.body.position.x - OFFSET, 
+                y: this.ball.body.position.y - OFFSET 
+            };
+
+            this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
+            this.player.setVelocity(0, 0); 
+        }
+        if (this.vKey.isDown) {
+            if (this.SOCKET) {
+                this.SOCKET.emit('diagionalTestCombo');
+                const OFFSET = 170; 
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET); 
+                this.ball.setVelocity(-5, -3); 
+                this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET); 
+                this.ball3.setVelocity(-5, -3); 
             }
         }
-    
-        // Update ball3 if exists
-        if (this.ball3) {
-            this.ball3.update();
+        if (this.bKey.isDown) {
+            this.ball.setPosition(this.ball.body.position.x + 4, this.ball.body.position.y); 
         }
+        if (this.ball && this.ball1) {
+            const dx = this.ball.body.position.x - this.ball1.body.position.x;
+            const dy = this.ball.body.position.y - this.ball1.body.position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Log khoảng cách và vị trí của cả 2 bóng
+            // console.log({
+            //     distance: distance.toFixed(2) + 'px',
+            //     ball: {
+            //         x: this.ball.body.position.x.toFixed(2),
+            //         y: this.ball.body.position.y.toFixed(2)
+            //     },
+            //     ball1: {
+            //         x: this.ball1.body.position.x.toFixed(2),
+            //         y: this.ball1.body.position.y.toFixed(2)
+            //     },
+            //     difference: {
+            //         x: dx.toFixed(2),
+            //         y: dy.toFixed(2)
+            //     }
+            // });
+        }
+        this.ball3.update(); 
     }
 
     // HANDLE RECEIVED DATA 
@@ -805,36 +809,14 @@ class ClientScene extends Phaser.Scene {
             console.log('Connection error:', error);
         });
         socket.on('approveJoin', (data) => {
-            try {
-                console.log('Received approveJoin data:', data); // Debug log
-        
-                this.playerId = data.playerId;
-                
-                // Create player with team color
-                const side = data.side;
-                const player = new PlayerController(this);
-                player.create(data.position.x, data.position.y);
-                
-                if (side && this.teamColors[side]) {
-                    player.setTeamColor(this.teamColors[side]);
-                }
-                
-                // Assign as current player and add to players map
-                this.player = player;
-                this.players.set(data.playerId, player);
-        
-                // Update scoreboard if scores exist
-                if (data.scores) {
-                    this.gameState.scores = data.scores;
-                    if (this.scoreboard) {
-                        this.scoreboard.updateScore('left', data.scores.left);
-                        this.scoreboard.updateScore('right', data.scores.right);
-                    }
-                }
-        
-                console.log(`Player created: ${data.playerId} on team ${side}`);
-            } catch (error) {
-                console.error('Error in approveJoin:', error);
+            this.playerId = data.playerId;
+            this.player = new PlayerController(this);
+            this.player.create(data.x, data.y);
+            this.players.set(data.playerId, this.player);
+            if (data.scores) {
+                this.gameState.scores = data.scores;
+                this.scoreboard.updateScore('left', data.scores.left);
+                this.scoreboard.updateScore('right', data.scores.right);
             }
         });
 

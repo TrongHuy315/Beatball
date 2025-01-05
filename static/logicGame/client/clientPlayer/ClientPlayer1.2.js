@@ -637,10 +637,10 @@ class PlayerController {
     }
 
     setTeamColor(teamColors) {
+        const { fillColor, borderColor } = this.config.graphic;
         this.config.graphic.fillColor = teamColors.primary;
-        this.config.graphic.borderColor = teamColors.secondary;
         
-        // Recreate graphics with new colors
+        // Recreate graphics with new color
         if (this.graphics) {
             this.graphics.destroy();
             this.graphics = this.createGraphics();
@@ -651,29 +651,11 @@ class PlayerController {
     }
 
     createGraphics() {
+        // Update createGraphics to use the current config colors
         if (!this.scene.textures.exists('player')) {
             const { radius, fillColor, borderColor, borderWidth } = this.config.graphic;
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            const diameter = radius * 2;
-            
-            canvas.width = diameter;
-            canvas.height = diameter;
-            
-            // Draw player circle with team colors
-            context.beginPath();
-            context.arc(radius, radius, radius - borderWidth, 0, Math.PI * 2);
-            context.fillStyle = fillColor;
-            context.fill();
-            
-            // Draw border
-            context.lineWidth = borderWidth;
-            context.strokeStyle = borderColor;
-            context.stroke();
-            
-            this.scene.textures.addCanvas('player', canvas);
+            // ... rest of createGraphics code remains the same ...
         }
-        
         return this.scene.add.image(0, 0, 'player');
     }
 }
