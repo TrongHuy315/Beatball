@@ -71,9 +71,6 @@
             userTeam: "{{ user_team }}"
         };
 
-        // Create game instance
-        const game = new Phaser.Game(config);
-
         socket.on('game_started', (data) => {
             const gameState = data.game_state;
         
