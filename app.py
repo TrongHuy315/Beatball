@@ -1249,31 +1249,33 @@ def handle_player_input(data):
 def game_page(room_id):
     try:
         room = get_room(room_id)
-        if not room or room['status'] != 'playing':
-            flash('Game not found or not started!', 'error')
+        if not room:
+            flash('Game not found!', 'error')
             return redirect(url_for('home'))
-
-        game_state = redis_client.get(f"game:{room_id}")
-        if not game_state:
-            flash('Game state not found!', 'error')
-            return redirect(url_for('home'))
-
-        game_data = json.loads(game_state)
-        
-        # Kiểm tra người chơi có trong game không
+            
         current_user_id = session.get('user_id')
-        if current_user_id not in game_data['players']:
-            flash('You are not part of this game!', 'error')
-            return redirect(url_for('home'))
-
-        # Lấy thông tin team của người chơi
-        current_player = game_data['players'][current_user_id]
-        user_team = current_player['team']
         
-        # Sửa đường dẫn template để trỏ đến đúng vị trí
+        # Map teams and players
+        team_data = {
+            'left': [],
+            'right': []
+        }
+        
+        for i, slot in enumerate(room['player_slots']):
+            if slot:
+                team = 'left' if i < 2 else 'right'
+                team_data[team].append({
+                    'id': slot['user_id'],
+                    'username': slot['username'],
+                    'score': slot.get('score', 1000)
+                })
+                
+                if slot['user_id'] == current_user_id:
+                    user_team = team
+
         return render_template('clientGame.html',
                              room_id=room_id,
-                             game_data=game_data,
+                             game_data=team_data,
                              user_team=user_team,
                              user_id=current_user_id)
 

@@ -635,4 +635,27 @@ class PlayerController {
         this.scene = null;
         this.position = null;
     }
+
+    setTeamColor(teamColors) {
+        const { fillColor, borderColor } = this.config.graphic;
+        this.config.graphic.fillColor = teamColors.primary;
+        
+        // Recreate graphics with new color
+        if (this.graphics) {
+            this.graphics.destroy();
+            this.graphics = this.createGraphics();
+            if (this.container) {
+                this.container.add(this.graphics);
+            }
+        }
+    }
+
+    createGraphics() {
+        // Update createGraphics to use the current config colors
+        if (!this.scene.textures.exists('player')) {
+            const { radius, fillColor, borderColor, borderWidth } = this.config.graphic;
+            // ... rest of createGraphics code remains the same ...
+        }
+        return this.scene.add.image(0, 0, 'player');
+    }
 }

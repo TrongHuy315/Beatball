@@ -64,7 +64,17 @@ class ClientScene extends Phaser.Scene {
         this.kickSounds = [
         ];
 
-
+        // Add team colors
+        this.teamColors = {
+            left: {
+                primary: 'rgb(243, 10, 29)',    // Red
+                secondary: 'rgba(255, 0, 0, 0.23)'
+            },
+            right: {
+                primary: 'rgb(0, 174, 255)',    // Blue
+                secondary: 'rgba(53, 124, 255, 0.29)'
+            }
+        };
     }
     preload() {
         this.load.audio('endGameSound', '/static/sound/endGameSound/endGameSound1.mp3');
@@ -146,6 +156,65 @@ class ClientScene extends Phaser.Scene {
 
         this.menuDisplay = new MenuDisplay(this);
         // this.initializeRunner();
+
+        // Get game data from hidden input
+        const gameData = JSON.parse(document.getElementById('game-data').value);
+        const userTeam = document.getElementById('user-team').value;
+        const userId = document.getElementById('user-id').value;
+
+        // Create players for each team
+        this.createTeamPlayers(gameData.left, 'left');
+        this.createTeamPlayers(gameData.right, 'right');
+    }
+
+    createTeamPlayers(teamPlayers, side) {
+        const spawnPoints = this.getTeamSpawnPoints(side, teamPlayers.length);
+        
+        teamPlayers.forEach((playerData, index) => {
+            const spawnPoint = spawnPoints[index];
+            const isCurrentPlayer = playerData.id === document.getElementById('user-id').value;
+            
+            if (isCurrentPlayer) {
+                // Create controlled player
+                this.player = new PlayerController(this);
+                this.player.create(spawnPoint.x, spawnPoint.y);
+                this.player.setTeamColor(this.teamColors[side]);
+                this.players.set(playerData.id, this.player);
+            } else {
+                // Create other players
+                const otherPlayer = new PlayerController(this);
+                otherPlayer.create(spawnPoint.x, spawnPoint.y);
+                otherPlayer.setTeamColor(this.teamColors[side]);
+                this.players.set(playerData.id, otherPlayer);
+            }
+        });
+    }
+
+    getTeamSpawnPoints(side, playerCount) {
+        const { pitch, offset_horizontal, nets } = CONFIG;
+        const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
+        const points = [];
+        
+        // Calculate spawn positions based on side and number of players
+        if (side === 'left') {
+            const x = pitchLeft + pitch.width * 0.25;
+            for (let i = 0; i < playerCount; i++) {
+                points.push({
+                    x: x,
+                    y: CONFIG.totalHeight * (i + 1) / (playerCount + 1)
+                });
+            }
+        } else {
+            const x = pitchLeft + pitch.width * 0.75;
+            for (let i = 0; i < playerCount; i++) {
+                points.push({
+                    x: x,
+                    y: CONFIG.totalHeight * (i + 1) / (playerCount + 1)
+                });
+            }
+        }
+        
+        return points;
     }
 
     // GOAL CELEBRATION 
