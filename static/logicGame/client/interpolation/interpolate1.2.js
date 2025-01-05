@@ -190,3 +190,9 @@ class InterpolationManager {
     }
 }
 
+socket.on('sendGameState', (gameState) => {
+    gameState.players.forEach(playerState => {
+        const interpolator = interpolationManager.gameInterpolator;
+        interpolator.updateEntityState(playerState.user_id, playerState.position);
+    });
+});

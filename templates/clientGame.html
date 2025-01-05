@@ -68,6 +68,19 @@
 
         // Create game instance
         const game = new Phaser.Game(config);
+
+        socket.on('game_started', (data) => {
+            const gameState = data.game_state;
+        
+            gameState.players.forEach(player => {
+                const playerObj = new PlayerController(scene);
+                playerObj.create(player.position.x, player.position.y);
+                // Gán thêm thuộc tính team nếu cần
+            });
+        
+            const ballObj = new Ball3(scene, CONFIG.ball);
+            ballObj.setPosition(gameState.ball.position.x, gameState.ball.position.y);
+        });        
     </script>
 </body>
 </html>

@@ -1131,66 +1131,28 @@ def handle_player_ready(data):
 
 @socketio.on('start_game')
 def handle_start_game(data):
-    try:
-        room_id = data['room_id']
-        room = get_room(room_id)
-        
-        if not can_start_game(room):
-            emit('game_error', {
-                'message': 'Cannot start game. Check team and ready status.'
-            }, room=room_id)
-            return
+    room_id = data['room_id']
+    room = get_room(room_id)
 
-        # Khởi tạo dữ liệu game và lưu vào Redis
-        game_state = {
-            'room_id': room_id,
-            'status': 'playing',
-            'players': {},
-            'teams': {
-                'left': [],
-                'right': []
-            },
-            'scores': {
-                'left': 0,
-                'right': 0
-            },
-            'timestamp': time.time()
-        }
+    if not can_start_game(room):
+        emit('game_error', {'message': 'Cannot start game. Check readiness.'}, room=room_id)
+        return
 
-        # Phân chia team dựa trên vị trí slot
-        for i, player in enumerate(room['player_slots']):
-            if player:
-                team = 'left' if i < 2 else 'right'
-                player_data = {
-                    'id': player['user_id'],
-                    'username': player['username'],
-                    'team': team
-                }
-                game_state['players'][player['user_id']] = player_data
-                game_state['teams'][team].append(player['user_id'])
+    game_data = {
+        "players": [
+            {
+                "user_id": player['user_id'],
+                "username": player['username'],
+                "position": {"x": 200 + i * 100, "y": 200},
+                "team": "left" if i < 2 else "right"
+            }
+            for i, player in enumerate(room['player_slots']) if player
+        ],
+        "ball": {"position": {"x": 400, "y": 300}}
+    }
 
-        # Lưu game state vào Redis
-        redis_client.set(f"game:{room_id}", json.dumps(game_state))
-        
-        # Cập nhật trạng thái phòng
-        room['status'] = 'playing'
-        room['game_state'] = game_state
-        save_room(room_id, room)
-
-        # Thông báo tất cả người chơi - gửi cả room_id để client redirect
-        emit('game_started', {
-            'room_id': room_id,
-            'game_state': game_state,
-            'message': 'Game is starting!'
-        }, room=room_id)
-
-        print(f"Game started in room {room_id}")
-        
-    except Exception as e:
-        print(f"Error starting game: {e}")
-        emit('game_error', {
-            'message': 'Failed to start game. Please try again.'
-        }, room=room_id)
+    redis_client.set(f"game:{room_id}", json.dumps(game_data))
+    emit('game_started', {"room_id": room_id, "game_state": game_data}, room=room_id)
 
 def initialize_game(room_data):
     """
