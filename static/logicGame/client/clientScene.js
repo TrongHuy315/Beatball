@@ -126,8 +126,6 @@ class ClientScene extends Phaser.Scene {
         this.setupWebSocket();
 
         if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
-        // Set up timing control
-        this.lastUpdateTime = this.game.getTime();
         
         // FPS display
         this.fpsText = this.add.text(10, 10, '', { 
