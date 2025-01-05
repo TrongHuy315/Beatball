@@ -1255,7 +1255,7 @@ def game_page(room_id):
             
         current_user_id = session.get('user_id')
         
-        # Map teams and players
+        # Phân chia players theo team dựa trên vị trí slot
         team_data = {
             'left': [],
             'right': []
@@ -1264,24 +1264,23 @@ def game_page(room_id):
         for i, slot in enumerate(room['player_slots']):
             if slot:
                 team = 'left' if i < 2 else 'right'
-                team_data[team].append({
+                player_data = {
                     'id': slot['user_id'],
                     'username': slot['username'],
                     'score': slot.get('score', 1000)
-                })
-
+                }
+                team_data[team].append(player_data)
+        
+        # Xác định team của current user
         user_team = None
         for i, slot in enumerate(room['player_slots']):
             if slot and slot['user_id'] == current_user_id:
                 user_team = 'left' if i < 2 else 'right'
                 break
 
-        # Encode data properly for template
-        game_data_json = json.dumps(team_data)
-
         return render_template('clientGame.html',
                              room_id=room_id,
-                             game_data=game_data_json,
+                             game_data=json.dumps(team_data),
                              user_team=user_team or '',
                              user_id=current_user_id)
 

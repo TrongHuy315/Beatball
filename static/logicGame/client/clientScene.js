@@ -68,11 +68,11 @@ class ClientScene extends Phaser.Scene {
         this.teamColors = {
             left: {
                 primary: 'rgb(243, 10, 29)',    // Red
-                secondary: 'rgba(255, 0, 0, 0.23)'
+                secondary: 'rgba(255, 0, 0, 0.5)'
             },
             right: {
                 primary: 'rgb(0, 174, 255)',    // Blue
-                secondary: 'rgba(53, 124, 255, 0.29)'
+                secondary: 'rgba(0, 0, 255, 0.5)'
             }
         };
     }
@@ -118,6 +118,36 @@ class ClientScene extends Phaser.Scene {
         this.kickSounds = [this.kickSound];
         
         try {
+            // Lấy và parse game data một cách an toàn
+            const gameDataElement = document.getElementById('game-data');
+            const userTeamElement = document.getElementById('user-team');
+            const userIdElement = document.getElementById('user-id');
+
+            let gameData = null;
+            let userTeam = null;
+            let userId = null;
+
+            if (gameDataElement && gameDataElement.value) {
+                try {
+                    gameData = JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
+                } catch (e) {
+                    console.warn('Error parsing game data:', e);
+                    gameData = { left: [], right: [] };
+                }
+            }
+    
+            if (userTeamElement) {
+                userTeam = userTeamElement.value;
+            }
+    
+            if (userIdElement) {
+                userId = userIdElement.value;
+            }
+
+            console.log('Game Data:', gameData);
+            console.log('User Team:', userTeam);
+            console.log('User ID:', userId);
+            
             const { totalWidth, totalHeight } = CONFIG;
             const { wall, nets, pitch } = CONFIG;
             // ----- SET UP PHYSICS WORLD -----
@@ -159,36 +189,6 @@ class ClientScene extends Phaser.Scene {
             this.menuDisplay = new MenuDisplay(this);
             // this.initializeRunner();
 
-            // Lấy và parse game data một cách an toàn
-            const gameDataElement = document.getElementById('game-data');
-            const userTeamElement = document.getElementById('user-team');
-            const userIdElement = document.getElementById('user-id');
-
-            let gameData = null;
-            let userTeam = null;
-            let userId = null;
-
-            if (gameDataElement && gameDataElement.value) {
-                try {
-                    gameData = JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
-                } catch (e) {
-                    console.warn('Error parsing game data:', e);
-                    gameData = { left: [], right: [] };
-                }
-            }
-    
-            if (userTeamElement) {
-                userTeam = userTeamElement.value;
-            }
-    
-            if (userIdElement) {
-                userId = userIdElement.value;
-            }
-
-            console.log('Game Data:', gameData);
-            console.log('User Team:', userTeam);
-            console.log('User ID:', userId);
-
             if (gameData) {
                 // Create players for each team
                 this.createTeamPlayers(gameData.left || [], 'left');
@@ -204,54 +204,84 @@ class ClientScene extends Phaser.Scene {
         }
     }
 
+    initializeBasicElements() {
+        // Set up physics
+        this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
+        this.matter.world.setGravity(0, 0);
+        
+        // Create basic game elements
+        createWalls(this);
+        this.ball = new Ball(this, CONFIG.ball);
+        this.ball3 = new Ball3(this, CONFIG.ball);
+        this.ball3.authorityBall = this.ball;
+        
+        // Initialize UI elements
+        this.scoreboard = new Scoreboard();
+        this.scoreboard.draw();
+        
+        // Setup network
+        this.setupWebSocket();
+    }
+
+    parseGameData() {
+        const gameDataElement = document.getElementById('game-data');
+        if (!gameDataElement || !gameDataElement.value) return null;
+        
+        try {
+            return JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
+        } catch (e) {
+            console.error('Error parsing game data:', e);
+            return null;
+        }
+    }
+
     createTeamPlayers(teamPlayers, side) {
-        const spawnPoints = this.getTeamSpawnPoints(side, teamPlayers.length);
+        const spawnPoints = this.getTeamSpawnPositions(side, teamPlayers.length);
+        const userId = document.getElementById('user-id')?.value;
         
         teamPlayers.forEach((playerData, index) => {
-            const spawnPoint = spawnPoints[index];
-            const isCurrentPlayer = playerData.id === document.getElementById('user-id').value;
+            const spawnPos = spawnPoints[index];
+            const isCurrentPlayer = playerData.id === userId;
+            
+            const player = new PlayerController(this);
+            player.create(spawnPos.x, spawnPos.y);
+            
+            // Set team colors
+            player.setTeamColor(this.teamColors[side]);
             
             if (isCurrentPlayer) {
-                // Create controlled player
-                this.player = new PlayerController(this);
-                this.player.create(spawnPoint.x, spawnPoint.y);
-                this.player.setTeamColor(this.teamColors[side]);
-                this.players.set(playerData.id, this.player);
-            } else {
-                // Create other players
-                const otherPlayer = new PlayerController(this);
-                otherPlayer.create(spawnPoint.x, spawnPoint.y);
-                otherPlayer.setTeamColor(this.teamColors[side]);
-                this.players.set(playerData.id, otherPlayer);
+                this.player = player;
             }
+            
+            this.players.set(playerData.id, player);
+            
+            console.log(`Created ${side} team player:`, {
+                id: playerData.id,
+                position: spawnPos,
+                isCurrentPlayer
+            });
         });
     }
 
-    getTeamSpawnPoints(side, playerCount) {
+    getTeamSpawnPositions(side, playerCount) {
         const { pitch, offset_horizontal, nets } = CONFIG;
         const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
-        const points = [];
+        const positions = [];
         
-        // Calculate spawn positions based on side and number of players
-        if (side === 'left') {
-            const x = pitchLeft + pitch.width * 0.25;
-            for (let i = 0; i < playerCount; i++) {
-                points.push({
-                    x: x,
-                    y: CONFIG.totalHeight * (i + 1) / (playerCount + 1)
-                });
-            }
-        } else {
-            const x = pitchLeft + pitch.width * 0.75;
-            for (let i = 0; i < playerCount; i++) {
-                points.push({
-                    x: x,
-                    y: CONFIG.totalHeight * (i + 1) / (playerCount + 1)
-                });
-            }
+        // Calculate spawn positions based on side
+        const xPos = side === 'left' ? 
+            pitchLeft + pitch.width * 0.25 : 
+            pitchLeft + pitch.width * 0.75;
+            
+        // Distribute players evenly along Y axis
+        for (let i = 0; i < playerCount; i++) {
+            positions.push({
+                x: xPos,
+                y: CONFIG.offset_vertical + pitch.height * (i + 1) / (playerCount + 1)
+            });
         }
         
-        return points;
+        return positions;
     }
 
     // GOAL CELEBRATION 
