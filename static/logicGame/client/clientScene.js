@@ -75,9 +75,20 @@ class ClientScene extends Phaser.Scene {
                 secondary: 'rgba(0, 0, 255, 0.5)'
             }
         };
+
+        // Add audio config
+        this.audioConfig = {
+            mute: false,
+            volume: 1,
+            rate: 1,
+            detune: 0,
+            seek: 0,
+            loop: false,
+            delay: 0
+        };
     }
     preload() {
-        this.load.audio('endGameSound', '/static/sound/endGameSound/endGameSound1.mp3');
+        this.load.audio('endGameSound', '/static/sound/endGameSound/endGameSound1.mp3', this.audioConfig);
         this.scoreboard = new Scoreboard();
         
         // Thêm listener cho sự kiện 9 giây cuối
@@ -107,7 +118,15 @@ class ClientScene extends Phaser.Scene {
             console.error('File URL:', file.url);
         });
 
-        this.load.audio('kick1', '/static/sound/normalKickSound/normalKick1.mp3');
+        this.load.audio('kick1', '/static/sound/normalKickSound/normalKick1.mp3', this.audioConfig);
+
+        // Initialize scoreboard sau khi user tương tác
+        document.addEventListener('click', () => {
+            if (!this.scoreboard) {
+                this.scoreboard = new Scoreboard();
+                this.scoreboard.draw();
+            }
+        }, { once: true });
     }
     create() {
         this.endGameSound = this.sound.add('endGameSound', {
@@ -118,6 +137,9 @@ class ClientScene extends Phaser.Scene {
         this.kickSounds = [this.kickSound];
         
         try {
+            // Initialize basic elements first
+            this.initializeBasicElements();
+            
             // Lấy và parse game data một cách an toàn
             const gameDataElement = document.getElementById('game-data');
             const userTeamElement = document.getElementById('user-team');
