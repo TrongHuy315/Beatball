@@ -129,164 +129,158 @@ class ClientScene extends Phaser.Scene {
         }, { once: true });
     }
     create() {
+        this.endGameSound = this.sound.add('endGameSound', {
+            volume: 1,
+            loop: true
+        });
+        this.kickSound = this.sound.add('kick1');
+        this.kickSounds = [this.kickSound];
+        
         try {
-            // Initialize audio with user interaction handling
-            document.addEventListener('click', () => {
-                if (!this.endGameSound) {
-                    this.endGameSound = this.sound.add('endGameSound', {
-                        volume: 1,
-                        loop: true
-                    });
-                }
-                if (!this.kickSound) {
-                    this.kickSound = this.sound.add('kick1');
-                    this.kickSounds = [this.kickSound];
-                }
-            }, { once: true });
-    
-            // Parse game data
-            const { gameData, userTeam, userId } = this.parseInitialData();
-            console.log('Initialization Data:', {
-                gameData,
-                userTeam,
-                userId
-            });
-    
-            // Initialize game world and elements
-            this.initializeGameWorld();
-            
-            // Initialize game objects
-            this.initializeGameObjects();
-            
-            // Initialize UI and controls
-            this.initializeUIElements();
-            
-            // Setup network
-            this.setupWebSocket();
-            
-            // Create players if game data exists
-            if (gameData && (gameData.left?.length > 0 || gameData.right?.length > 0)) {
-                console.log('Creating team players from game data');
-                if (gameData.left?.length > 0) {
-                    this.createTeamPlayers(gameData.left, 'left');
-                }
-                if (gameData.right?.length > 0) {
-                    this.createTeamPlayers(gameData.right, 'right');
+            // Initialize basic elements first
+            this.initializeBasicElements();
+            // Lấy và parse game data một cách an toàn
+            const gameDataElement = document.getElementById('game-data');
+            const userTeamElement = document.getElementById('user-team');
+            const userIdElement = document.getElementById('user-id');
+
+            let gameData = null;
+            let userTeam = null;
+            let userId = null;
+
+            if (gameDataElement && gameDataElement.value) {
+                try {
+                    gameData = JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
+                } catch (e) {
+                    console.warn('Error parsing game data:', e);
+                    gameData = { left: [], right: [] };
                 }
             }
     
-        } catch (error) {
+            if (userTeamElement) {
+                userTeam = userTeamElement.value;
+            }
+    
+            if (userIdElement) {
+                userId = userIdElement.value;
+            }
+
+            console.log('Game Data:', gameData);
+            console.log('User Team:', userTeam);
+            console.log('User ID:', userId);
+            
+            const { totalWidth, totalHeight } = CONFIG;
+            const { wall, nets, pitch } = CONFIG;
+            // ----- SET UP PHYSICS WORLD -----
+            this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
+            this.matter.world.setGravity(0, 0);
+
+            // ----- SET UP WALLS WORLD ----- 
+            createWalls(this); 
+            // ----- BALL -----
+            this.ball = new Ball(this, CONFIG.ball);
+            this.ball3 = new Ball3(this, CONFIG.ball);
+            this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
+
+            // ---- SCOREBOARD ----
+            this.scoreboard.draw();
+
+            // ---- Socket Connection -----
+            this.setupWebSocket();
+
+            if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
+            
+            // FPS display
+            this.fpsText = this.add.text(10, 10, '', { 
+                fontSize: '16px', 
+                fill: '#00ff00' 
+            });
+            // ---- INTERPOLATION 
+            this.interpolators = new InterpolationManager(this); 
+            this.matter.world.autoUpdate = false;
+            this.startGameLoop(); 
+
+            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+            this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+            this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+            this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
+            this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+
+            this.menuDisplay = new MenuDisplay(this);
+            // this.initializeRunner();
+
+            if (gameData) {
+                // Create players for each team
+                this.createTeamPlayers(gameData.left || [], 'left');
+                this.createTeamPlayers(gameData.right || [], 'right');
+            }
+
+            // Create players for each team
+            this.createTeamPlayers(gameData.left, 'left');
+            this.createTeamPlayers(gameData.right, 'right');
+        }
+        catch (error) {
             console.error('Error in create():', error);
         }
     }
-    
-    parseInitialData() {
-        const gameDataElement = document.getElementById('game-data');
-        const userTeamElement = document.getElementById('user-team');
-        const userIdElement = document.getElementById('user-id');
-    
-        let gameData = { left: [], right: [] };
-        let userTeam = null;
-        let userId = null;
-    
-        try {
-            if (gameDataElement?.value) {
-                gameData = JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
-            }
-            userTeam = userTeamElement?.value || null;
-            userId = userIdElement?.value || null;
-        } catch (e) {
-            console.warn('Error parsing initialization data:', e);
-        }
-    
-        return { gameData, userTeam, userId };
-    }
-    
-    initializeGameWorld() {
-        // Set up physics world
+
+    initializeBasicElements() {
+        // Set up physics
         this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
         this.matter.world.setGravity(0, 0);
-        this.matter.world.autoUpdate = false;
-    
-        // Create walls
+        
+        // Create basic game elements
         createWalls(this);
-    }
-    
-    initializeGameObjects() {
-        // Create balls
         this.ball = new Ball(this, CONFIG.ball);
         this.ball3 = new Ball3(this, CONFIG.ball);
         this.ball3.authorityBall = this.ball;
-    
-        if (this.visibleServerBall) {
-            this.ball1 = new Ball1(this, CONFIG.ball);
-        }
-    
-        // Initialize scoreboard
-        if (this.scoreboard) {
-            this.scoreboard.draw();
-        }
-    
-        // Initialize interpolation
-        this.interpolators = new InterpolationManager(this);
         
-        // Start game loop
-        this.startGameLoop();
+        // Initialize UI elements
+        this.scoreboard = new Scoreboard();
+        this.scoreboard.draw();
+        
+        // Setup network
+        this.setupWebSocket();
     }
-    
-    initializeUIElements() {
-        // Initialize keyboard controls
-        const keys = ['SPACE', 'Z', 'X', 'C', 'V', 'B'];
-        keys.forEach(key => {
-            const lowercaseKey = key.toLowerCase();
-            this[`${lowercaseKey}Key`] = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes[key]);
-        });
-    
-        // Add FPS display
-        this.fpsText = this.add.text(10, 10, '', {
-            fontSize: '16px',
-            fill: '#00ff00'
-        });
-    
-        // Initialize menu display
-        this.menuDisplay = new MenuDisplay(this);
-    }
-    
-    createTeamPlayers(teamPlayers, side) {
-        if (!Array.isArray(teamPlayers) || teamPlayers.length === 0) {
-            console.log(`No players to create for ${side} team`);
-            return;
+
+    parseGameData() {
+        const gameDataElement = document.getElementById('game-data');
+        if (!gameDataElement || !gameDataElement.value) return null;
+        
+        try {
+            return JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
+        } catch (e) {
+            console.error('Error parsing game data:', e);
+            return null;
         }
-    
+    }
+
+    createTeamPlayers(teamPlayers, side) {
         const spawnPoints = this.getTeamSpawnPositions(side, teamPlayers.length);
         const userId = document.getElementById('user-id')?.value;
-    
+        
         teamPlayers.forEach((playerData, index) => {
-            try {
-                if (!playerData?.id) {
-                    console.warn(`Invalid player data at index ${index}:`, playerData);
-                    return;
-                }
-    
-                console.log(`Creating ${side} team player:`, playerData);
-    
-                const spawnPos = spawnPoints[index];
-                const isCurrentPlayer = playerData.id === userId;
-    
-                const player = new PlayerController(this);
-                player.create(spawnPos.x, spawnPos.y);
-                player.setTeamColor(this.teamColors[side]);
-    
-                if (isCurrentPlayer) {
-                    console.log('Setting as current player:', playerData.id);
-                    this.player = player;
-                }
-    
-                this.players.set(playerData.id, player);
-    
-            } catch (error) {
-                console.error(`Error creating player ${playerData?.id}:`, error);
+            const spawnPos = spawnPoints[index];
+            const isCurrentPlayer = playerData.id === userId;
+            
+            const player = new PlayerController(this);
+            player.create(spawnPos.x, spawnPos.y);
+            
+            // Set team colors
+            player.setTeamColor(this.teamColors[side]);
+            
+            if (isCurrentPlayer) {
+                this.player = player;
             }
+            
+            this.players.set(playerData.id, player);
+            
+            console.log(`Created ${side} team player:`, {
+                id: playerData.id,
+                position: spawnPos,
+                isCurrentPlayer
+            });
         });
     }
 
@@ -814,33 +808,14 @@ class ClientScene extends Phaser.Scene {
             console.log('Connection error:', error);
         });
         socket.on('approveJoin', (data) => {
-            try {
-                console.log('Received approveJoin:', data);
-                
-                this.playerId = data.playerId;
-                const side = data.side; // Lấy team side từ server
-
-                // Tạo player với team color tương ứng
-                this.player = new PlayerController(this);
-                this.player.create(data.position.x, data.position.y);
-                this.player.setTeamColor(this.teamColors[side]);
-                
-                // Thêm vào map players
-                this.players.set(data.playerId, this.player);
-
-                // Update scoreboard nếu có
-                if (data.scores) {
-                    this.gameState.scores = data.scores;
-                    if(this.scoreboard) {
-                        this.scoreboard.updateScore('left', data.scores.left);
-                        this.scoreboard.updateScore('right', data.scores.right);
-                    }
-                }
-
-                console.log(`Player created: ${data.playerId} on team ${side}`);
-
-            } catch (error) {
-                console.error('Error in approveJoin:', error);
+            this.playerId = data.playerId;
+            this.player = new PlayerController(this);
+            this.player.create(data.x, data.y);
+            this.players.set(data.playerId, this.player);
+            if (data.scores) {
+                this.gameState.scores = data.scores;
+                this.scoreboard.updateScore('left', data.scores.left);
+                this.scoreboard.updateScore('right', data.scores.right);
             }
         });
 
@@ -1078,21 +1053,17 @@ const configPhaser = {
     parent: 'player_container',
     transparent: true,
     fps: {
-        target: 60,
+        target: 120, // Mục tiêu 60 FPS
         forceSetTimeOut: true,
         smoothStep: false 
     },
     physics: {
         default: 'matter',
         matter: {
-            debug: false,
+            debug: false, // Set to false in production
             gravity: { y: 0 },
-            setBounds: true
+            setBounds: true, 
         }
-    },
-    audio: {
-        disableWebAudio: false,
-        noAudio: false
     },
     scene: ClientScene
 };

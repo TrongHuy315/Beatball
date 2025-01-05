@@ -27,22 +27,6 @@
         <canvas id="scoreboard_canvas"></canvas>
     </div>
 
-    <div id="audio-message" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; display: none;">
-        Click anywhere to enable game audio
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const audioMessage = document.getElementById('audio-message');
-            if (audioMessage) {
-                audioMessage.style.display = 'block';
-                document.addEventListener('click', () => {
-                    audioMessage.style.display = 'none';
-                }, { once: true });
-            }
-        });
-    </script>
-
     <!-- LIBRARY -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.87.0/phaser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
