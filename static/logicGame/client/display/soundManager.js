@@ -11,10 +11,10 @@ export class SoundManager {
 
     preload() {
         // Load end game sound
-        this.scene.load.audio('endGameSound', '/sound/endGameSound/endGameSound1.mp3');
+        this.scene.load.audio('endGameSound', 'static/logicGame/client/sound/endGameSound/endGameSound1.mp3');
         
         // Load kick sounds
-        this.scene.load.audio('kick1', '/sound/normalKickSound/normalKick1.mp3');
+        this.scene.load.audio('kick1', 'static/logicGame/client/sound/normalKickSound/normalKick1.mp3');
 
         // Add more sounds as needed
         

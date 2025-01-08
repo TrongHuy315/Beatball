@@ -1,3 +1,9 @@
+console.log('All input values:');
+['game-server-url', 'room-id', 'user-id', 'user-team', 'game-data'].forEach(id => {
+    const element = document.getElementById(id);
+    console.log(`${id}:`, element ? element.value : 'element not found');
+});
+
 const clientId = sessionStorage.getItem('clientId') || generateUniqueId();
 sessionStorage.setItem('clientId', clientId);
 const { Engine, Runner } = Matter;
