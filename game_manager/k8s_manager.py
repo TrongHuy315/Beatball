@@ -20,9 +20,16 @@ class K8sGameManager:
             
             # Create credentials object
             credentials = service_account.Credentials.from_service_account_info(
-                credentials_dict
+                credentials_dict,
+                scopes=['https://www.googleapis.com/auth/cloud-platform']
             )
 
+            # Create request object
+            request = transport.requests.Request()
+            
+            # Refresh credentials
+            credentials.refresh(request)
+            
             # Get GKE cluster info
             container_client = container_v1.ClusterManagerClient(credentials=credentials)
             cluster_path = f"projects/{credentials_dict['project_id']}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
@@ -32,7 +39,11 @@ class K8sGameManager:
             configuration = client.Configuration()
             configuration.host = f"https://{cluster.endpoint}"
             configuration.verify_ssl = False
-            configuration.api_key = {"authorization": "Bearer " + credentials.token}
+            
+            # Use refreshed token
+            if not credentials.valid:
+                credentials.refresh(request)
+            configuration.api_key = {"authorization": f"Bearer {credentials.token}"}
 
             client.Configuration.set_default(configuration)
 
