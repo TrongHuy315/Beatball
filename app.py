@@ -50,201 +50,6 @@ redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 # Thời gian TTL mặc định cho room (2 giờ)
 ROOM_TTL = 7200
 
-class GameManager:
-    def __init__(self):
-        self.games = {}  # Dictionary lưu các game instances
-        self.game_loops = {}  # Dictionary lưu các game loops
-
-    def create_game(self, room_id, player_data):
-        """Tạo game instance mới"""
-        if room_id not in self.games:
-            self.games[room_id] = Game(room_id, player_data)
-            # Bắt đầu game loop cho instance này
-            self.start_game_loop(room_id)
-        return self.games[room_id]
-
-    def get_game(self, room_id):
-        """Lấy game instance theo room_id"""
-        return self.games.get(room_id)
-
-    def remove_game(self, room_id):
-        """Xóa game instance"""
-        if room_id in self.games:
-            # Dừng game loop
-            self.stop_game_loop(room_id)
-            # Xóa game instance
-            del self.games[room_id]
-
-    def start_game_loop(self, room_id):
-        """Khởi động game loop cho một phòng"""
-        if room_id not in self.game_loops:
-            stop_flag = threading.Event()
-            self.game_loops[room_id] = stop_flag
-            thread = threading.Thread(
-                target=self.run_game_loop,
-                args=(room_id, stop_flag)
-            )
-            thread.daemon = True
-            thread.start()
-
-    def stop_game_loop(self, room_id):
-        """Dừng game loop của một phòng"""
-        if room_id in self.game_loops:
-            self.game_loops[room_id].set()  # Signal thread to stop
-            del self.game_loops[room_id]
-
-    def run_game_loop(self, room_id, stop_flag):
-        """Game loop riêng cho mỗi game instance"""
-        game = self.games.get(room_id)
-        if not game:
-            return
-
-        last_update = time.time()
-        try:
-            while not stop_flag.is_set() and room_id in self.games:
-                current_time = time.time()
-                delta_time = current_time - last_update
-                
-                game.update(delta_time)
-                game_state = game.get_state()
-                
-                # Broadcast state
-                socketio.emit('game_state', game_state, room=room_id)
-                
-                # Save state to Redis
-                redis_client.set(
-                    f"game_state:{room_id}",
-                    json.dumps(game_state)
-                )
-                
-                last_update = current_time
-                time.sleep(1/60)  # 60 FPS
-                
-        except Exception as e:
-            print(f"Error in game loop for room {room_id}: {e}")
-            self.remove_game(room_id)
-
-class Game:
-    def __init__(self, room_id, player_data):
-        self.room_id = room_id
-        self.players = self.initialize_players(player_data)
-        self.ball = self.initialize_ball()
-        self.scores = {'left': 0, 'right': 0}
-        self.last_tick = time.time()
-        self.game_started = False
-        
-    def initialize_players(self, player_data):
-        players = {}
-        for p in player_data:
-            spawn_pos = self.get_spawn_position(p['team'], p['position'])
-            players[p['id']] = {
-                'position': spawn_pos,
-                'velocity': {'x': 0, 'y': 0},
-                'team': p['team'],
-                'username': p['username'],
-                'input_sequence': 0,
-                'last_processed_input': 0
-            }
-        return players
-        
-    def get_spawn_position(self, team, position):
-        """Xác định vị trí spawn cho player dựa vào team và position"""
-        base_positions = {
-            'left': {'x': 200, 'y': 300},
-            'right': {'x': 600, 'y': 300}
-        }
-        offset_y = position * 100  # Offset theo vị trí trong team
-        
-        return {
-            'x': base_positions[team]['x'],
-            'y': base_positions[team]['y'] + offset_y
-        }
-        
-    def initialize_ball(self):
-        """Khởi tạo vị trí và trạng thái ball"""
-        return {
-            'position': {'x': 400, 'y': 300},
-            'velocity': {'x': 0, 'y': 0},
-            'last_touch': None
-        }
-
-    def update(self, delta_time):
-        """Update game state"""
-        self.update_ball(delta_time)
-        self.update_players(delta_time)
-        self.check_collisions()
-        self.check_goals()
-        
-    def update_ball(self, delta_time):
-        """Update ball physics"""
-        ball = self.ball
-        ball['position']['x'] += ball['velocity']['x'] * delta_time
-        ball['position']['y'] += ball['velocity']['y'] * delta_time
-        
-        # Apply damping
-        damping = 0.99
-        ball['velocity']['x'] *= damping
-        ball['velocity']['y'] *= damping
-        
-    def update_players(self, delta_time):
-        """Update all players"""
-        for player_id, player in self.players.items():
-            self.update_player_position(player, delta_time)
-
-    def update_player_position(self, player, delta_time):
-        """Update player position based on velocity"""
-        player['position']['x'] += player['velocity']['x'] * delta_time
-        player['position']['y'] += player['velocity']['y'] * delta_time
-        
-        # Add boundary checks here
-        self.keep_player_in_bounds(player)
-
-    def keep_player_in_bounds(self, player):
-        """Keep player within game boundaries"""
-        # Adjust these values based on your game field size
-        FIELD_WIDTH = 800
-        FIELD_HEIGHT = 600
-        PLAYER_SIZE = 20
-
-        # X boundaries
-        player['position']['x'] = max(PLAYER_SIZE, min(FIELD_WIDTH - PLAYER_SIZE, player['position']['x']))
-        # Y boundaries
-        player['position']['y'] = max(PLAYER_SIZE, min(FIELD_HEIGHT - PLAYER_SIZE, player['position']['y']))
-            
-    def handle_player_input(self, player_id, input_data):
-        """Process player input"""
-        if player_id not in self.players:
-            return
-            
-        player = self.players[player_id]
-        
-        # Validate input sequence
-        if input_data['sequence'] <= player['last_processed_input']:
-            return
-            
-        player['last_processed_input'] = input_data['sequence']
-        
-        # Apply input
-        speed = 5
-        player['velocity']['x'] = input_data['inputX'] * speed
-        player['velocity']['y'] = input_data['inputY'] * speed
-        
-        # Handle kick input
-        if input_data.get('kick'):
-            self.handle_kick(player_id)
-        
-    def get_state(self):
-        """Get current game state"""
-        return {
-            'players': self.players,
-            'ball': self.ball,
-            'scores': self.scores,
-            'timestamp': time.time()
-        }
-
-# Initialize game manager
-game_manager = GameManager()
-
 def get_game_instance(room_id):
     """Helper function to get game instance"""
     return game_manager.get_game(room_id)
@@ -1436,14 +1241,18 @@ def game_loop():
 @login_required
 def game_page(room_id):
     try:
-        room = get_room(room_id)
-        if not room:
+        # Lấy thông tin game từ Redis
+        game_data = redis_client.get(f"game:{room_id}")
+        if not game_data:
             flash('Game not found!', 'error')
             return redirect(url_for('home'))
             
+        game_info = json.loads(game_data)
+        server_url = game_info['server_url']
+        
+        room = get_room(room_id)
         current_user_id = session.get('user_id')
         
-        # Phân chia players theo team dựa trên vị trí slot
         team_data = {
             'left': [],
             'right': []
@@ -1459,7 +1268,6 @@ def game_page(room_id):
                 }
                 team_data[team].append(player_data)
         
-        # Xác định team của current user
         user_team = None
         for i, slot in enumerate(room['player_slots']):
             if slot and slot['user_id'] == current_user_id:
@@ -1470,7 +1278,8 @@ def game_page(room_id):
                              room_id=room_id,
                              game_data=json.dumps(team_data),
                              user_team=user_team or '',
-                             user_id=current_user_id)
+                             user_id=current_user_id,
+                             server_url=server_url)  # Thêm server_url
 
     except Exception as e:
         print(f"Error loading game page: {e}")

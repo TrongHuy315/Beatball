@@ -15,9 +15,11 @@
 </head>
 <body>
     <!-- Add hidden inputs for game data -->
-    <input type="hidden" id="game-data" value="{{ game_data|safe }}">
+    <input type="hidden" id="game-server-url" value="{{ server_url }}">
+    <input type="hidden" id="game-data" value="{{ game_data | safe }}">
     <input type="hidden" id="user-team" value="{{ user_team }}">
     <input type="hidden" id="user-id" value="{{ user_id }}">
+    <input type="hidden" id="room-id" value="{{ room_id }}">
 
     <div id="game-container">
         <canvas id="stadium_canvas"></canvas>
@@ -26,6 +28,15 @@
         <canvas div id="menu-display"></canvas>
         <canvas id="scoreboard_canvas"></canvas>
     </div>
+    <script>
+        const gameData = {
+            serverUrl: document.getElementById('game-server-url').value,
+            roomId: document.getElementById('room-id').value,
+            userId: document.getElementById('user-id').value,
+            team: document.getElementById('user-team').value,
+            gameData: JSON.parse(document.getElementById('game-data').value)
+        };
+    </script>
 
     <!-- LIBRARY -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.87.0/phaser.min.js"></script>

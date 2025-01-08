@@ -1,18 +1,38 @@
 const clientId = sessionStorage.getItem('clientId') || generateUniqueId();
 sessionStorage.setItem('clientId', clientId);
 const { Engine, Runner } = Matter;
+import { CelebrationManager } from './display/celebration.js';
+import { SoundManager } from './display/soundManager.js';
+import { Scoreboard } from './display/scoreboard.js';
+import { GameStartDisplay} from './display/gameStart.js';
+
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
         super({ key: 'ClientScene' });
-        this.gameSocket = null;
+
+        this.gameSessionData = {
+            roomId: null,
+            userId: null,
+            userTeam: null,
+            gameData: null,
+            isReady: false,
+            players: new Map(),
+            scores: {
+                left: 0,
+                right: 0
+            },
+            gameStatus: 'waiting',
+            timestamp: null,
+            serverUrl: null  
+        };
+        
         this.player = null;
         this.ball = null;
         this.scoreboard = null;
         this.players = new Map();
-        this.playerId;
-        this.frameCount = 0; 
-        this.lastFrameTime = 0; 
+        this.playerId; 
+
         this.gameState = {
             celebrating: false,
             scores: {
@@ -20,6 +40,7 @@ class ClientScene extends Phaser.Scene {
                 right: 0
             }
         };
+
         this.gameStarted = false; 
         this.categories = {
             outer: 0x0001,         // 000001
@@ -29,17 +50,12 @@ class ClientScene extends Phaser.Scene {
             net: 0x0010,           // 010000
             nonGraphicBall: 0x0020 // 100000
         };
-        // Thêm FPS monitoring
-        this.frameCount = 0;
-        this.lastFpsTime = 0;
+
+
         this.targetInnerFPS = 60;
         this.targetOuterFPS = 60; 
         this.targetFrameTime = 1000 / this.targetInnerFPS;
-        this.lastUpdateTime = Date.now(); 
-
-        this.lastFpsTime = Date.now(); // Thêm dòng này
-        this.lastFPSUpdate = Date.now(); // Thêm dòng này 
-
+        this.lastFrameTime = 0; 
         this.receiveServerData = false;
         
         
@@ -47,550 +63,101 @@ class ClientScene extends Phaser.Scene {
         this.visibleClientBall = false;  
         this.visibleLerpBall = true; 
 
-        // Thêm tracking frame time
-        this.frameTimeLog = [];
-        this.lastFrameTimeLog = Date.now();
-        this.frameTimeLogInterval = 3000;  // Log mỗi 3 giây
-        this.maxFrameTime = 0;
-        this.minFrameTime = Infinity;
-        this.sumFrameTime = 0;
-        
-        this.last = Date.now(); 
-        this.cur = Date.now(); 
 
-        // Thêm thuộc tính cho runner
-        this.runner = null;
-        this.isRunnerActive = false;
-
+        this.gameStartDisplay = null; 
+        this.celebrationManager = null;  
         this.kickSounds = [
         ];
+        this.init(gameData); 
 
-        // Add team colors
-        this.teamColors = {
-            left: {
-                primary: 'rgb(243, 10, 29)',    // Red
-                secondary: 'rgba(255, 0, 0, 0.5)'
-            },
-            right: {
-                primary: 'rgb(0, 174, 255)',    // Blue
-                secondary: 'rgba(0, 0, 255, 0.5)'
-            }
-        };
-
-        // Add audio config
-        this.audioConfig = {
-            mute: false,
-            volume: 1,
-            rate: 1,
-            detune: 0,
-            seek: 0,
-            loop: false,
-            delay: 0
-        };
     }
     init(data) {
-        this.gameSocket = io(data.gameUrl);
-        this.setupGameSocketHandlers();
-    }
-    setupGameSocketHandlers() {
-        this.gameSocket.on('game_state', (state) => {
-            this.updateGameState(state);
-        });
-
-        this.gameSocket.on('game_over', (results) => {
-            this.handleGameOver(results);
-        });
+        if (data) {
+            this.gameSessionData.roomId = data.roomId;
+            this.gameSessionData.userId = data.userId;
+            this.gameSessionData.userTeam = data.team;
+            this.gameSessionData.gameData = data.gameData;
+            this.gameSessionData.serverUrl = data.serverUrl;
+        }
     }
     preload() {
-        this.load.audio('endGameSound', '/static/sound/endGameSound/endGameSound1.mp3', this.audioConfig);
-        this.scoreboard = new Scoreboard();
-        
-        // Thêm listener cho sự kiện 9 giây cuối
-        this.scoreboard.setWarningTimeCallback(() => {
-            if (!this.isEndGameSoundPlaying && this.endGameSound) {
-                this.endGameSound.play();
-                this.isEndGameSoundPlaying = true;
-            }
-        });
-        
-        // Thêm listener cho sự kiện hết giờ
-        this.scoreboard.setTimeUpCallback(() => {
-            if (this.endGameSound && this.isEndGameSoundPlaying) {
-                this.endGameSound.stop();
-                this.isEndGameSoundPlaying = false;
-            }
-        });
-
-
-
-        this.load.on('filecomplete', (key, type, data) => {
-            console.log('Successfully loaded:', key, type);
-        });
-    
-        this.load.on('loaderror', (file) => {
-            console.error('Error loading file:', file.key);
-            console.error('File URL:', file.url);
-        });
-
-        this.load.audio('kick1', '/static/sound/normalKickSound/normalKick1.mp3', this.audioConfig);
-
-        // Initialize scoreboard sau khi user tương tác
-        document.addEventListener('click', () => {
-            if (!this.scoreboard) {
-                this.scoreboard = new Scoreboard();
-                this.scoreboard.draw();
-            }
-        }, { once: true });
+        this.soundManager = new SoundManager(this);
+        this.soundManager.preload();
     }
     create() {
-        this.endGameSound = this.sound.add('endGameSound', {
-            volume: 1,
-            loop: true
-        });
-        this.kickSound = this.sound.add('kick1');
-        this.kickSounds = [this.kickSound];
-        
-        try {
-            // Initialize basic elements first
-            this.initializeBasicElements();
+        this.soundManager.create(); 
+        this.gameStartDisplay = new GameStartDisplay(this);
 
-            // Lấy và parse game data một cách an toàn
-            const gameDataElement = document.getElementById('game-data');
-            const userTeamElement = document.getElementById('user-team');
-            const userIdElement = document.getElementById('user-id');
-
-            let gameData = null;
-            let userTeam = null;
-            let userId = null;
-
-            if (gameDataElement && gameDataElement.value) {
-                try {
-                    gameData = JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
-                } catch (e) {
-                    console.warn('Error parsing game data:', e);
-                    gameData = { left: [], right: [] };
-                }
-            }
-    
-            if (userTeamElement) {
-                userTeam = userTeamElement.value;
-            }
-    
-            if (userIdElement) {
-                userId = userIdElement.value;
-            }
-
-            console.log('Game Data:', gameData);
-            console.log('User Team:', userTeam);
-            console.log('User ID:', userId);
-            
-            const { totalWidth, totalHeight } = CONFIG;
-            const { wall, nets, pitch } = CONFIG;
-            // ----- SET UP PHYSICS WORLD -----
-            this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
-            this.matter.world.setGravity(0, 0);
-
-            // ----- SET UP WALLS WORLD ----- 
-            createWalls(this); 
-            // ----- BALL -----
-            this.ball = new Ball(this, CONFIG.ball);
-            this.ball3 = new Ball3(this, CONFIG.ball);
-            this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
-
-            // ---- SCOREBOARD ----
-            this.scoreboard.draw();
-
-            // ---- Socket Connection -----
-            this.setupWebSocket();
-
-            if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
-            
-            // FPS display
-            this.fpsText = this.add.text(10, 10, '', { 
-                fontSize: '16px', 
-                fill: '#00ff00' 
-            });
-            // ---- INTERPOLATION 
-            this.interpolators = new InterpolationManager(this); 
-            this.matter.world.autoUpdate = false;
-            this.startGameLoop(); 
-
-            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-            this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
-            this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
-            this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
-            this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
-            this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
-
-            this.menuDisplay = new MenuDisplay(this);
-            // this.initializeRunner();
-
-            if (gameData) {
-                // Create players for each team
-                this.createTeamPlayers(gameData.left || [], 'left');
-                this.createTeamPlayers(gameData.right || [], 'right');
-            }
-
-            // Create players for each team
-            this.createTeamPlayers(gameData.left, 'left');
-            this.createTeamPlayers(gameData.right, 'right');
-        }
-        catch (error) {
-            console.error('Error in create():', error);
-        }
-    }
-
-    initializeBasicElements() {
-        // Set up physics
+        this.scoreboard = new Scoreboard(this);
+        const { totalWidth, totalHeight } = CONFIG;
+        const { wall, nets, pitch } = CONFIG;
+        // ----- SET UP PHYSICS WORLD -----
         this.matter.world.setBounds(0, 0, CONFIG.totalWidth, CONFIG.totalHeight);
         this.matter.world.setGravity(0, 0);
-        
-        // Create basic game elements
-        createWalls(this);
+
+        // ----- SET UP WALLS WORLD ----- 
+        createWalls(this); 
+        // ----- BALL -----
         this.ball = new Ball(this, CONFIG.ball);
         this.ball3 = new Ball3(this, CONFIG.ball);
-        this.ball3.authorityBall = this.ball;
-        
-        // Initialize UI elements
-        this.scoreboard = new Scoreboard();
+        this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
+
+        // ---- SCOREBOARD ----
         this.scoreboard.draw();
-        
-        // Setup network
+
+        // ---- Socket Connection -----
         this.setupWebSocket();
-    }
 
-    parseGameData() {
-        const gameDataElement = document.getElementById('game-data');
-        if (!gameDataElement || !gameDataElement.value) return null;
+        if (this.visibleServerBall) this.ball1 = new Ball1(this, CONFIG.ball); 
         
-        try {
-            return JSON.parse(gameDataElement.value.replace(/&quot;/g, '"'));
-        } catch (e) {
-            console.error('Error parsing game data:', e);
-            return null;
-        }
-    }
+        // ---- INTERPOLATION  
+        this.matter.world.autoUpdate = false;
+        this.startGameLoop(); 
 
-    createTeamPlayers(teamPlayers, side) {
-        const spawnPoints = this.getTeamSpawnPositions(side, teamPlayers.length);
-        const userId = document.getElementById('user-id')?.value;
-        
-        teamPlayers.forEach((playerData, index) => {
-            const spawnPos = spawnPoints[index];
-            const isCurrentPlayer = playerData.id === userId;
-            
-            const player = new PlayerController(this);
-            player.create(spawnPos.x, spawnPos.y);
-            
-            // Set team colors
-            player.setTeamColor(this.teamColors[side]);
-            
-            if (isCurrentPlayer) {
-                this.player = player;
-            }
-            
-            this.players.set(playerData.id, player);
-            
-            console.log(`Created ${side} team player:`, {
-                id: playerData.id,
-                position: spawnPos,
-                isCurrentPlayer
-            });
-        });
-    }
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+        this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+        this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        this.vKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
+        this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
-    getTeamSpawnPositions(side, playerCount) {
-        const { pitch, offset_horizontal, nets } = CONFIG;
-        const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
-        const positions = [];
-        
-        // Calculate spawn positions based on side
-        const xPos = side === 'left' ? 
-            pitchLeft + pitch.width * 0.25 : 
-            pitchLeft + pitch.width * 0.75;
-            
-        // Distribute players evenly along Y axis
-        for (let i = 0; i < playerCount; i++) {
-            positions.push({
-                x: xPos,
-                y: CONFIG.offset_vertical + pitch.height * (i + 1) / (playerCount + 1)
-            });
-        }
-        
-        return positions;
-    }
+        this.menuDisplay = new MenuDisplay(this);
 
-    // GOAL CELEBRATION 
-    showGoalCelebration(scoringTeam) {
-        // Tạo container để dễ quản lý các text objects
-        const celebrationContainer = this.add.container(0, 0);
+        this.perfMonitor = new PerfMonitor(this); 
 
-        // Text GOAL! chính giữa màn hình
-        const goalText = this.add.text(
-            this.scale.width / 2,
-            this.scale.height / 3,
-            'GOAL!',
-            {
-                fontSize: '128px',
-                fontFamily: 'Arial',
-                fontWeight: 'bold',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 8
-            }
-        ).setOrigin(0.5).setAlpha(0);
+        this.interpolators = new InterpolationManager(this);
 
-        // Text thông báo team ghi bàn
-        const teamText = this.add.text(
-            this.scale.width / 2,
-            this.scale.height / 2,
-            `${scoringTeam.toUpperCase()} TEAM SCORES!`,
-            {
-                fontSize: '64px',
-                fontFamily: 'Arial',
-                color: scoringTeam === 'left' ? '#ff0000' : '#0000ff',
-                stroke: '#000000',
-                strokeThickness: 4
-            }
-        ).setOrigin(0.5).setAlpha(0);
+        this.celebrationManager = new CelebrationManager(this);
 
-        // Thêm texts vào container
-        celebrationContainer.add([goalText, teamText]);
-
-        // Animation sequence
-        this.tweens.add({
-            targets: [goalText, teamText],
-            alpha: { from: 0, to: 1 },
-            scale: { from: 0.5, to: 1 },
-            duration: 1000,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-                // Tự động ẩn sau 2 giây
-                this.time.delayedCall(2000, () => {
-                    this.tweens.add({
-                        targets: [goalText, teamText],
-                        alpha: 0,
-                        duration: 500,
-                        onComplete: () => {
-                            celebrationContainer.destroy();
-                        }
-                    });
-                });
-            }
-        });
+        this.gameStartDisplay.showWaitingScreen(); 
     }
     startGameLoop() {
         var last; 
         const gameLoop = () => {
             const currentTime = Date.now();
-            var cur = Date.now(); 
             if (currentTime - this.lastFrameTime >= 1000 / this.targetInnerFPS) {
                 this.gameLoop();
                 this.matter.world.step(this.targetFrameTime);            
-                this.frameCount++;
                 this.lastFrameTime = currentTime - (currentTime - this.lastFrameTime - 1000 / this.targetInnerFPS); 
-                // if (currentTime - this.lastFPSUpdate >= 1000) {
-                //     console.log({
-                //         fps: this.frameCount,
-                //         actualFrameTime: 1000 / this.frameCount + 'ms',
-                //         targetFrameTime: this.targetFrameTime + 'ms'
-                //     });
-                //     this.frameCount = 0;
-                //     this.lastFPSUpdate = currentTime;
-                // }
             }
-            last = cur; 
             requestAnimationFrame(gameLoop); 
         };
     
         gameLoop(); 
     }
-    initializeRunner() {
-        // Tạo runner với các options được định nghĩa trong API
-        this.runner = Runner.create({
-            delta: 1000 / this.targetInnerFPS,       // Fixed timestep size (16.666ms for 60fps)
-            enabled: true,                           // Enable runner by default
-            maxFrameTime: 1000 / 30,                 // Performance budget (33.333ms)
-            frameDeltaSmoothing: true,              // Enable frame rate smoothing
-            frameDeltaSnapping: true,               // Round frame delta to nearest 1 Hz
-            maxUpdates: 4                           // Limit max updates per frame
-        });
-    
-        // Đăng ký các events theo API
-        Matter.Events.on(this.runner, 'beforeTick', (event) => {
-            // Logic trước mỗi tick
-            if (this.interpolators) {
-                this.interpolators.update();
-            }
-        });
-    
-        Matter.Events.on(this.runner, 'tick', (event) => {
-            // Logic chính trong mỗi tick
-            this.gameLoop();
-        });
-    
-        Matter.Events.on(this.runner, 'afterTick', (event) => {
-            // FPS tracking
-            const currentTime = Date.now();
-            this.frameCount++;
-            
-            if (currentTime - this.lastFPSUpdate >= 1000) {
-                console.log({
-                    fps: this.frameCount,
-                    frameDelta: this.runner.frameDelta + 'ms',
-                    actualFrameTime: 1000 / this.frameCount + 'ms',
-                    engineDelta: this.runner.delta + 'ms'
-                });
-                this.frameCount = 0;
-                this.lastFPSUpdate = currentTime;
-            }
-        });
-    
-        Matter.Events.on(this.runner, 'beforeUpdate', (event) => {
-            // Logic trước mỗi engine update
-        });
-    
-        Matter.Events.on(this.runner, 'afterUpdate', (event) => {
-            // Logic sau mỗi engine update
-        });
-    
-        // Khởi động runner với engine
-        Runner.run(this.runner, this.matter.world.engine);
-    }
-    
-    // Thêm phương thức để dừng/tiếp tục runner
-    stopRunner() {
-        if (this.runner) {
-            this.runner.enabled = false;  // Pause runner
-        }
-    }
-    
-    startRunner() {
-        if (this.runner) {
-            this.runner.enabled = true;   // Resume runner
-        }
-    }
-    
-    // Thêm phương thức để destroy runner khi cần
-    destroyRunner() {
-        if (this.runner) {
-            Runner.stop(this.runner);
-            // Xóa tất cả events
-            Matter.Events.off(this.runner, 'beforeTick');
-            Matter.Events.off(this.runner, 'tick');
-            Matter.Events.off(this.runner, 'afterTick');
-            Matter.Events.off(this.runner, 'beforeUpdate');
-            Matter.Events.off(this.runner, 'afterUpdate');
-            this.runner = null;
-        }
-    }
-    
     gameLoop() {
         if (this.player && this.gameStarted) this.player.update();
         if (this.ball) this.ball.update();
         if (this.ball1) this.ball1.update();
-        
-        // Update interpolation
-        if (this.interpolators) {
-            this.interpolators.update();
-        }
     }
 
     // CONSTATLY UPDATE SCENE 
     update() {
-        if (this.player) {
-            const input = this.getPlayerInput();
-            this.gameSocket.emit('player_input', {
-                room_id: this.roomId,
-                player_id: this.playerId,
-                input: input
-            });
+        if (this.interpolators) {
+            this.interpolators.update();
         }
         if (this.menuDisplay) {
             this.menuDisplay.update();
-        }
-        if (this.spaceKey.isDown) {
-            // Gửi yêu cầu reset bóng đến server
-            if (this.SOCKET) {
-                this.SOCKET.emit('ballMoveUpward');
-            }
-            // this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-            this.ball.setVelocity(0, -5); 
-        }
-        if (this.zKey.isDown) {
-            // Gửi yêu cầu reset bóng đến server
-            if (this.SOCKET) {
-                this.SOCKET.emit('resetBallToCenter');
-            }
-            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-            this.ball.setVelocity(0, 0); 
-            this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-            this.ball3.setVelocity(0, 0); 
-        }
-        if (this.xKey.isDown) {
-            if (this.SOCKET) {
-                this.SOCKET.emit('requestPutNextToBall');
-            }
-            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-            this.ball.setVelocity(0, 0); 
-            const OFFSET_X = 50; 
-            const newPlayerPosition = {
-                x: this.ball.body.position.x - OFFSET_X, 
-                y: this.ball.body.position.y 
-            };
-
-            this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-            this.player.setVelocity(0, 0); 
-        }
-        if (this.cKey.isDown) {
-            if (this.SOCKET) {
-                this.SOCKET.emit('requestPutDiagionalToBall');
-            }
-            this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-            this.ball.setVelocity(0, 0); 
-            const OFFSET = 50; 
-            const newPlayerPosition = {
-                x: this.ball.body.position.x - OFFSET, 
-                y: this.ball.body.position.y - OFFSET 
-            };
-
-            this.player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-            this.player.setVelocity(0, 0); 
-        }
-        if (this.vKey.isDown) {
-            if (this.SOCKET) {
-                this.SOCKET.emit('diagionalTestCombo');
-                const OFFSET = 170; 
-                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET); 
-                this.ball.setVelocity(-5, -3); 
-                this.ball3.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET); 
-                this.ball3.setVelocity(-5, -3); 
-            }
-        }
-        if (this.bKey.isDown) {
-            this.ball.setPosition(this.ball.body.position.x + 4, this.ball.body.position.y); 
-        }
-        if (this.ball && this.ball1) {
-            const dx = this.ball.body.position.x - this.ball1.body.position.x;
-            const dy = this.ball.body.position.y - this.ball1.body.position.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            // Log khoảng cách và vị trí của cả 2 bóng
-            // console.log({
-            //     distance: distance.toFixed(2) + 'px',
-            //     ball: {
-            //         x: this.ball.body.position.x.toFixed(2),
-            //         y: this.ball.body.position.y.toFixed(2)
-            //     },
-            //     ball1: {
-            //         x: this.ball1.body.position.x.toFixed(2),
-            //         y: this.ball1.body.position.y.toFixed(2)
-            //     },
-            //     difference: {
-            //         x: dx.toFixed(2),
-            //         y: dy.toFixed(2)
-            //     }
-            // });
         }
         this.ball3.update(); 
     }
@@ -612,7 +179,10 @@ class ClientScene extends Phaser.Scene {
             } 
             else if (!this.players.has(playerId))
             {
-                const newPlayer = new PlayerController(this);
+                // Sử dụng InterpolatedPlayer cho các player khác
+                const newPlayer = new InterpolatedPlayer(this, {
+                    team: playerInfo.team // hoặc side, tùy theo data từ server
+                });
                 newPlayer.create(playerInfo.position.x, playerInfo.position.y);
                 this.players.set(playerId, newPlayer);
             }
@@ -636,187 +206,22 @@ class ClientScene extends Phaser.Scene {
             this.receiveServerData = true; 
         }
     }
-    letCelebrate (data) {
-        const {gameConfig} = CONFIG; 
-        const timeElapsed = Date.now() - data.timeStamp;
-        const remainingCelebrationTime = Math.max(0, gameConfig.celebrationTime * 1000 - timeElapsed);    
-        var goalDuration = gameConfig.goalPercent * remainingCelebrationTime; 
-        var cheerDuration = gameConfig.cheerPercent * remainingCelebrationTime; 
-        // chỗ này update scoreboard 
-        this.scoreboard.updateScore(data.side, data.scores[data.side]);
 
-        // chỗ này là show text goal cho nó cái tâm ở đâu đó 
-        const remainingTime = Math.max(0, remainingCelebrationTime - (goalDuration + cheerDuration));
-        console.log("Remaining time until countdown: ", remainingTime); 
-        // GoalText xong rồi thì chỗ này là show text cheer duration 
-
-        // xong rồi sau celebrationTime thì tính countDown reset game, kiểu ra số đếm ở giữa sân là 2 1 rồi reset game
-        // Show Goal Text
-        this.showGoalText(goalDuration, () => {
-            this.showCheerText(data, cheerDuration, () => {
-                const remainingTime = Math.max(0, remainingCelebrationTime - (goalDuration + cheerDuration));
-                console.log('Starting countdown after:', remainingTime);
-                this.time.delayedCall(remainingTime, () => {
-                    this.showCountdown();
-                });
-            });
-        });
-        
-    }
-    showGoalText(duration, callback) {
-        const container = this.add.container(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-        
-        const goalText = this.add.text(0, 0, 'GOAL!', {
-            fontSize: '120px',
-            fontFamily: 'Arial Black',
-            color: '#FFD700',
-            stroke: '#000000',
-            strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5);
-        
-        goalText.setBlendMode(Phaser.BlendModes.ADD);
-        goalText.setPipeline('rexGlowPostFx');
-        goalText.postFX.add({
-            distance: 15,
-            outerStrength: 4,
-            innerStrength: 2,
-            color: 0xffffff
-        });
-        
-        container.add(goalText);
-        
-        // Sử dụng duration được truyền vào
-        this.tweens.add({
-            targets: goalText,
-            scaleX: { from: 0.1, to: 1.2 },
-            scaleY: { from: 0.1, to: 1.2 },
-            alpha: { from: 0, to: 1 },
-            duration: duration * 0.3, // Dành 30% thời gian cho animation vào
-            ease: 'Back.easeOut',
-            onComplete: () => {
-                // Giữ text trong 40% thời gian
-                this.time.delayedCall(duration * 0.4, () => {
-                    // Fade out trong 30% thời gian còn lại
-                    this.tweens.add({
-                        targets: container,
-                        alpha: 0,
-                        duration: duration * 0.3,
-                        onComplete: () => {
-                            container.destroy();
-                            if (callback) callback();
-                        }
-                    });
-                });
-            }
-        });
-    }
-    showCheerText(data, duration, callback) {
-        const container = this.add.container(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-        
-        const scorerText = this.add.text(0, -30, `${data.scorer} scores!`, {
-            fontSize: '48px',
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            align: 'center'
-        }).setOrigin(0.5);
-        
-        if (data.assister) {
-            const assistText = this.add.text(0, 30, `Assist: ${data.assister}`, {
-                fontSize: '32px',
-                fontFamily: 'Arial',
-                color: '#CCCCCC',
-                align: 'center'
-            }).setOrigin(0.5);
-            container.add(assistText);
-        }
-        
-        container.add(scorerText);
-        
-        // Svử dụng duration được truyền vào
-        this.tweens.add({
-            targets: container,
-            alpha: { from: 0, to: 1 },
-            duration: duration * 0.3, // Fade in trong 30% thời gian
-            ease: 'Power2',
-            onComplete: () => {
-                // Hiển thị trong 40% thời gian
-                this.time.delayedCall(duration * 0.4, () => {
-                    // Fade out trong 30% thời gian còn lại
-                    this.tweens.add({
-                        targets: container,
-                        alpha: 0,
-                        duration: duration * 0.3,
-                        onComplete: () => {
-                            container.destroy();
-                            if (callback) callback();
-                        }
-                    });
-                });
-            }
-        });
-    }
-    showCountdown() {
-        console.log('Showing countdown');
-        const countdownDuration = CONFIG.gameConfig.resetGameCountDown;
-        let timeLeft = countdownDuration;
-    
-        const countdownText = this.add.text(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2, '', {
-            fontSize: '64px',
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            stroke: '#000000',
-            strokeThickness: 4,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(1000);
-    
-        const updateCountdown = () => {
-            if (timeLeft > 0) {
-                countdownText.setText(timeLeft.toString());
-                
-                this.tweens.add({
-                    targets: countdownText,
-                    scaleX: { from: 1.5, to: 1 },
-                    scaleY: { from: 1.5, to: 1 },
-                    duration: Math.min(500, 800), // Giảm duration để đảm bảo animation kết thúc trước số tiếp theo
-                    ease: 'Power2'
-                });
-    
-                timeLeft--;
-                if (timeLeft > 0) {
-                    setTimeout(updateCountdown, 1000);
-                } else {
-                    // Khi countdown kết thúc, giữ số 1 trong 500ms rồi mới fade out
-                    setTimeout(() => {
-                        this.tweens.add({
-                            targets: countdownText,
-                            alpha: 0,
-                            duration: 500,
-                            onComplete: () => {
-                                countdownText.destroy();
-                            }
-                        });
-                    }, 500);
-                }
-            }
-        };
-    
-        updateCountdown();
-    }
     // SET UP SOCKET EVENT 
     setupWebSocket() {
-        // Lấy URL động từ window.location
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const socketURL = `${protocol}//${host}`;
-        
-        this.SOCKET = io(socketURL, {
+        const gameServerUrl = document.getElementById('game-server-url').value;
+        this.gameSessionData.serverUrl = gameServerUrl;
+
+        this.SOCKET = io(gameServerUrl, {
             transports: ['websocket'],
             upgrade: false,
             auth: {
                 clientType: 'gameClient',
                 version: '1.0',
-                clientId: clientId
+                clientId: clientId,
+                roomId: this.gameSessionData.roomId,
+                userId: this.gameSessionData.userId,
+                team: this.gameSessionData.userTeam
             }
         });
 
@@ -824,48 +229,62 @@ class ClientScene extends Phaser.Scene {
 
         // ----- SERVER CONNECTION ------- 
         socket.on('connect', () => {
+            this.events.emit('socket-ready');
             console.log('Connected with socket ID:', socket.id);
             socket.emit('requestJoin');
         });
+
         socket.on('connect_error', (error) => {
             console.log('Connection error:', error);
         });
+
         socket.on('approveJoin', (data) => {
             this.playerId = data.playerId;
             this.player = new PlayerController(this);
+            this.player.playerId = data.playerId;
             this.player.create(data.x, data.y);
             this.players.set(data.playerId, this.player);
+
             if (data.scores) {
                 this.gameState.scores = data.scores;
                 this.scoreboard.updateScore('left', data.scores.left);
                 this.scoreboard.updateScore('right', data.scores.right);
             }
+            socket.emit('ready'); 
         });
+
 
         // ------ GAME STATE UPDATE -------
         socket.on('sendGameState', (data) => {
             this.handleGameState(data);
         });
+
         socket.on('sendBallState', (data) => {
             this.ball.handleBallState(data); 
         }); 
+
         socket.on('gameStart', (data) => {
+            this.gameStartDisplay.hideWaitingScreen();
             var startedTime = data.timeStamp; 
             var remainderTime = Date.now() - data.timeStamp; 
             var durationCountDown = Math.max(0, remainderTime - 3000);
             var serverStarTime = 3000 + data.timeStamp; 
-            this.showStartCountdown(durationCountDown, () => {
+            
+            this.gameStartDisplay.showStartCountdown(durationCountDown, () => {
                 var elapsedTime = Date.now() - serverStarTime; 
                 this.gameStarted = true; 
-                this.scoreboard.resetClock(); // bạn thêm giúp tôi tính năng là nó count down tại lúc mà game đã bắt đầu elapsed time ấy 
+                this.scoreboard.resetClock();
                 this.scoreboard.startCountDown(elapsedTime);
             }); 
-        }); 
+        });  
 
         // ------ PLAYERS UPDATE -------- 
         socket.on('newPlayerJoin', (data) => {
-            if (data.playerId != this.myPlayerId) {
-                const newPlayer = new PlayerController(this);
+            if (data.playerId !== this.playerId) { // Sửa != thành !==
+                const teamConfig = {
+                    team: data.side
+                };
+                const newPlayer = new InterpolatedPlayer(this, teamConfig);
                 newPlayer.create(data.x, data.y);
                 this.players.set(data.playerId, newPlayer);
             }
@@ -881,7 +300,7 @@ class ClientScene extends Phaser.Scene {
             this.showGoalCelebration(data.team);
         });
         socket.on('celebration', (data) => {
-            this.letCelebrate(data); 
+            this.celebrationManager.letCelebrate(data);
         }); 
         socket.on('sendScoreboardState', (data) => {
             this.gameState.scores = data.scores;
@@ -891,16 +310,13 @@ class ClientScene extends Phaser.Scene {
 
         // ----- SOUND UPDATE ------- 
         socket.on('kickingSound',() => {
-            var soundType = CONFIG.sound.type; 
-            if (this.kickSounds[soundType - 1]) {
-                console.log("Sound being played"); 
-                this.kickSounds[soundType - 1].play();
-            }
-            // Tôi có một list các sound sút bóng đã được tải rồi, giờ làm sao tôi có thể sắp xếp thứ tự nó từ 1 đến n, và play cái sound thứ soundType ? 
-        }); 
+            var soundType = CONFIG.sound.type;
+            this.soundManager.playKickSound(soundType);
+        });
+
         // ----- DISCONNECTION UPDATE ------ 
         socket.on('somePlayerDisconnected', (data) => {
-            const disconnectsedPlayerId = data.playerId;
+            const disconnectedPlayerId = data.playerId; // Sửa typo
             if (this.players.has(disconnectedPlayerId)) {
                 const playerToRemove = this.players.get(disconnectedPlayerId);
                 
@@ -909,6 +325,7 @@ class ClientScene extends Phaser.Scene {
                 }
                 
                 this.players.delete(disconnectedPlayerId);
+                this.interpolators.removePlayer(disconnectedPlayerId);
                 
                 console.log(`Player ${disconnectedPlayerId} disconnected`);
             }
@@ -922,168 +339,7 @@ class ClientScene extends Phaser.Scene {
             }
             // Các trường hợp khác để Socket.IO tự xử lý reconnect
         });
-
-        socket.on('game_created', async (data) => {
-            // Connect to game server
-            const gameSocket = io(data.game_url, {
-                query: {
-                    room_id: data.room_id,
-                    player_id: currentPlayerId
-                }
-            });
-            
-            // Setup game scene
-            const gameScene = new ClientScene({
-                gameSocket: gameSocket,
-                gameData: JSON.parse(data.game_data)
-            });
-            
-            // Start game
-            game.scene.start('ClientScene', gameScene);
-        });
         
-    }
-    showStartCountdown(duration, callback) {
-        if (this.countdownContainer) {
-            this.countdownContainer.destroy();
-        }
-        
-        let countdownContainer = this.add.container(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
-        this.countdownContainer = countdownContainer;
-        
-        const countdownText = this.add.text(0, 0, '3', {
-            fontSize: '144px',
-            fontFamily: 'Arial Black',
-            color: '#FFFFFF',
-            stroke: '#000000',
-            strokeThickness: 4,
-            align: 'center',
-            resolution: 1
-        }).setOrigin(0.5);
-        
-        countdownText.setBlendMode(Phaser.BlendModes.NORMAL);
-        countdownContainer.add(countdownText);
-        countdownContainer.setDepth(9999);
-        
-        let currentNumber = 3;
-        let isDestroyed = false;
-        
-        const updateNumber = () => {
-            if (isDestroyed || !countdownText || !countdownText.scene) {
-                return;
-            }
-    
-            if (currentNumber > 0) {
-                // Fade out số hiện tại
-                this.tweens.add({
-                    targets: countdownText,
-                    alpha: 0,
-                    scale: 0.8,
-                    duration: 150,
-                    ease: 'Power1',
-                    onComplete: () => {
-                        if (!isDestroyed) {
-                            currentNumber--;
-                            if (currentNumber > 0) {
-                                // Cập nhật số mới và fade in
-                                countdownText.setText(currentNumber.toString());
-                                countdownText.setScale(1.2);
-                                
-                                this.tweens.add({
-                                    targets: countdownText,
-                                    alpha: 1,
-                                    scale: 1,
-                                    duration: 150,
-                                    ease: 'Back.easeOut',
-                                    onComplete: () => {
-                                        if (!isDestroyed) {
-                                            // Đợi một chút trước khi bắt đầu số tiếp theo
-                                            this.time.delayedCall(700, () => {
-                                                if (!isDestroyed) {
-                                                    updateNumber();
-                                                }
-                                            });
-                                        }
-                                    }
-                                });
-                            } else {
-                                showGo();
-                            }
-                        }
-                    }
-                });
-            }
-        };
-        
-        const showGo = () => {
-            if (isDestroyed || !countdownText || !countdownText.scene) {
-                return;
-            }
-    
-            countdownText.setText('GO!');
-            countdownText.setStyle({
-                color: '#00FF00',
-                fontSize: '144px',
-                stroke: '#000000',
-                strokeThickness: 4
-            });
-            countdownText.setScale(1.5);
-            countdownText.setAlpha(0);
-            
-            this.tweens.add({
-                targets: countdownText,
-                scale: 1,
-                alpha: 1,
-                duration: 300,
-                ease: 'Back.easeOut',
-                onComplete: () => {
-                    if (!isDestroyed) {
-                        this.time.delayedCall(500, () => {
-                            if (!isDestroyed) {
-                                this.tweens.add({
-                                    targets: countdownContainer,
-                                    alpha: 0,
-                                    duration: 200,
-                                    onComplete: () => {
-                                        isDestroyed = true;
-                                        countdownContainer.destroy();
-                                        if (callback) callback();
-                                    }
-                                });
-                            }
-                        });
-                    }
-                }
-            });
-        };
-        
-        this.events.once('shutdown', () => {
-            isDestroyed = true;
-            if (countdownContainer) {
-                countdownContainer.destroy();
-            }
-        });
-        
-        // Bắt đầu với số 3
-        countdownText.setAlpha(0);
-        countdownText.setScale(1.2);
-        
-        this.tweens.add({
-            targets: countdownText,
-            alpha: 1,
-            scale: 1,
-            duration: 150,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-                if (!isDestroyed) {
-                    this.time.delayedCall(700, () => {
-                        if (!isDestroyed) {
-                            updateNumber();
-                        }
-                    });
-                }
-            }
-        });
     }
 }
 
@@ -1110,10 +366,7 @@ const configPhaser = {
     scene: ClientScene
 };
 
-let game;
-if (typeof game === 'undefined') {
-    game = new Phaser.Game(configPhaser);
-}
+const game = new Phaser.Game(configPhaser);
 window.addEventListener('beforeunload', (event) => {
     if (game.scene.scenes[0].SOCKET) {
         game.scene.scenes[0].SOCKET.emit('leaveGame');

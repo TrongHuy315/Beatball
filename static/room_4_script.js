@@ -251,7 +251,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Trong file room_4.js
-    socket.on('game_started', (data) => {
+    socket.on('game_created', (data) => {
         const { room_id, game_state, message } = data;
         
         // Lưu game state vào sessionStorage để có thể truy cập ở trang game
