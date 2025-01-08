@@ -2,21 +2,17 @@ class PerfMonitor {
     constructor(scene) {
         this.scene = scene;
         this.initializeVariables();
-        // Đợi một chút để đảm bảo scene đã load xong
-        setTimeout(() => {
-            this.initializeSocketListeners();
-        }, 100);
+        this.initializeSocketListeners();
     }
     initializeSocketListeners() {
         if (!this.scene || !this.scene.SOCKET) {
             console.log("Waiting for socket initialization...");
-            // setTimeout(() => {
-            //     this.initializeSocketListeners();
-            // }, 100);
+            setTimeout(() => {
+                this.initializeSocketListeners();
+            }, 100);
             return;
         }
 
-        // Set up ping monitoring only when socket is available
         this.setupSocketListeners();
         this.startMonitoring(); // Sửa từ startPingMonitoring thành startMonitoring
     }
@@ -40,48 +36,6 @@ class PerfMonitor {
         this.lastFpsUpdate = 0;
         this.fpsUpdateInterval = 500;
     }
-
-    // createDisplayElements() {
-    //     // Main container
-    //     this.container = document.createElement('div');
-    //     this.container.style.cssText = `
-    //         position: absolute;
-    //         top: 10px;
-    //         left: 4px;
-    //         background-color: rgba(0, 0, 0, 0.7);
-    //         padding: 8px 12px;
-    //         border-radius: 5px;
-    //         font-family: 'Consolas', monospace;
-    //         font-size: 14px;
-    //         z-index: 1000;
-    //         display: flex;
-    //         flex-direction: column;
-    //         gap: 5px;
-    //         color: white;
-    //         min-width: 120px;
-    //     `;
-
-    //     this.pingElement = this.createMetricElement();
-    //     this.fpsElement = this.createMetricElement();
-    //     this.jitterElement = this.createMetricElement();
-
-    //     this.container.appendChild(this.jitterElement);
-    //     this.container.appendChild(this.pingElement);
-    //     this.container.appendChild(this.fpsElement);
-
-    //     document.body.appendChild(this.container);
-    // }
-
-    // createMetricElement() {
-    //     const element = document.createElement('div');
-    //     element.style.cssText = `
-    //         color: #ffffff;
-    //         font-weight: 400;
-    //         text-align: right;
-    //         font-family: 'Consolas', monospace;
-    //     `;
-    //     return element;
-    // }
 
     setupSocketListeners() {
         this.scene.SOCKET.on('pong', () => {

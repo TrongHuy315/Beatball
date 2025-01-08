@@ -1,6 +1,7 @@
 
-class Scoreboard {
-    constructor() {
+export class Scoreboard {
+    constructor(scene) {
+        this.scene = scene; 
         this.config = CONFIG.scoreboard;
         this.scores = {
             left: 0,
@@ -51,6 +52,14 @@ class Scoreboard {
         this.onWarningTime = null;  // Thêm dòng này
         this.onTimeUp = null;  
         this.draw();
+
+        this.setWarningTimeCallback(() => {
+            this.scene.soundManager.playEndGameSound();
+        });
+
+        this.setTimeUpCallback(() => {
+            this.scene.soundManager.stopEndGameSound();
+        });
     }
     setWarningTimeCallback(callback) {
         this.onWarningTime = callback;
@@ -163,9 +172,21 @@ class Scoreboard {
     }
 
     drawClock() {
+        // Vẽ thanh ngang trắng ở trên cùng
+        this.ctx.save();
+        this.ctx.fillStyle = '#ffffff';
+        
+        // Tính toán vị trí và độ dài của thanh ngang
+        const lineWidth = 15; // Độ dài thanh bằng khoảng cách giữa 2 số
+        const lineX = (this.canvas.width - lineWidth) / 2; // Căn giữa thanh
+        
+        this.ctx.fillRect(lineX, 30, lineWidth, 5); // Vẽ thanh ngang
+        
+
+
         const cfg = this.config.clock;
         const x = this.canvas.width / 2 - cfg.width / 2;
-        const y = cfg.yOffset - 15;
+        const y = cfg.yOffset - 9.5;
 
         this.ctx.save();
         
@@ -191,13 +212,14 @@ class Scoreboard {
             this.ctx.fillStyle = cfg.backgroundColor;
         }
 
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.21)'
         this.ctx.strokeStyle = cfg.borderColor;
         this.ctx.lineWidth = cfg.borderWidth;
         
         this.roundRect(
             x, y,
             cfg.width, cfg.height,
-            cfg.borderRadius
+            cfg.borderRadius = 0.3
         );
 
         // Draw time text với hiệu ứng
@@ -265,23 +287,18 @@ class Scoreboard {
         const cfg = this.config;
         
         this.ctx.save();
-        if (isAnimating) {
-            this.ctx.shadowBlur = 20;
-            this.ctx.shadowColor = cfg.animation.flashColor;
-        }
+        // if (isAnimating) {
+        //     this.ctx.shadowBlur = 20;
+        //     this.ctx.shadowColor = '#fff';  
+        // }
         
-        this.ctx.fillStyle = cfg.backgroundColor;
-        this.ctx.strokeStyle = cfg.borderColor;
-        this.ctx.lineWidth = cfg.borderWidth;
+        // Đổi màu tùy theo bên trái/phải
+        const scoreColor = x < this.canvas.width/2 ?
+            '#ff4655':
+            '#00ffc3'
         
-        this.roundRect(
-            x, y, 
-            cfg.width, cfg.height, 
-            cfg.borderRadius
-        );
-        
-        this.ctx.fillStyle = cfg.textColor;
-        this.ctx.font = `${cfg.fontWeight} ${cfg.fontSize}px Arial`;
+        this.ctx.fillStyle = scoreColor;
+        this.ctx.font = `bold 64px Tungsten-Bold, Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(
