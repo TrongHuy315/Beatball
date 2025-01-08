@@ -1,0 +1,28 @@
+# kubernetes/game-server.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-{room_id}
+  namespace: beatball-game
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: beatball-game
+      room: {room_id}
+  template:
+    metadata:
+      labels:
+        app: beatball-game
+        room: {room_id}
+    spec:
+      containers:
+      - name: game-server
+        image: beatball-game:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: ROOM_ID
+          value: {room_id}
+        - name: REDIS_URL
+          value: redis://redis-service:6379

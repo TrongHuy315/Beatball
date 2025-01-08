@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from urllib.parse import quote
 from werkzeug.security import generate_password_hash
 from email.mime.text import MIMEText
+from game_manager.k8s_manager import K8sGameManager
 import os
 import time
 import  uuid
@@ -17,6 +18,8 @@ import requests
 import smtplib
 import redis
 import json
+
+game_manager = K8sGameManager()
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
@@ -1136,71 +1139,42 @@ def handle_start_game(data):
         room = get_room(room_id)
         
         if not can_start_game(room):
-            emit('game_error', {
-                'message': 'Cannot start game. Check team and ready status.'
-            }, room=room_id)
+            emit('game_error', {'message': 'Cannot start game'}, room=room_id)
             return
 
-        # Khởi tạo dữ liệu game và lưu vào Redis
-        game_state = {
+        # Prepare player data
+        player_data = []
+        for i, slot in enumerate(room['player_slots']):
+            if slot:
+                player_data.append({
+                    'id': slot['user_id'],
+                    'username': slot['username'],
+                    'team': 'left' if i < 2 else 'right',
+                    'position': i
+                })
+
+        # Create game server on K8s
+        server_info = game_manager.create_game_instance(room_id, player_data)
+
+        # Save game info to Redis
+        game_data = {
+            'server_url': f"{server_info['server_url']}:{server_info['port']}",
             'room_id': room_id,
-            'status': 'playing',
-            'players': {},
-            'teams': {
-                'left': [],
-                'right': []
-            },
-            'scores': {
-                'left': 0,
-                'right': 0
-            },
-            'timestamp': time.time()
+            'status': 'initializing',
+            'players': player_data
         }
+        redis_client.set(f"game:{room_id}", json.dumps(game_data))
 
-        # Phân chia team dựa trên vị trí slot và tạo vị trí khởi tạo
-        for i, player in enumerate(room['player_slots']):
-            if player:
-                team = 'left' if i < 2 else 'right'
-                spawn_x = 200 + i * 100 if team == 'left' else 600 + (i - 2) * 100
-                spawn_y = 300
-
-                player_data = {
-                    'id': player['user_id'],
-                    'username': player['username'],
-                    'team': team,
-                    'position': {'x': spawn_x, 'y': spawn_y},
-                }
-                game_state['players'][player['user_id']] = player_data
-                game_state['teams'][team].append(player['user_id'])
-
-        # Thêm thông tin quả bóng
-        game_state['ball'] = {
-            'position': {'x': 400, 'y': 300},
-            'velocity': {'x': 0, 'y': 0}
-        }
-
-        # Lưu game state vào Redis
-        redis_client.set(f"game:{room_id}", json.dumps(game_state))
-        
-        # Cập nhật trạng thái phòng
-        room['status'] = 'playing'
-        room['game_state'] = game_state
-        save_room(room_id, room)
-
-        # Thông báo tất cả người chơi - gửi cả room_id để client redirect
-        emit('game_started', {
+        # Notify clients
+        emit('game_created', {
+            'game_url': game_data['server_url'],
             'room_id': room_id,
-            'game_state': game_state,
-            'message': 'Game is starting!'
+            'game_data': json.dumps(player_data)
         }, room=room_id)
 
-        print(f"Game started in room {room_id}")
-        
     except Exception as e:
         print(f"Error starting game: {e}")
-        emit('game_error', {
-            'message': 'Failed to start game. Please try again.'
-        }, room=room_id)
+        emit('game_error', {'message': str(e)}, room=room_id)
 
 def initialize_game(room_data):
     """
@@ -1229,20 +1203,27 @@ def handle_join_game(data):
         join_room(room_id)
         emit('game_state_update', json.loads(game_state), room=room_id)
 
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
 @socketio.on('player_input')
-def handle_player_input(data):
-    room_id = data.get('room_id')
-    game_state = redis_client.get(f"game:{room_id}")
-    
-    if game_state:
-        game_data = json.loads(game_state)
-        # Xử lý input và cập nhật game state
+def handle_input(data):
+    game = get_game_instance(data['room_id'])
+    if game:
+        game.handle_player_input(data['player_id'], data['input'])
+        emit('game_state', game.get_state(), room=data['room_id'])
+
+def game_loop():
+    while True:
+        current_time = time.time()
+        delta_time = current_time - last_update
         
-        # Lưu game state mới
-        redis_client.set(f"game:{room_id}", json.dumps(game_data))
+        game.update(delta_time)
+        socketio.emit('game_state', game.get_state())
         
-        # Broadcast update cho tất cả người chơi
-        emit('game_state_update', game_data, room=room_id)
+        last_update = current_time
+        time.sleep(1/60)  # 60 FPS
 
 @app.route('/game/<room_id>')
 @login_required
@@ -1414,6 +1395,46 @@ def kick_player():
     except Exception as e:
         print(f"Error kicking player: {e}")
         return jsonify({"error": "Failed to kick player"}), 500
+    
+class GameServer:
+    def __init__(self, room_id, player_data):
+        self.room_id = room_id
+        self.players = self.initialize_players(player_data)
+        self.ball = self.initialize_ball()
+        self.scores = {'left': 0, 'right': 0}
+        self.last_update = time.time()
+        
+    def initialize_players(self, player_data):
+        players = {}
+        for p in player_data:
+            spawn_pos = self.get_spawn_position(p['team'], p['position'])
+            players[p['id']] = {
+                'position': spawn_pos,
+                'velocity': {'x': 0, 'y': 0},
+                'team': p['team'],
+                'username': p['username']
+            }
+        return players
+        
+    def initialize_ball(self):
+        return {
+            'position': {'x': 400, 'y': 300},
+            'velocity': {'x': 0, 'y': 0}
+        }
+        
+    def update(self, delta_time):
+        self.update_ball(delta_time)
+        self.check_collisions()
+        self.check_goals()
+        
+    def get_state(self):
+        return {
+            'players': self.players,
+            'ball': self.ball,
+            'scores': self.scores
+        }
+    
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT

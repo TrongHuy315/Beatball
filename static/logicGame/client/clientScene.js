@@ -5,6 +5,7 @@ class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
         super({ key: 'ClientScene' });
+        this.gameSocket = null;
         this.player = null;
         this.ball = null;
         this.scoreboard = null;
@@ -86,6 +87,19 @@ class ClientScene extends Phaser.Scene {
             loop: false,
             delay: 0
         };
+    }
+    init(data) {
+        this.gameSocket = io(data.gameUrl);
+        this.setupGameSocketHandlers();
+    }
+    setupGameSocketHandlers() {
+        this.gameSocket.on('game_state', (state) => {
+            this.updateGameState(state);
+        });
+
+        this.gameSocket.on('game_over', (results) => {
+            this.handleGameOver(results);
+        });
     }
     preload() {
         this.load.audio('endGameSound', '/static/sound/endGameSound/endGameSound1.mp3', this.audioConfig);
@@ -484,6 +498,14 @@ class ClientScene extends Phaser.Scene {
 
     // CONSTATLY UPDATE SCENE 
     update() {
+        if (this.player) {
+            const input = this.getPlayerInput();
+            this.gameSocket.emit('player_input', {
+                room_id: this.roomId,
+                player_id: this.playerId,
+                input: input
+            });
+        }
         if (this.menuDisplay) {
             this.menuDisplay.update();
         }
@@ -899,6 +921,25 @@ class ClientScene extends Phaser.Scene {
                 socket.connect();
             }
             // Các trường hợp khác để Socket.IO tự xử lý reconnect
+        });
+
+        socket.on('game_created', async (data) => {
+            // Connect to game server
+            const gameSocket = io(data.game_url, {
+                query: {
+                    room_id: data.room_id,
+                    player_id: currentPlayerId
+                }
+            });
+            
+            // Setup game scene
+            const gameScene = new ClientScene({
+                gameSocket: gameSocket,
+                gameData: JSON.parse(data.game_data)
+            });
+            
+            // Start game
+            game.scene.start('ClientScene', gameScene);
         });
         
     }

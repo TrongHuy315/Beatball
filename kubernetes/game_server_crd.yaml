@@ -1,0 +1,40 @@
+# kubernetes/game-server-crd.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gameservers.games.beatball
+spec:
+  group: games.beatball
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                roomId:
+                  type: string
+                players:
+                  type: array
+                  items:
+                    type: object
+                config:
+                  type: object
+            status:
+              type: object
+              properties:
+                address:
+                  type: string
+                port:
+                  type: integer
+  scope: Namespaced
+  names:
+    plural: gameservers
+    singular: gameserver
+    kind: GameServer
+    shortNames:
+    - gs
