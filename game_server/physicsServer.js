@@ -9,11 +9,14 @@ const { Engine, Events } = require('matter-js');
 const { timeStamp } = require('console');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    cors: {
-        origin: "*", // Cho phép tất cả domains kết nối
-        methods: ["GET", "POST"]
-    }
+const io = require('socket.io')(server, {
+	cors: {
+	  origin: "*",
+	  methods: ["GET", "POST"],
+	  allowedHeaders: ["*"],
+	  credentials: true
+	},
+	transports: ['websocket', 'polling']
 });
 class PhysicsEngine {
     constructor(totalConnection) {
@@ -339,7 +342,7 @@ class PhysicsEngine {
 }
 const physicsEngine = new PhysicsEngine(2);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 http.listen(PORT, () => {
     console.log(`Physics server running on port ${PORT}`);
 });

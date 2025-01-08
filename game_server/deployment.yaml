@@ -57,10 +57,17 @@ kind: Service
 metadata:
   name: physics-server-service
   namespace: beatball-game
+  annotations:
+    cloud.google.com/app-protocols: '{"ws":"HTTPS","wss":"HTTPS"}'  # Thêm annotation này
 spec:
   type: LoadBalancer
   ports:
-  - port: 8000
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: ws  # Thêm port cho WebSocket
+    port: 443
     targetPort: 8000
     protocol: TCP
   selector:
