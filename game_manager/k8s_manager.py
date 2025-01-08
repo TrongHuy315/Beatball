@@ -109,20 +109,54 @@ class K8sGameManager:
             server_name = f"game-{room_id}"
             
             print(f"Creating game server deployment: {server_name}")
+            print(f"In namespace: {self.namespace}")
+
+            # Cleanup existing resources first
+            try:
+                self.cleanup_game_resources(server_name)
+                # Đợi một chút để đảm bảo resources đã được xóa hoàn toàn
+                import time
+                time.sleep(5)
+            except Exception as e:
+                print(f"Error during cleanup (non-fatal): {e}")
             
             # Create deployment
-            deployment = self.apps_v1.create_namespaced_deployment(
-                namespace=self.namespace,
-                body=self._create_deployment_spec(server_name, room_id, player_data)
-            )
-            print(f"Deployment created: {deployment.metadata.name}")
+            deployment_spec = self._create_deployment_spec(server_name, room_id, player_data)
+            try:
+                deployment = self.apps_v1.create_namespaced_deployment(
+                    namespace=self.namespace,
+                    body=deployment_spec
+                )
+                print(f"Deployment created: {deployment.metadata.name}")
+            except client.exceptions.ApiException as e:
+                if e.status == 409:  # Conflict - deployment exists
+                    print("Deployment exists, updating instead...")
+                    deployment = self.apps_v1.replace_namespaced_deployment(
+                        name=server_name,
+                        namespace=self.namespace,
+                        body=deployment_spec
+                    )
+                    print(f"Deployment updated: {deployment.metadata.name}")
+                else:
+                    raise
 
-            # Create service
-            service = self.core_v1.create_namespaced_service(
-                namespace=self.namespace,
-                body=self._create_service_spec(server_name)
-            )
-            print(f"Service created: {service.metadata.name}")
+            # Create or update service
+            service_spec = self._create_service_spec(server_name)
+            try:
+                service = self.core_v1.create_namespaced_service(
+                    namespace=self.namespace,
+                    body=service_spec
+                )
+            except client.exceptions.ApiException as e:
+                if e.status == 409:  # Conflict - service exists
+                    print("Service exists, updating instead...")
+                    service = self.core_v1.replace_namespaced_service(
+                        name=f"{server_name}-service",
+                        namespace=self.namespace,
+                        body=service_spec
+                    )
+                else:
+                    raise
 
             # Wait for external IP
             external_ip = self._wait_for_external_ip(f"{server_name}-service")
@@ -136,8 +170,15 @@ class K8sGameManager:
             }
 
         except Exception as e:
-            print(f"Error creating game server: {e}")
-            self.cleanup_game_resources(server_name)
+            print(f"Error in create_game_instance:")
+            print(f"Error type: {type(e)}")
+            print(f"Error message: {str(e)}")
+            if hasattr(e, 'body'):
+                print(f"Error body: {e.body}")
+            if hasattr(e, 'status'):
+                print(f"Error status: {e.status}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             raise
 
     def cleanup_namespace(self):
@@ -288,22 +329,60 @@ class K8sGameManager:
         try:
             print(f"Cleaning up resources for {server_name}")
             
-            # Delete deployment
-            self.apps_v1.delete_namespaced_deployment(
-                name=server_name,
-                namespace=self.namespace
-            )
-            print("Deployment deleted")
+            # Delete deployment if exists
+            try:
+                self.apps_v1.delete_namespaced_deployment(
+                    name=server_name,
+                    namespace=self.namespace,
+                    body=client.V1DeleteOptions(
+                        propagation_policy='Foreground',
+                        grace_period_seconds=5
+                    )
+                )
+                print("Deployment deleted")
+            except client.exceptions.ApiException as e:
+                if e.status != 404:  # Ignore if not found
+                    print(f"Error deleting deployment: {e}")
+                    raise
             
-            # Delete service 
-            self.core_v1.delete_namespaced_service(
-                name=f"{server_name}-service",
-                namespace=self.namespace
-            )
-            print("Service deleted")
-            
+            # Delete service if exists
+            try:
+                self.core_v1.delete_namespaced_service(
+                    name=f"{server_name}-service",
+                    namespace=self.namespace
+                )
+                print("Service deleted")
+            except client.exceptions.ApiException as e:
+                if e.status != 404:  # Ignore if not found
+                    print(f"Error deleting service: {e}")
+                    raise
+
+            # Wait for resources to be fully deleted
+            max_retries = 10
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    self.apps_v1.read_namespaced_deployment(
+                        name=server_name,
+                        namespace=self.namespace
+                    )
+                    print("Waiting for deployment to be deleted...")
+                    import time
+                    time.sleep(2)
+                    retry_count += 1
+                except client.exceptions.ApiException as e:
+                    if e.status == 404:
+                        print("Deployment fully deleted")
+                        break
+                    else:
+                        raise
+
+            if retry_count >= max_retries:
+                print("Warning: Timeout waiting for deployment deletion")
+                
         except Exception as e:
-            print(f"Error cleaning up resources: {e}")
+            print(f"Error during cleanup: {e}")
+            raise
 
     def monitor_game(self, room_id):
         try:
