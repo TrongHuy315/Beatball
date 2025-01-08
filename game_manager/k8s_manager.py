@@ -5,7 +5,8 @@ from google.cloud import container_v1
 from google.auth import transport
 import os
 import json
-
+from kubernetes.client.rest import ApiException
+import time 
 class K8sGameManager:
     def __init__(self):
         self.namespace = "beatball-game"
@@ -105,6 +106,7 @@ class K8sGameManager:
             raise
 
     def create_game_instance(self, room_id, player_data):
+        self.cleanup_unused_services()
         try:
             server_name = f"game-{room_id}"
             
@@ -395,4 +397,56 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error monitoring game: {e}")
             return None
+        
+    def cleanup_unused_services(self):
+        try:
+            print("Starting cleanup of unused services...")
+            
+            # Lấy danh sách tất cả services
+            services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+            
+            for svc in services.items:
+                if svc.metadata.name == "kubernetes":  # Bỏ qua service mặc định
+                    continue
+                    
+                # Xóa service và deployment tương ứng
+                service_name = svc.metadata.name
+                deployment_name = service_name.replace('-service', '')
+                
+                print(f"\nCleaning up resources for {service_name}")
+                
+                try:
+                    # Xóa service
+                    self.core_v1.delete_namespaced_service(
+                        name=service_name,
+                        namespace=self.namespace
+                    )
+                    print(f"Deleted service: {service_name}")
+                    
+                    # Xóa deployment
+                    self.apps_v1.delete_namespaced_deployment(
+                        name=deployment_name,
+                        namespace=self.namespace
+                    )
+                    print(f"Deleted deployment: {deployment_name}")
+                    
+                    # Đợi để đảm bảo resources được xóa
+                    time.sleep(2)
+                    
+                except ApiException as e:
+                    print(f"Error deleting {service_name}: {e}")
+                    continue
+                    
+            print("\nCleanup completed!")
+            
+            # Kiểm tra lại sau khi dọn dẹp
+            remaining_services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+            print("\nRemaining services:")
+            for svc in remaining_services.items:
+                if svc.metadata.name != "kubernetes":
+                    print(f"- {svc.metadata.name}")
+                    
+        except ApiException as e:
+            print(f"Error during cleanup: {e}")
+    
         

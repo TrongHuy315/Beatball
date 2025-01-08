@@ -21,6 +21,7 @@ import json
 import threading
 
 game_manager = K8sGameManager()
+game_manager.cleanup_unused_services()
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
