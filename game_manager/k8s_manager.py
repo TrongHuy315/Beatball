@@ -2,7 +2,7 @@
 from kubernetes import client, config
 from google.oauth2 import service_account
 from google.cloud import container_v1
-from google.auth.transport import requests
+from google.auth import transport
 import os
 import json
 
