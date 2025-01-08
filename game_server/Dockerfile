@@ -1,16 +1,28 @@
-# Dockerfile
-FROM python:3.9-slim
+# Sử dụng Node.js LTS version
+FROM node:18-slim
 
-WORKDIR /app
+# Tạo thư mục app
+WORKDIR /usr/src/app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy package.json và package-lock.json (nếu có)
+COPY package*.json ./
 
+# Cài đặt dependencies
+RUN npm install
+
+# Copy source code
 COPY . .
 
-ENV PYTHONUNBUFFERED=1
-ENV GAME_PORT=8000
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8000
 
+# Expose port
 EXPOSE 8000
 
-CMD ["python", "game_server.py"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Command để chạy app
+CMD ["node", "physicsServer.js"]

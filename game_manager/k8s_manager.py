@@ -233,7 +233,7 @@ class K8sGameManager:
                     "spec": {
                         "containers": [{
                             "name": "game-server",
-                            "image": "gcr.io/[PROJECT_ID]/beatball-game:latest",
+                            "image": "beatball/physics-server:latest",
                             "imagePullPolicy": "Always",
                             "ports": [{
                                 "containerPort": 8000
