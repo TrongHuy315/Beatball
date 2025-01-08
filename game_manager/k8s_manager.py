@@ -16,49 +16,49 @@ class K8sGameManager:
         self.create_namespace()
 
     def create_namespace(self):
-    try:
-        # Kiểm tra namespace đã tồn tại chưa
         try:
-            existing_ns = self.core_v1.read_namespace(name=self.namespace)
-            print(f"Namespace {self.namespace} already exists")
-            return
-        except client.exceptions.ApiException as e:
-            if e.status != 404:  # Nếu lỗi khác 404 (Not Found)
-                raise
+            # Kiểm tra namespace đã tồn tại chưa
+            try:
+                existing_ns = self.core_v1.read_namespace(name=self.namespace)
+                print(f"Namespace {self.namespace} already exists")
+                return
+            except client.exceptions.ApiException as e:
+                if e.status != 404:  # Nếu lỗi khác 404 (Not Found)
+                    raise
 
-        # Tạo namespace config với labels và annotations phù hợp với GKE Autopilot
-        namespace_manifest = {
-            'apiVersion': 'v1',
-            'kind': 'Namespace',
-            'metadata': {
-                'name': self.namespace,
-                'labels': {
+            # Tạo namespace config với labels và annotations phù hợp với GKE Autopilot
+            namespace_manifest = {
+                'apiVersion': 'v1',
+                'kind': 'Namespace',
+                'metadata': {
                     'name': self.namespace,
-                    'environment': 'production',
-                    'managed-by': 'beatball'
-                },
-                'annotations': {
-                    'container.googleapis.com/autopilot': 'true'
+                    'labels': {
+                        'name': self.namespace,
+                        'environment': 'production',
+                        'managed-by': 'beatball'
+                    },
+                    'annotations': {
+                        'container.googleapis.com/autopilot': 'true'
+                    }
                 }
             }
-        }
 
-        try:
-            self.core_v1.create_namespace(body=namespace_manifest)
-            print(f"Created namespace: {self.namespace}")
-        except client.exceptions.ApiException as e:
-            if e.status == 409:  # Conflict
-                print(f"Namespace {self.namespace} was created by another process")
-            else:
-                raise
+            try:
+                self.core_v1.create_namespace(body=namespace_manifest)
+                print(f"Created namespace: {self.namespace}")
+            except client.exceptions.ApiException as e:
+                if e.status == 409:  # Conflict
+                    print(f"Namespace {self.namespace} was created by another process")
+                else:
+                    raise
 
-    except Exception as e:
-        print(f"Error in create_namespace: {str(e)}")
-        if hasattr(e, 'body'):
-            print(f"Error body: {e.body}")
-        if hasattr(e, 'status'):
-            print(f"Error status: {e.status}")
-        raise
+        except Exception as e:
+            print(f"Error in create_namespace: {str(e)}")
+            if hasattr(e, 'body'):
+                print(f"Error body: {e.body}")
+            if hasattr(e, 'status'):
+                print(f"Error status: {e.status}")
+            raise
 
     def configure_k8s(self):
         try:
