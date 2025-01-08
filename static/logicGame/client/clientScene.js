@@ -16,7 +16,7 @@ class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
         super({ key: 'ClientScene' });
-
+        this.load.baseURL = '';
         this.gameSessionData = {
             roomId: null,
             userId: null,
