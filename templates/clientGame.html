@@ -16,7 +16,7 @@
 <body>
     <!-- Add hidden inputs for game data -->
     <input type="hidden" id="game-server-url" value="{{ server_url }}">
-    <input type="hidden" id="game-data" value="{{ game_data | safe }}">
+    <input type="hidden" id="game-data" value='{{ game_data|tojson|safe }}'>
     <input type="hidden" id="user-team" value="{{ user_team }}">
     <input type="hidden" id="user-id" value="{{ user_id }}">
     <input type="hidden" id="room-id" value="{{ room_id }}">

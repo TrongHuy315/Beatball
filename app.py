@@ -1276,7 +1276,7 @@ def game_page(room_id):
 
         return render_template('clientGame.html',
                              room_id=room_id,
-                             game_data=json.dumps(team_data),
+                             game_data=team_data,
                              user_team=user_team or '',
                              user_id=current_user_id,
                              server_url=server_url)  # Thêm server_url
