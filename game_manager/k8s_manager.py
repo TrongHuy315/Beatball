@@ -13,6 +13,28 @@ class K8sGameManager:
         self.cluster_zone = os.getenv('GKE_CLUSTER_ZONE')
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         self.configure_k8s()
+        self.create_namespace()
+
+    def create_namespace(self):
+        try:
+            # Kiểm tra namespace đã tồn tại chưa
+            namespaces = self.core_v1.list_namespace()
+            if not any(ns.metadata.name == self.namespace for ns in namespaces.items):
+                # Tạo namespace mới
+                namespace_manifest = {
+                    'apiVersion': 'v1',
+                    'kind': 'Namespace',
+                    'metadata': {
+                        'name': self.namespace
+                    }
+                }
+                self.core_v1.create_namespace(body=namespace_manifest)
+                print(f"Created namespace: {self.namespace}")
+            else:
+                print(f"Namespace {self.namespace} already exists")
+        except Exception as e:
+            print(f"Error creating namespace: {e}")
+            raise
 
     def configure_k8s(self):
         try:
