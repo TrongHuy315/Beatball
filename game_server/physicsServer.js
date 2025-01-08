@@ -341,6 +341,8 @@ class PhysicsEngine {
 	}
 }
 const physicsEngine = new PhysicsEngine(2);
+process.stdout.write("Physic engine run with 2 allowed connection\n");
+process.stdout.write(`Environment PORT: ${process.env.PORT}\n`);
 
 const PORT = process.env.PORT || 8000;
 http.listen(PORT, () => {

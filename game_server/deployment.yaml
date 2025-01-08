@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: physics-server
-        image: beatball/physics-server:latest  # Thay your-dockerhub-username bằng username Docker của bạn
+        image: beatball/physics-server:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -58,16 +58,12 @@ metadata:
   name: physics-server-service
   namespace: beatball-game
   annotations:
-    cloud.google.com/app-protocols: '{"ws":"HTTPS","wss":"HTTPS"}'  # Thêm annotation này
+    cloud.google.com/app-protocols: '{"ws":"HTTPS","wss":"HTTPS"}'
 spec:
   type: LoadBalancer
   ports:
-  - name: http
+  - name: ws
     port: 8000
-    targetPort: 8000
-    protocol: TCP
-  - name: ws  # Thêm port cho WebSocket
-    port: 443
     targetPort: 8000
     protocol: TCP
   selector:
