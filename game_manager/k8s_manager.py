@@ -140,13 +140,39 @@ class K8sGameManager:
             self.cleanup_game_resources(server_name)
             raise
 
+    def cleanup_namespace(self):
+        try:
+            self.core_v1.delete_namespace(name=self.namespace)
+            print(f"Deleted namespace: {self.namespace}")
+            # Đợi namespace được xóa hoàn toàn
+            import time
+            timeout = 30
+            start_time = time.time()
+            while True:
+                try:
+                    self.core_v1.read_namespace(name=self.namespace)
+                    if time.time() - start_time > timeout:
+                        raise Exception("Timeout waiting for namespace deletion")
+                    time.sleep(2)
+                except client.exceptions.ApiException as e:
+                    if e.status == 404:
+                        break
+        except client.exceptions.ApiException as e:
+            if e.status != 404:  # Ignore if namespace doesn't exist
+                raise
+
     def _create_deployment_spec(self, name, room_id, player_data):
         return {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
             "metadata": {
                 "name": name,
-                "namespace": self.namespace
+                "namespace": self.namespace,
+                "labels": {
+                    "app": name,
+                    "environment": "production",
+                    "managed-by": "beatball"
+                }
             },
             "spec": {
                 "replicas": 1,
@@ -164,7 +190,7 @@ class K8sGameManager:
                     "spec": {
                         "containers": [{
                             "name": "game-server",
-                            "image": "gcr.io/[PROJECT_ID]/beatball-game:latest", # Thay PROJECT_ID
+                            "image": "gcr.io/[PROJECT_ID]/beatball-game:latest",
                             "imagePullPolicy": "Always",
                             "ports": [{
                                 "containerPort": 8000
@@ -178,8 +204,42 @@ class K8sGameManager:
                             }, {
                                 "name": "REDIS_URL",
                                 "value": os.getenv('REDIS_URL')
-                            }]
-                        }]
+                            }],
+                            # Thêm resource requirements cho Autopilot
+                            "resources": {
+                                "requests": {
+                                    "cpu": "250m",
+                                    "memory": "512Mi"
+                                },
+                                "limits": {
+                                    "cpu": "500m",
+                                    "memory": "1Gi"
+                                }
+                            },
+                            # Thêm security settings
+                            "securityContext": {
+                                "allowPrivilegeEscalation": False,
+                                "capabilities": {
+                                    "drop": ["ALL"]
+                                },
+                                "runAsNonRoot": True,
+                                "runAsUser": 1000,
+                                "seccompProfile": {
+                                    "type": "RuntimeDefault"
+                                }
+                            }
+                        }],
+                        # Pod security context
+                        "securityContext": {
+                            "runAsNonRoot": True,
+                            "runAsUser": 1000,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        # Thêm scheduling requirements
+                        "automountServiceAccountToken": False,
+                        "restartPolicy": "Always"
                     }
                 }
             }
