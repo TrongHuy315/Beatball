@@ -15,7 +15,7 @@ class K8sGameManager:
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         self.configure_k8s()
         self.create_namespace()
-
+        self.custom_objects_api = client.CustomObjectsApi()  # Thêm dòng này
     def create_namespace(self):
         try:
             # Kiểm tra namespace đã tồn tại chưa
@@ -113,73 +113,50 @@ class K8sGameManager:
             print(f"Creating game server deployment: {server_name}")
             print(f"In namespace: {self.namespace}")
 
-            # Cleanup existing resources first
+            # Create BackendConfig first
+            backend_config = self._create_backend_config(server_name)
             try:
-                self.cleanup_game_resources(server_name)
-                # Đợi một chút để đảm bảo resources đã được xóa hoàn toàn
-                import time
-                time.sleep(5)
-            except Exception as e:
-                print(f"Error during cleanup (non-fatal): {e}")
-            
-            # Create deployment
-            deployment_spec = self._create_deployment_spec(server_name, room_id, player_data)
-            try:
-                deployment = self.apps_v1.create_namespaced_deployment(
+                self.custom_objects_api.create_namespaced_custom_object(
+                    group="cloud.google.com",
+                    version="v1",
                     namespace=self.namespace,
-                    body=deployment_spec
+                    plural="backendconfigs",
+                    body=backend_config
                 )
-                print(f"Deployment created: {deployment.metadata.name}")
             except client.exceptions.ApiException as e:
-                if e.status == 409:  # Conflict - deployment exists
-                    print("Deployment exists, updating instead...")
-                    deployment = self.apps_v1.replace_namespaced_deployment(
-                        name=server_name,
-                        namespace=self.namespace,
-                        body=deployment_spec
-                    )
-                    print(f"Deployment updated: {deployment.metadata.name}")
-                else:
+                if e.status != 409:  # Ignore if already exists
                     raise
 
-            # Create or update service
+            # Cleanup existing resources
+            self.cleanup_game_resources(server_name)
+            time.sleep(5)  # Wait for cleanup
+
+            # Create deployment
+            deployment_spec = self._create_deployment_spec(server_name, room_id, player_data)
+            deployment = self.apps_v1.create_namespaced_deployment(
+                namespace=self.namespace,
+                body=deployment_spec
+            )
+
+            # Create service
             service_spec = self._create_service_spec(server_name)
-            try:
-                service = self.core_v1.create_namespaced_service(
-                    namespace=self.namespace,
-                    body=service_spec
-                )
-            except client.exceptions.ApiException as e:
-                if e.status == 409:  # Conflict - service exists
-                    print("Service exists, updating instead...")
-                    service = self.core_v1.replace_namespaced_service(
-                        name=f"{server_name}-service",
-                        namespace=self.namespace,
-                        body=service_spec
-                    )
-                else:
-                    raise
+            service = self.core_v1.create_namespaced_service(
+                namespace=self.namespace,
+                body=service_spec
+            )
 
             # Wait for external IP
             external_ip = self._wait_for_external_ip(f"{server_name}-service")
             print(f"Got external IP: {external_ip}")
 
             return {
-                'server_url': external_ip,
+                'server_url': external_ip,  # Return just the IP, no port
                 'deployment_name': server_name,
                 'service_name': f"{server_name}-service"
             }
 
         except Exception as e:
-            print(f"Error in create_game_instance:")
-            print(f"Error type: {type(e)}")
-            print(f"Error message: {str(e)}")
-            if hasattr(e, 'body'):
-                print(f"Error body: {e.body}")
-            if hasattr(e, 'status'):
-                print(f"Error status: {e.status}")
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            print(f"Error in create_game_instance: {e}")
             raise
 
     def cleanup_namespace(self):
@@ -293,18 +270,45 @@ class K8sGameManager:
             "kind": "Service", 
             "metadata": {
                 "name": f"{name}-service",
-                "namespace": self.namespace
+                "namespace": self.namespace,
+                "annotations": {
+                    "cloud.google.com/app-protocols": '{"ws":"HTTP"}',
+                    "cloud.google.com/backend-config": '{"ports": {"80":"physics-server-backendconfig"}}'
+                }
             },
             "spec": {
                 "selector": {
                     "app": name
                 },
                 "ports": [{
+                    "name": "ws",
                     "protocol": "TCP",
-                    "port": 8000,
-                    "targetPort": 8000
+                    "port": 80,        # Đổi từ 8000 thành 80
+                    "targetPort": 8000  # Giữ nguyên targetPort 8000
                 }],
                 "type": "LoadBalancer"
+            }
+        }
+
+    def _create_backend_config(self, name):
+        return {
+            "apiVersion": "cloud.google.com/v1",
+            "kind": "BackendConfig",
+            "metadata": {
+                "name": "physics-server-backendconfig",
+                "namespace": self.namespace
+            },
+            "spec": {
+                "timeoutSec": 3600,
+                "connectionDraining": {
+                    "drainingTimeoutSec": 300
+                },
+                "healthCheck": {
+                    "checkIntervalSec": 15,
+                    "port": 8000,
+                    "type": "HTTP",
+                    "requestPath": "/health"
+                }
             }
         }
 
