@@ -5,97 +5,41 @@ from google.cloud import container_v1
 from google.auth import transport
 import os
 import json
-import time
-
+from kubernetes.client.rest import ApiException
+import time 
 class K8sGameManager:
     def __init__(self):
         self.namespace = "beatball-game"
         self.cluster_name = os.getenv('GKE_CLUSTER_NAME')
         self.cluster_zone = os.getenv('GKE_CLUSTER_ZONE')
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-
-        # Thiết lập kết nối K8s
         self.configure_k8s()
         self.create_namespace()
-
-        # Tạo đối tượng để quản lý Custom Resources (dùng cho BackendConfig)
-        self.custom_objects_api = client.CustomObjectsApi()
-
-    def configure_k8s(self):
-        """
-        Cấu hình client Python để kết nối đến GKE Kubernetes Cluster,
-        dựa vào thông tin môi trường (tên cluster, zone, credentials).
-        """
-        try:
-            # Tạo credentials từ JSON string
-            credentials_dict = json.loads(self.credentials_json)
-            credentials = service_account.Credentials.from_service_account_info(
-                credentials_dict,
-                scopes=['https://www.googleapis.com/auth/cloud-platform']
-            )
-
-            # Refresh token
-            request = transport.requests.Request()
-            credentials.refresh(request)
-
-            # Lấy thông tin cụm GKE
-            container_client = container_v1.ClusterManagerClient(credentials=credentials)
-            cluster_path = (
-                f"projects/{credentials_dict['project_id']}/locations/"
-                f"{self.cluster_zone}/clusters/{self.cluster_name}"
-            )
-            cluster = container_client.get_cluster(name=cluster_path)
-
-            # Tạo cấu hình cho Python Kubernetes client
-            configuration = client.Configuration()
-            configuration.host = f"https://{cluster.endpoint}"
-            # Tắt verify SSL (tùy chọn, chỉ nên dùng khi dev/test)
-            configuration.verify_ssl = False
-
-            # Sử dụng token đã refresh
-            if not credentials.valid:
-                credentials.refresh(request)
-            configuration.api_key = {"authorization": f"Bearer {credentials.token}"}
-
-            client.Configuration.set_default(configuration)
-
-            # Khởi tạo các API cần thiết
-            self.apps_v1 = client.AppsV1Api()
-            self.core_v1 = client.CoreV1Api()
-
-            print("Successfully configured K8s client")
-
-        except Exception as e:
-            print(f"Error configuring K8s client: {e}")
-            raise
-
+        self.custom_objects_api = client.CustomObjectsApi()  # Thêm dòng này
     def create_namespace(self):
-        """
-        Tạo namespace (beatball-game) nếu chưa tồn tại.
-        """
         try:
-            # Kiểm tra namespace
+            # Kiểm tra namespace đã tồn tại chưa
             try:
-                self.core_v1.read_namespace(name=self.namespace)
+                existing_ns = self.core_v1.read_namespace(name=self.namespace)
                 print(f"Namespace {self.namespace} already exists")
                 return
             except client.exceptions.ApiException as e:
-                if e.status != 404:
+                if e.status != 404:  # Nếu lỗi khác 404 (Not Found)
                     raise
 
-            # Tạo namespace nếu chưa có
+            # Tạo namespace config với labels và annotations phù hợp với GKE Autopilot
             namespace_manifest = {
-                "apiVersion": "v1",
-                "kind": "Namespace",
-                "metadata": {
-                    "name": self.namespace,
-                    "labels": {
-                        "name": self.namespace,
-                        "environment": "production",
-                        "managed-by": "beatball"
+                'apiVersion': 'v1',
+                'kind': 'Namespace',
+                'metadata': {
+                    'name': self.namespace,
+                    'labels': {
+                        'name': self.namespace,
+                        'environment': 'production',
+                        'managed-by': 'beatball'
                     },
-                    "annotations": {
-                        "container.googleapis.com/autopilot": "true"
+                    'annotations': {
+                        'container.googleapis.com/autopilot': 'true'
                     }
                 }
             }
@@ -104,7 +48,7 @@ class K8sGameManager:
                 self.core_v1.create_namespace(body=namespace_manifest)
                 print(f"Created namespace: {self.namespace}")
             except client.exceptions.ApiException as e:
-                if e.status == 409:
+                if e.status == 409:  # Conflict
                     print(f"Namespace {self.namespace} was created by another process")
                 else:
                     raise
@@ -117,15 +61,116 @@ class K8sGameManager:
                 print(f"Error status: {e.status}")
             raise
 
+    def configure_k8s(self):
+        try:
+            # Parse credentials JSON string
+            credentials_dict = json.loads(self.credentials_json)
+            
+            # Create credentials object
+            credentials = service_account.Credentials.from_service_account_info(
+                credentials_dict,
+                scopes=['https://www.googleapis.com/auth/cloud-platform']
+            )
+
+            # Create request object
+            request = transport.requests.Request()
+            
+            # Refresh credentials
+            credentials.refresh(request)
+            
+            # Get GKE cluster info
+            container_client = container_v1.ClusterManagerClient(credentials=credentials)
+            cluster_path = f"projects/{credentials_dict['project_id']}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
+            cluster = container_client.get_cluster(name=cluster_path)
+
+            # Configure kubernetes client
+            configuration = client.Configuration()
+            configuration.host = f"https://{cluster.endpoint}"
+            configuration.verify_ssl = False
+            
+            # Use refreshed token
+            if not credentials.valid:
+                credentials.refresh(request)
+            configuration.api_key = {"authorization": f"Bearer {credentials.token}"}
+
+            client.Configuration.set_default(configuration)
+
+            # Initialize clients
+            self.apps_v1 = client.AppsV1Api()
+            self.core_v1 = client.CoreV1Api()
+            
+            print("Successfully configured K8s client")
+
+        except Exception as e:
+            print(f"Error configuring K8s client: {e}")
+            raise
+
+    def create_game_instance(self, room_id, player_data):
+        self.cleanup_unused_services()
+        try:
+            server_name = f"game-{room_id}"
+            
+            print(f"Creating game server deployment: {server_name}")
+            print(f"In namespace: {self.namespace}")
+
+            # Create BackendConfig first
+            backend_config = self._create_backend_config(server_name)
+            try:
+                self.custom_objects_api.create_namespaced_custom_object(
+                    group="cloud.google.com",
+                    version="v1",
+                    namespace=self.namespace,
+                    plural="backendconfigs",
+                    body=backend_config
+                )
+            except client.exceptions.ApiException as e:
+                if e.status != 409:  # Ignore if already exists
+                    raise
+
+            # Cleanup existing resources
+            self.cleanup_game_resources(server_name)
+            time.sleep(5)  # Wait for cleanup
+
+            # Create deployment
+            deployment_spec = self._create_deployment_spec(server_name, room_id, player_data)
+            deployment = self.apps_v1.create_namespaced_deployment(
+                namespace=self.namespace,
+                body=deployment_spec
+            )
+
+            # Create service
+            service_spec = self._create_service_spec(server_name)
+            service = self.core_v1.create_namespaced_service(
+                namespace=self.namespace,
+                body=service_spec
+            )
+
+            # Wait for external IP
+            external_ip = self._wait_for_external_ip(f"{server_name}-service")
+            print(f"Got external IP: {external_ip}")
+
+            return {
+                'port': 443, 
+                'server_url': external_ip,  
+                'deployment_name': server_name,
+                'service_name': f"{server_name}-service"
+            }
+
+        except Exception as e:
+            print(f"Error in create_game_instance: {e}")
+            raise
+        except client.exceptions.ApiException as e:
+            print(f"Kubernetes API error: {e.status}, {e.reason}")
+            if e.body:
+                print(f"Error details: {e.body}")
+            raise
+
     def cleanup_namespace(self):
-        """
-        Xóa toàn bộ namespace (chỉ dùng khi cần thiết).
-        """
         try:
             self.core_v1.delete_namespace(name=self.namespace)
             print(f"Deleted namespace: {self.namespace}")
-
-            # Đợi namespace được xóa hoàn toàn (đơn giản, timeout 30s)
+            # Đợi namespace được xóa hoàn toàn
+            import time
             timeout = 30
             start_time = time.time()
             while True:
@@ -138,166 +183,222 @@ class K8sGameManager:
                     if e.status == 404:
                         break
         except client.exceptions.ApiException as e:
-            if e.status != 404:
+            if e.status != 404:  # Ignore if namespace doesn't exist
                 raise
 
-    def create_physics_server(self):
-        """
-        Tạo đầy đủ Deployment, Service, Ingress và BackendConfig 
-        cho physics-server giống nội dung trong deployment.yaml.
-        Sau đó chờ lấy External IP (nếu Service là LoadBalancer).
-        Cuối cùng, trả về dictionary chứa thông tin IP, port, 
-        tên Deployment và Service.
-        """
-        try:
-            deployment_name = "physics-server"
-            service_name = "physics-server-service"
-            backendconfig_name = "physics-server-backendconfig"
-            ingress_name = "game-ingress"
-
-            # Tạo (hoặc cập nhật) BackendConfig
-            backend_config_spec = self._create_backend_config_spec(backendconfig_name)
-            try:
-                self.custom_objects_api.create_namespaced_custom_object(
-                    group="cloud.google.com",
-                    version="v1",
-                    namespace=self.namespace,
-                    plural="backendconfigs",
-                    body=backend_config_spec
-                )
-                print(f"Created BackendConfig: {backendconfig_name}")
-            except client.exceptions.ApiException as e:
-                if e.status == 409:
-                    print(f"BackendConfig {backendconfig_name} already exists, proceeding...")
-                else:
-                    raise
-
-            # Xóa physics-server cũ (nếu có)
-            self.cleanup_physics_server()
-            time.sleep(5)  # Đợi một chút để xóa xong
-
-            # Tạo Deployment
-            deployment_spec = self._create_deployment_spec(deployment_name)
-            self.apps_v1.create_namespaced_deployment(
-                namespace=self.namespace,
-                body=deployment_spec
-            )
-            print(f"Created Deployment: {deployment_name}")
-
-            # Tạo Service
-            service_spec = self._create_service_spec(service_name, backendconfig_name)
-            self.core_v1.create_namespaced_service(
-                namespace=self.namespace,
-                body=service_spec
-            )
-            print(f"Created Service: {service_name}")
-
-            # Tạo Ingress
-            ingress_spec = self._create_ingress_spec(ingress_name, backendconfig_name, service_name)
-            networking_v1 = client.NetworkingV1Api()
-            try:
-                networking_v1.create_namespaced_ingress(
-                    namespace=self.namespace,
-                    body=ingress_spec
-                )
-                print(f"Created Ingress: {ingress_name}")
-            except client.exceptions.ApiException as e:
-                if e.status == 409:
-                    print(f"Ingress {ingress_name} already exists, proceeding...")
-                else:
-                    raise
-
-            # Nếu Service là NodePort, thường ta sẽ không có external_ip.
-            # Nhưng nếu vẫn muốn lấy IP, ta có thể chờ load_balancer.ingress 
-            # (trong trường hợp Service type=LoadBalancer). 
-            # Ở đây code mẫu vẫn cố gắng chờ IP để nhất quán với logic cũ.
-            external_ip = self._wait_for_external_ip(service_name, timeout=60)
-            print(f"Got external IP: {external_ip}")
-
-            # Trả về thông tin
-            return {
-                'port': 80,
-                'server_url': external_ip,
-                'deployment_name': deployment_name,
-                'service_name': service_name
+    def _create_deployment_spec(self, name, room_id, player_data):
+        return {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "name": name,
+                "namespace": self.namespace,
+                "labels": {
+                    "app": name,
+                    "environment": "production",
+                    "managed-by": "beatball"
+                }
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {
+                    "matchLabels": {
+                        "app": name
+                    }
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app": name
+                        }
+                    },
+                    "spec": {
+                        "containers": [{
+                            "name": "game-server",
+                            "image": "beatball/physics-server:latest",
+                            "imagePullPolicy": "Always",
+                            "ports": [{
+                                "containerPort": 8000
+                            }],
+                            "env": [{
+                                "name": "ROOM_ID",
+                                "value": str(room_id)
+                            }, {
+                                "name": "PLAYER_DATA",
+                                "value": json.dumps(player_data)
+                            }, {
+                                "name": "REDIS_URL",
+                                "value": os.getenv('REDIS_URL')
+                            }],
+                            # Thêm resource requirements cho Autopilot
+                            "resources": {
+                                "requests": {
+                                    "cpu": "250m",
+                                    "memory": "512Mi"
+                                },
+                                "limits": {
+                                    "cpu": "500m",
+                                    "memory": "1Gi"
+                                }
+                            },
+                            # Thêm security settings
+                            "securityContext": {
+                                "allowPrivilegeEscalation": False,
+                                "capabilities": {
+                                    "drop": ["ALL"]
+                                },
+                                "runAsNonRoot": True,
+                                "runAsUser": 1000,
+                                "seccompProfile": {
+                                    "type": "RuntimeDefault"
+                                }
+                            }
+                        }],
+                        # Pod security context
+                        "securityContext": {
+                            "runAsNonRoot": True,
+                            "runAsUser": 1000,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "livenessProbe": {
+                            "httpGet": {
+                                "path": "/health",
+                                "port": 8000
+                            },
+                            "initialDelaySeconds": 15,
+                            "periodSeconds": 30,
+                            "timeoutSeconds": 3
+                        },
+                        "readinessProbe": {
+                            "httpGet": {
+                                "path": "/health",
+                                "port": 8000
+                            },
+                            "initialDelaySeconds": 5,
+                            "periodSeconds": 10
+                        }, 
+                        # Thêm scheduling requirements
+                        "automountServiceAccountToken": False,
+                        "restartPolicy": "Always"
+                    }
+                }
             }
+        }
 
-        except Exception as e:
-            print(f"Error in create_physics_server: {e}")
-            raise
+    def _create_service_spec(self, name):
+        return {
+            "apiVersion": "v1",
+            "kind": "Service", 
+            "metadata": {
+                "name": f"{name}-service",
+                "namespace": self.namespace,
+                "annotations": {
+                    "cloud.google.com/app-protocols": '{"wss":"HTTPS"}',
+                    "cloud.google.com/backend-config": '{"ports": {"443":"physics-server-backendconfig"}}'
+                }
+            },
+            "spec": {
+                "selector": {
+                    "app": name
+                },
+                "ports": [{
+                    "name": "wss",
+                    "protocol": "TCP",
+                    "port": 443,        
+                    "targetPort": 8000  
+                }],
+                "type": "LoadBalancer"
+            }
+        }
 
-    def cleanup_physics_server(self):
-        """
-        Xóa Deployment, Service, Ingress và BackendConfig của physics-server (nếu tồn tại).
-        """
-        deployment_name = "physics-server"
-        service_name = "physics-server-service"
-        ingress_name = "game-ingress"
-        backendconfig_name = "physics-server-backendconfig"
+    def _create_backend_config(self, name):
+        return {
+            "apiVersion": "cloud.google.com/v1",
+            "kind": "BackendConfig",
+            "metadata": {
+                "name": "physics-server-backendconfig",
+                "namespace": self.namespace
+            },
+            "spec": {
+                "timeoutSec": 3600,
+                "connectionDraining": {
+                    "drainingTimeoutSec": 300
+                },
+                "healthCheck": {
+                "checkIntervalSec": 15,
+                "port": 8000,
+                "type": "HTTPS",  # Đổi từ HTTP sang HTTPS
+                "requestPath": "/health"
+                },
+                "securityPolicy": {
+                    "name": "websocket-security-policy"  # Thêm security policy
+                }
+            }
+        }
 
+    def _wait_for_external_ip(self, service_name, timeout=60):
+        import time
+        start_time = time.time()
+        
+        while True:
+            service = self.core_v1.read_namespaced_service(
+                name=service_name,
+                namespace=self.namespace
+            )
+            
+            if service.status.load_balancer.ingress:
+                return service.status.load_balancer.ingress[0].ip
+                
+            if time.time() - start_time > timeout:
+                raise Exception("Timeout waiting for external IP")
+                
+            time.sleep(2)
+
+    def cleanup_game_resources(self, server_name):
         try:
-            # Xóa Deployment
+            print(f"Cleaning up resources for {server_name}")
+            
+            # Delete deployment if exists
             try:
                 self.apps_v1.delete_namespaced_deployment(
-                    name=deployment_name,
+                    name=server_name,
                     namespace=self.namespace,
                     body=client.V1DeleteOptions(
                         propagation_policy='Foreground',
                         grace_period_seconds=5
                     )
                 )
-                print("Deleted Deployment: physics-server")
+                print("Deployment deleted")
             except client.exceptions.ApiException as e:
-                if e.status != 404:
+                if e.status != 404:  # Ignore if not found
+                    print(f"Error deleting deployment: {e}")
                     raise
-
-            # Xóa Service
+            
+            # Delete service if exists
             try:
                 self.core_v1.delete_namespaced_service(
-                    name=service_name,
+                    name=f"{server_name}-service",
                     namespace=self.namespace
                 )
-                print("Deleted Service: physics-server-service")
+                print("Service deleted")
             except client.exceptions.ApiException as e:
-                if e.status != 404:
+                if e.status != 404:  # Ignore if not found
+                    print(f"Error deleting service: {e}")
                     raise
 
-            # Xóa Ingress
-            networking_v1 = client.NetworkingV1Api()
-            try:
-                networking_v1.delete_namespaced_ingress(
-                    name=ingress_name,
-                    namespace=self.namespace
-                )
-                print("Deleted Ingress: game-ingress")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:
-                    raise
-
-            # Xóa BackendConfig
-            try:
-                self.custom_objects_api.delete_namespaced_custom_object(
-                    group="cloud.google.com",
-                    version="v1",
-                    namespace=self.namespace,
-                    plural="backendconfigs",
-                    name=backendconfig_name
-                )
-                print("Deleted BackendConfig: physics-server-backendconfig")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:
-                    raise
-
-            # Đợi cho Deployment bị xóa hẳn
+            # Wait for resources to be fully deleted
             max_retries = 10
             retry_count = 0
             while retry_count < max_retries:
                 try:
                     self.apps_v1.read_namespaced_deployment(
-                        name=deployment_name,
+                        name=server_name,
                         namespace=self.namespace
                     )
                     print("Waiting for deployment to be deleted...")
+                    import time
                     time.sleep(2)
                     retry_count += 1
                 except client.exceptions.ApiException as e:
@@ -309,288 +410,72 @@ class K8sGameManager:
 
             if retry_count >= max_retries:
                 print("Warning: Timeout waiting for deployment deletion")
-
+                
         except Exception as e:
-            print(f"Error in cleanup_physics_server: {e}")
+            print(f"Error during cleanup: {e}")
             raise
 
-    def _create_deployment_spec(self, deploy_name):
-        """
-        Tạo spec cho Deployment (physics-server) giống nội dung trong deployment.yaml.
-        """
-        return {
-            "apiVersion": "apps/v1",
-            "kind": "Deployment",
-            "metadata": {
-                "name": deploy_name,
-                "namespace": self.namespace,
-                "labels": {
-                    "app": "physics-server",
-                    "environment": "production"
-                }
-            },
-            "spec": {
-                "replicas": 1,
-                "selector": {
-                    "matchLabels": {
-                        "app": "physics-server"
-                    }
-                },
-                "template": {
-                    "metadata": {
-                        "labels": {
-                            "app": "physics-server"
-                        }
-                    },
-                    "spec": {
-                        "containers": [
-                            {
-                                "name": "physics-server",
-                                "image": "beatball/physics-server:latest",
-                                "imagePullPolicy": "Always",
-                                "ports": [
-                                    {
-                                        "name": "http",
-                                        "containerPort": 8000
-                                    }
-                                ],
-                                "env": [
-                                    {
-                                        "name": "NODE_ENV",
-                                        "value": "production"
-                                    },
-                                    {
-                                        "name": "PORT",
-                                        "value": "8000"
-                                    }
-                                ],
-                                "resources": {
-                                    "requests": {
-                                        "cpu": "250m",
-                                        "memory": "512Mi"
-                                    },
-                                    "limits": {
-                                        "cpu": "500m",
-                                        "memory": "1Gi"
-                                    }
-                                },
-                                "livenessProbe": {
-                                    "httpGet": {
-                                        "path": "/health",
-                                        "port": "http"
-                                    },
-                                    "initialDelaySeconds": 15,
-                                    "periodSeconds": 30,
-                                    "timeoutSeconds": 3
-                                },
-                                "readinessProbe": {
-                                    "httpGet": {
-                                        "path": "/health",
-                                        "port": "http"
-                                    },
-                                    "initialDelaySeconds": 5,
-                                    "periodSeconds": 10
-                                },
-                                "securityContext": {
-                                    "allowPrivilegeEscalation": False,
-                                    "runAsNonRoot": True,
-                                    "runAsUser": 1000
-                                }
-                            }
-                        ]
-                    }
-                }
-            }
-        }
-
-    def _create_service_spec(self, svc_name, backendconfig_name):
-        """
-        Tạo spec cho Service (physics-server-service) giống nội dung trong deployment.yaml.
-        """
-        return {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "metadata": {
-                "name": svc_name,
-                "namespace": self.namespace,
-                "annotations": {
-                    # Sử dụng BackendConfig cho port mặc định
-                    "cloud.google.com/backend-config": '{"default": "' + backendconfig_name + '"}',
-                    # app-protocols
-                    "cloud.google.com/app-protocols": '{"http":"HTTP2"}'
-                }
-            },
-            "spec": {
-                "type": "NodePort",  # Đã đổi từ LoadBalancer sang NodePort như trong YAML
-                "ports": [
-                    {
-                        "name": "http",   # Đổi tên port thành http
-                        "port": 80,       # Đổi port service từ 443 xuống 80
-                        "targetPort": 8000,
-                        "protocol": "TCP"
-                    }
-                ],
-                "selector": {
-                    "app": "physics-server"
-                }
-            }
-        }
-
-    def _create_ingress_spec(self, ingress_name, backendconfig_name, service_name):
-        """
-        Tạo spec cho Ingress (game-ingress) giống nội dung trong deployment.yaml.
-        """
-        return {
-            "apiVersion": "networking.k8s.io/v1",
-            "kind": "Ingress",
-            "metadata": {
-                "name": ingress_name,
-                "namespace": self.namespace,
-                "annotations": {
-                    "cloud.google.com/backend-config": '{"default":"' + backendconfig_name + '"}',
-                    "kubernetes.io/ingress.class": "gce",
-                    "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "kubernetes.io/ingress.global-static-ip-name": "beatball-ip"
-                }
-            },
-            "spec": {
-                "ingressClassName": "gce",
-                "rules": [
-                    {
-                        "host": "beatball.xyz",  # Thêm host
-                        "http": {
-                            "paths": [
-                                {
-                                    "path": "/",
-                                    "pathType": "Prefix",
-                                    "backend": {
-                                        "service": {
-                                            "name": service_name,
-                                            "port": {
-                                                "number": 80
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }
-        }
-
-    def _create_backend_config_spec(self, backendconfig_name):
-        """
-        Tạo spec cho BackendConfig (physics-server-backendconfig)
-        giống nội dung trong deployment.yaml.
-        """
-        return {
-            "apiVersion": "cloud.google.com/v1",
-            "kind": "BackendConfig",
-            "metadata": {
-                "name": backendconfig_name,
-                "namespace": self.namespace
-            },
-            "spec": {
-                "timeoutSec": 3600,
-                "connectionDraining": {
-                    "drainingTimeoutSec": 300
-                },
-                "healthCheck": {
-                    "checkIntervalSec": 15,
-                    "port": 8000,
-                    "type": "HTTPS",
-                    "requestPath": "/health"
-                },
-                "securityPolicy": {
-                    "name": "websocket-security-policy"
-                }
-            }
-        }
-
-    def _wait_for_external_ip(self, service_name, timeout=60):
-        """
-        Chờ external IP xuất hiện cho Service.
-        Thường chỉ có ý nghĩa khi Service type=LoadBalancer.
-        Nếu Service là NodePort, có thể không lấy được IP.
-        """
-        start_time = time.time()
-
-        while True:
-            service = self.core_v1.read_namespaced_service(
-                name=service_name,
-                namespace=self.namespace
-            )
-
-            if service.status.load_balancer.ingress:
-                # Thường IP nằm ở service.status.load_balancer.ingress[0].ip
-                return service.status.load_balancer.ingress[0].ip
-
-            if time.time() - start_time > timeout:
-                raise Exception("Timeout waiting for external IP")
-
-            time.sleep(2)
-
-    def monitor_physics_server(self):
-        """
-        Lấy thông tin trạng thái của Deployment physics-server.
-        """
+    def monitor_game(self, room_id):
         try:
-            deployment_name = "physics-server"
+            server_name = f"game-{room_id}"
             deployment = self.apps_v1.read_namespaced_deployment_status(
-                name=deployment_name,
+                name=server_name,
                 namespace=self.namespace
             )
             return deployment.status.to_dict()
         except Exception as e:
-            print(f"Error monitoring physics-server: {e}")
+            print(f"Error monitoring game: {e}")
             return None
-
+        
     def cleanup_unused_services(self):
-        """
-        Ví dụ hàm dọn dẹp các Service dư thừa (ngoại trừ 'kubernetes').
-        Nhưng cẩn thận khi dùng, vì đây có thể xóa tất cả Service & Deployment 
-        không phải physics-server (hoặc name tương ứng).
-        """
         try:
             print("Starting cleanup of unused services...")
+            
+            # Lấy danh sách tất cả services
             services = self.core_v1.list_namespaced_service(namespace=self.namespace)
-
+            
             for svc in services.items:
-                if svc.metadata.name == "kubernetes":
+                if svc.metadata.name == "kubernetes":  # Bỏ qua service mặc định
                     continue
-
-                svc_name = svc.metadata.name
-                deploy_name = svc_name.replace("-service", "")
-
-                # Nếu service không phải "physics-server-service" thì xóa
-                if svc_name != "physics-server-service":
-                    print(f"\nCleaning up resources for {svc_name}")
-                    try:
-                        self.core_v1.delete_namespaced_service(
-                            name=svc_name,
-                            namespace=self.namespace
-                        )
-                        print(f"Deleted service: {svc_name}")
-
-                        self.apps_v1.delete_namespaced_deployment(
-                            name=deploy_name,
-                            namespace=self.namespace
-                        )
-                        print(f"Deleted deployment: {deploy_name}")
-
-                        time.sleep(2)
-                    except client.ApiException as e:
-                        print(f"Error deleting {svc_name}: {e}")
-                        continue
-
+                    
+                # Xóa service và deployment tương ứng
+                service_name = svc.metadata.name
+                deployment_name = service_name.replace('-service', '')
+                
+                print(f"\nCleaning up resources for {service_name}")
+                
+                try:
+                    # Xóa service
+                    self.core_v1.delete_namespaced_service(
+                        name=service_name,
+                        namespace=self.namespace
+                    )
+                    print(f"Deleted service: {service_name}")
+                    
+                    # Xóa deployment
+                    self.apps_v1.delete_namespaced_deployment(
+                        name=deployment_name,
+                        namespace=self.namespace
+                    )
+                    print(f"Deleted deployment: {deployment_name}")
+                    
+                    # Đợi để đảm bảo resources được xóa
+                    time.sleep(2)
+                    
+                except ApiException as e:
+                    print(f"Error deleting {service_name}: {e}")
+                    continue
+                    
             print("\nCleanup completed!")
-
-            print("\nRemaining services:")
+            
+            # Kiểm tra lại sau khi dọn dẹp
             remaining_services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+            print("\nRemaining services:")
             for svc in remaining_services.items:
                 if svc.metadata.name != "kubernetes":
                     print(f"- {svc.metadata.name}")
-
-        except client.ApiException as e:
+                    
+        except ApiException as e:
             print(f"Error during cleanup: {e}")
+    
+        
