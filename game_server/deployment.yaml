@@ -21,7 +21,8 @@ spec:
         image: beatball/physics-server:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 8000
+        - name: http
+          containerPort: 8000
         env:
         - name: NODE_ENV
           value: "production"
@@ -37,14 +38,14 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: http
           initialDelaySeconds: 15
           periodSeconds: 30
           timeoutSeconds: 3
         readinessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: http
           initialDelaySeconds: 5
           periodSeconds: 10
         securityContext:
@@ -58,14 +59,52 @@ metadata:
   name: physics-server-service
   namespace: beatball-game
   annotations:
-    service.beta.kubernetes.io/gcp-load-balancer-backend-protocol: "HTTP"
-    cloud.google.com/app-protocols: '{"my-https-port":"HTTPS","my-http-port":"HTTP"}'
+    cloud.google.com/app-protocols: '{"ws":"HTTP"}'
+    cloud.google.com/backend-config: '{"ports": {"80":"physics-server-backendconfig"}}'
 spec:
   type: LoadBalancer
   ports:
   - name: ws
-    port: 8000
+    port: 80
     targetPort: 8000
     protocol: TCP
   selector:
     app: physics-server
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: game-ingress
+  namespace: beatball-game
+  annotations:
+    nginx.ingress.kubernetes.io/websocket-services: "physics-server-service"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+spec:
+  ingressClassName: gce  # Thay thế annotation cũ
+  rules:
+  - http:
+      paths:
+      - path: /*
+        pathType: Prefix
+        backend:
+          service:
+            name: physics-server-service
+            port:
+              number: 80
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: physics-server-backendconfig
+  namespace: beatball-game
+spec:
+  timeoutSec: 3600
+  connectionDraining:
+    drainingTimeoutSec: 300
+  healthCheck:
+    checkIntervalSec: 15
+    port: 8000
+    type: HTTP
+    requestPath: /health

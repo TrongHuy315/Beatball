@@ -10,13 +10,17 @@ const { timeStamp } = require('console');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
-	cors: {
-	  origin: "*",
-	  methods: ["GET", "POST"],
-	  allowedHeaders: ["*"],
-	  credentials: true
-	},
-	transports: ['websocket', 'polling']
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+        allowedHeaders: ["*"],
+        credentials: true
+    },
+    allowEIO3: true,
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    path: '/socket.io'
 });
 app.get('/health', (req, res) => {
 	res.sendStatus(200); // hoặc res.json({status: 'ok'})
