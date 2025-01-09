@@ -1,0 +1,8 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: game-managed-cert
+  namespace: beatball-game
+spec:
+  domains:
+  - beatball.onrender.com

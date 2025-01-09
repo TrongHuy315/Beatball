@@ -284,8 +284,8 @@ class K8sGameManager:
                 "ports": [{
                     "name": "ws",
                     "protocol": "TCP",
-                    "port": 443,        # Đổi từ 8000 thành 80
-                    "targetPort": 8000  # Giữ nguyên targetPort 8000
+                    "port": 443,        
+                    "targetPort": 8000  
                 }],
                 "type": "LoadBalancer"
             }

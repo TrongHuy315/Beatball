@@ -77,24 +77,19 @@ metadata:
   name: game-ingress
   namespace: beatball-game
   annotations:
+    networking.gke.io/managed-certificates: "game-managed-cert"
     nginx.ingress.kubernetes.io/websocket-services: "physics-server-service"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true" 
-    # Hỗ trợ WebSocket
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
     nginx.ingress.kubernetes.io/connection-proxy-header: "upgrade"
-    kubernetes.io/ingress.class: "nginx"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
-  ingressClassName: gce  # Thay thế annotation cũ
-  tls:  # Thêm phần này
-  - hosts:
-    - beatball.onrender.com  # Thay domain của bạn
-    secretName: beatball-tls-secret
+  ingressClassName: gce
   rules:
-  - http:
+  - host: beatball.onrender.com  # Thêm host vào đây
+    http:
       paths:
       - path: /*
         pathType: Prefix
@@ -118,18 +113,5 @@ spec:
     port: 8000
     type: HTTPS
     requestPath: /health
-# cert-manager.yaml
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: thangtranphu1412@gmail.com  # Thay email của bạn
-    privateKeySecretRef:
-      name: letsencrypt-prod
-    solvers:
-    - http01:
-        ingress:
-          class: nginx
+  securityPolicy:
+    name: "websocket-security-policy"
