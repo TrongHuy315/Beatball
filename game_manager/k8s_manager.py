@@ -329,7 +329,7 @@ class K8sGameManager:
                 "healthCheck": {
                 "checkIntervalSec": 15,
                 "port": 8000,
-                "type": "HTTPS",  # Đổi từ HTTP sang HTTPS
+                "type": "HTTP",  # Đổi từ HTTP sang HTTPS
                 "requestPath": "/health"
                 },
                 "securityPolicy": {
