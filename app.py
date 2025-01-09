@@ -1160,7 +1160,7 @@ def handle_start_game(data):
                 })
 
         # Create game server on K8s
-        server_info = game_manager.create_physics_server(room_id, player_data)
+        server_info = game_manager.create_physics_server()
 
         # Save game info to Redis
         game_data = {
