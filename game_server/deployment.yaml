@@ -59,13 +59,13 @@ metadata:
   name: physics-server-service
   namespace: beatball-game
   annotations:
-    cloud.google.com/app-protocols: '{"ws":"HTTP"}'
-    cloud.google.com/backend-config: '{"ports": {"80":"physics-server-backendconfig"}}'
+    cloud.google.com/app-protocols: '{"wss":"HTTPS"}'
+    cloud.google.com/backend-config: '{"ports": {"443":"physics-server-backendconfig"}}'
 spec:
   type: LoadBalancer
   ports:
-  - name: ws
-    port: 80
+  - name: wss
+    port: 443
     targetPort: 8000
     protocol: TCP
   selector:
@@ -81,6 +81,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true" 
     # Hỗ trợ WebSocket
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
     nginx.ingress.kubernetes.io/connection-proxy-header: "upgrade"
@@ -88,6 +89,10 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: gce  # Thay thế annotation cũ
+  tls:  # Thêm phần này
+  - hosts:
+    - beatball.onrender.com  # Thay domain của bạn
+    secretName: beatball-tls-secret
   rules:
   - http:
       paths:
@@ -97,7 +102,7 @@ spec:
           service:
             name: physics-server-service
             port:
-              number: 80
+              number: 443
 ---
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
@@ -111,5 +116,20 @@ spec:
   healthCheck:
     checkIntervalSec: 15
     port: 8000
-    type: HTTP
+    type: HTTPS
     requestPath: /health
+# cert-manager.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: thangtranphu1412@gmail.com  # Thay email của bạn
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
