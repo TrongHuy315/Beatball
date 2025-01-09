@@ -62,6 +62,11 @@ metadata:
     kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
     cloud.google.com/app-protocols: '{"wss":"HTTPS"}'
     cloud.google.com/backend-config: '{"ports": {"443":"physics-server-backendconfig"}}'
+    # Thêm các annotations này
+    kubernetes.io/ingress.allow-http: "false"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "physics-server-service"
 spec:
   type: LoadBalancer
   ports:
