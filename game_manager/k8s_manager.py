@@ -14,8 +14,11 @@ class K8sGameManager:
         self.cluster_zone = os.getenv('GKE_CLUSTER_ZONE')
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 
+        # Thiết lập kết nối K8s
         self.configure_k8s()
         self.create_namespace()
+
+        # Tạo đối tượng để quản lý Custom Resources (dùng cho BackendConfig)
         self.custom_objects_api = client.CustomObjectsApi()
 
     def configure_k8s(self):
@@ -37,14 +40,18 @@ class K8sGameManager:
 
             # Lấy thông tin cụm GKE
             container_client = container_v1.ClusterManagerClient(credentials=credentials)
-            cluster_path = f"projects/{credentials_dict['project_id']}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
+            cluster_path = (
+                f"projects/{credentials_dict['project_id']}/locations/"
+                f"{self.cluster_zone}/clusters/{self.cluster_name}"
+            )
             cluster = container_client.get_cluster(name=cluster_path)
 
             # Tạo cấu hình cho Python Kubernetes client
             configuration = client.Configuration()
             configuration.host = f"https://{cluster.endpoint}"
-            configuration.verify_ssl = False  # Tắt verify SSL (tùy chọn)
-            
+            # Tắt verify SSL (tùy chọn, chỉ nên dùng khi dev/test)
+            configuration.verify_ssl = False
+
             # Sử dụng token đã refresh
             if not credentials.valid:
                 credentials.refresh(request)
@@ -137,7 +144,10 @@ class K8sGameManager:
     def create_physics_server(self):
         """
         Tạo đầy đủ Deployment, Service, Ingress và BackendConfig 
-        cho physics-server theo đúng deployment.yaml đã chỉ định.
+        cho physics-server giống nội dung trong deployment.yaml.
+        Sau đó chờ lấy External IP (nếu Service là LoadBalancer).
+        Cuối cùng, trả về dictionary chứa thông tin IP, port, 
+        tên Deployment và Service.
         """
         try:
             deployment_name = "physics-server"
@@ -162,11 +172,11 @@ class K8sGameManager:
                 else:
                     raise
 
-            # Tạo hoặc cập nhật Deployment
-            # (trước tiên cleanup để xóa cũ nếu có)
+            # Xóa physics-server cũ (nếu có)
             self.cleanup_physics_server()
-            time.sleep(5)
+            time.sleep(5)  # Đợi một chút để xóa xong
 
+            # Tạo Deployment
             deployment_spec = self._create_deployment_spec(deployment_name)
             self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
@@ -174,7 +184,7 @@ class K8sGameManager:
             )
             print(f"Created Deployment: {deployment_name}")
 
-            # Tạo hoặc cập nhật Service
+            # Tạo Service
             service_spec = self._create_service_spec(service_name, backendconfig_name)
             self.core_v1.create_namespaced_service(
                 namespace=self.namespace,
@@ -182,7 +192,7 @@ class K8sGameManager:
             )
             print(f"Created Service: {service_name}")
 
-            # Tạo hoặc cập nhật Ingress
+            # Tạo Ingress
             ingress_spec = self._create_ingress_spec(ingress_name, backendconfig_name, service_name)
             networking_v1 = client.NetworkingV1Api()
             try:
@@ -193,9 +203,24 @@ class K8sGameManager:
                 print(f"Created Ingress: {ingress_name}")
             except client.exceptions.ApiException as e:
                 if e.status == 409:
-                    print(f"Ingress {ingress_name} already exists")
+                    print(f"Ingress {ingress_name} already exists, proceeding...")
                 else:
                     raise
+
+            # Nếu Service là NodePort, thường ta sẽ không có external_ip.
+            # Nhưng nếu vẫn muốn lấy IP, ta có thể chờ load_balancer.ingress 
+            # (trong trường hợp Service type=LoadBalancer). 
+            # Ở đây code mẫu vẫn cố gắng chờ IP để nhất quán với logic cũ.
+            external_ip = self._wait_for_external_ip(service_name, timeout=60)
+            print(f"Got external IP: {external_ip}")
+
+            # Trả về thông tin
+            return {
+                'port': 80,
+                'server_url': external_ip,
+                'deployment_name': deployment_name,
+                'service_name': service_name
+            }
 
         except Exception as e:
             print(f"Error in create_physics_server: {e}")
@@ -203,11 +228,12 @@ class K8sGameManager:
 
     def cleanup_physics_server(self):
         """
-        Xóa Deployment, Service, Ingress của physics-server (nếu tồn tại).
+        Xóa Deployment, Service, Ingress và BackendConfig của physics-server (nếu tồn tại).
         """
         deployment_name = "physics-server"
         service_name = "physics-server-service"
         ingress_name = "game-ingress"
+        backendconfig_name = "physics-server-backendconfig"
 
         try:
             # Xóa Deployment
@@ -249,7 +275,6 @@ class K8sGameManager:
                     raise
 
             # Xóa BackendConfig
-            backendconfig_name = "physics-server-backendconfig"
             try:
                 self.custom_objects_api.delete_namespaced_custom_object(
                     group="cloud.google.com",
@@ -370,7 +395,7 @@ class K8sGameManager:
                                     "allowPrivilegeEscalation": False,
                                     "runAsNonRoot": True,
                                     "runAsUser": 1000
-                                },
+                                }
                             }
                         ]
                     }
@@ -396,7 +421,7 @@ class K8sGameManager:
                 }
             },
             "spec": {
-                "type": "NodePort",  # Theo YAML, ta đổi LoadBalancer -> NodePort
+                "type": "NodePort",  # Đã đổi từ LoadBalancer sang NodePort như trong YAML
                 "ports": [
                     {
                         "name": "http",   # Đổi tên port thành http
@@ -432,7 +457,7 @@ class K8sGameManager:
                 "ingressClassName": "gce",
                 "rules": [
                     {
-                        "host": "beatball.xyz",
+                        "host": "beatball.xyz",  # Thêm host
                         "http": {
                             "paths": [
                                 {
@@ -483,6 +508,29 @@ class K8sGameManager:
             }
         }
 
+    def _wait_for_external_ip(self, service_name, timeout=60):
+        """
+        Chờ external IP xuất hiện cho Service.
+        Thường chỉ có ý nghĩa khi Service type=LoadBalancer.
+        Nếu Service là NodePort, có thể không lấy được IP.
+        """
+        start_time = time.time()
+
+        while True:
+            service = self.core_v1.read_namespaced_service(
+                name=service_name,
+                namespace=self.namespace
+            )
+
+            if service.status.load_balancer.ingress:
+                # Thường IP nằm ở service.status.load_balancer.ingress[0].ip
+                return service.status.load_balancer.ingress[0].ip
+
+            if time.time() - start_time > timeout:
+                raise Exception("Timeout waiting for external IP")
+
+            time.sleep(2)
+
     def monitor_physics_server(self):
         """
         Lấy thông tin trạng thái của Deployment physics-server.
@@ -501,8 +549,8 @@ class K8sGameManager:
     def cleanup_unused_services(self):
         """
         Ví dụ hàm dọn dẹp các Service dư thừa (ngoại trừ 'kubernetes').
-        Nhưng cẩn thận khi dùng, vì đây sẽ xóa tất cả Service và Deployment 
-        không phải physics-server.
+        Nhưng cẩn thận khi dùng, vì đây có thể xóa tất cả Service & Deployment 
+        không phải physics-server (hoặc name tương ứng).
         """
         try:
             print("Starting cleanup of unused services...")
@@ -511,12 +559,11 @@ class K8sGameManager:
             for svc in services.items:
                 if svc.metadata.name == "kubernetes":
                     continue
-                
+
                 svc_name = svc.metadata.name
-                # Mặc định, Deployment name thường = svc_name.replace("-service","")
                 deploy_name = svc_name.replace("-service", "")
-                
-                # Nếu service không phải physics-server-service thì xóa
+
+                # Nếu service không phải "physics-server-service" thì xóa
                 if svc_name != "physics-server-service":
                     print(f"\nCleaning up resources for {svc_name}")
                     try:
@@ -531,7 +578,7 @@ class K8sGameManager:
                             namespace=self.namespace
                         )
                         print(f"Deleted deployment: {deploy_name}")
-                        
+
                         time.sleep(2)
                     except client.ApiException as e:
                         print(f"Error deleting {svc_name}: {e}")
