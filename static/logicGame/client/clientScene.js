@@ -217,7 +217,7 @@ class ClientScene extends Phaser.Scene {
         const gameServerUrl = document.getElementById('game-server-url').value;
         this.gameSessionData.serverUrl = gameServerUrl;
          // Thay đổi cách tạo URL WebSocket
-        const wsProtocol = window.location.protocol === 'https:' ? 'ws:' : 'ws:';
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss//:' : 'ws://';
         const wsUrl = `${wsProtocol}//${gameServerUrl}`;
         
         this.SOCKET = io(wsUrl, {
