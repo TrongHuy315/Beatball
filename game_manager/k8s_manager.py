@@ -166,7 +166,6 @@ class K8sGameManager:
 
             return {
                 'server_url': external_ip,
-                'port': 8000,
                 'deployment_name': server_name,
                 'service_name': f"{server_name}-service"
             }
