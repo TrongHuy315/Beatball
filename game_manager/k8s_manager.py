@@ -159,6 +159,11 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error in create_game_instance: {e}")
             raise
+        except client.exceptions.ApiException as e:
+            print(f"Kubernetes API error: {e.status}, {e.reason}")
+            if e.body:
+                print(f"Error details: {e.body}")
+            raise
 
     def cleanup_namespace(self):
         try:
@@ -257,6 +262,23 @@ class K8sGameManager:
                                 "type": "RuntimeDefault"
                             }
                         },
+                        "livenessProbe": {
+                            "httpGet": {
+                                "path": "/health",
+                                "port": 8000
+                            },
+                            "initialDelaySeconds": 15,
+                            "periodSeconds": 30,
+                            "timeoutSeconds": 3
+                        },
+                        "readinessProbe": {
+                            "httpGet": {
+                                "path": "/health",
+                                "port": 8000
+                            },
+                            "initialDelaySeconds": 5,
+                            "periodSeconds": 10
+                        }, 
                         # Thêm scheduling requirements
                         "automountServiceAccountToken": False,
                         "restartPolicy": "Always"
@@ -273,7 +295,7 @@ class K8sGameManager:
                 "name": f"{name}-service",
                 "namespace": self.namespace,
                 "annotations": {
-                    "cloud.google.com/app-protocols": '{"ws":"HTTP"}',
+                    "cloud.google.com/app-protocols": '{"wss":"HTTPS"}',
                     "cloud.google.com/backend-config": '{"ports": {"443":"physics-server-backendconfig"}}'
                 }
             },
@@ -282,7 +304,7 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "name": "ws",
+                    "name": "wss",
                     "protocol": "TCP",
                     "port": 443,        
                     "targetPort": 8000  
@@ -305,10 +327,13 @@ class K8sGameManager:
                     "drainingTimeoutSec": 300
                 },
                 "healthCheck": {
-                    "checkIntervalSec": 15,
-                    "port": 8000,
-                    "type": "HTTP",
-                    "requestPath": "/health"
+                "checkIntervalSec": 15,
+                "port": 8000,
+                "type": "HTTPS",  # Đổi từ HTTP sang HTTPS
+                "requestPath": "/health"
+                },
+                "securityPolicy": {
+                    "name": "websocket-security-policy"  # Thêm security policy
                 }
             }
         }
