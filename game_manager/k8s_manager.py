@@ -150,6 +150,7 @@ class K8sGameManager:
             print(f"Got external IP: {external_ip}")
 
             return {
+                'port': 80, 
                 'server_url': external_ip,  # Return just the IP, no port
                 'deployment_name': server_name,
                 'service_name': f"{server_name}-service"

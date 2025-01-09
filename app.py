@@ -1249,7 +1249,6 @@ def game_page(room_id):
             return redirect(url_for('home'))
             
         game_info = json.loads(game_data)
-        server_url = game_info['server_url'].split(':')[0]
         room = get_room(room_id)
         current_user_id = session.get('user_id')
         
