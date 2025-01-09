@@ -226,7 +226,7 @@ class ClientScene extends Phaser.Scene {
             secure: false,
             rejectUnauthorized: false,
             path: '/socket.io',
-            port: 443,
+            port: 80,
             auth: {
                 clientType: 'gameClient',
                 version: '1.0',

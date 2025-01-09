@@ -150,7 +150,7 @@ class K8sGameManager:
             print(f"Got external IP: {external_ip}")
 
             return {
-                'port': 443, 
+                'port': 80, 
                 'server_url': external_ip,  
                 'deployment_name': server_name,
                 'service_name': f"{server_name}-service"
@@ -296,7 +296,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/app-protocols": '{"wss":"HTTPS"}',
-                    "cloud.google.com/backend-config": '{"ports": {"443":"physics-server-backendconfig"}}'
+                    "cloud.google.com/backend-config": '{"ports": {"80":"physics-server-backendconfig"}}'
                 }
             },
             "spec": {
@@ -306,7 +306,7 @@ class K8sGameManager:
                 "ports": [{
                     "name": "wss",
                     "protocol": "TCP",
-                    "port": 443,        
+                    "port": 80,        
                     "targetPort": 8000  
                 }],
                 "type": "LoadBalancer"

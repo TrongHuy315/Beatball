@@ -59,21 +59,15 @@ metadata:
   name: physics-server-service
   namespace: beatball-game
   annotations:
-    kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
-    cloud.google.com/app-protocols: '{"wss":"HTTPS"}'
-    cloud.google.com/backend-config: '{"ports": {"443":"physics-server-backendconfig"}}'
-    # Thêm các annotations này
-    kubernetes.io/ingress.allow-http: "false"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/websocket-services: "physics-server-service"
+    cloud.google.com/backend-config: '{"default": "physics-server-backendconfig"}'
+    cloud.google.com/app-protocols: '{"http":"HTTP2"}'
 spec:
-  type: LoadBalancer
+  type: NodePort  # Đổi từ LoadBalancer sang NodePort
   ports:
-  - name: wss
-    port: 443
-    targetPort: 8000
-    protocol: TCP
+    - name: http  # Đổi tên port thành http
+      port: 80    # Đổi port service từ 443 xuống 80
+      targetPort: 8000  # Giữ nguyên targetPort
+      protocol: TCP
   selector:
     app: physics-server
 ---
@@ -83,6 +77,7 @@ metadata:
   name: game-ingress
   namespace: beatball-game
   annotations:
+    cloud.google.com/backend-config: '{"default":"physics-server-backendconfig"}'
     kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: "game-managed-cert"
     kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
@@ -98,7 +93,7 @@ spec:
           service:
             name: physics-server-service
             port:
-              number: 443
+              number: 80
 ---
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
@@ -112,7 +107,7 @@ spec:
   healthCheck:
     checkIntervalSec: 15
     port: 8000
-    type: HTTP
+    type: HTTPS
     requestPath: /health  
   securityPolicy:
     name: "websocket-security-policy"
