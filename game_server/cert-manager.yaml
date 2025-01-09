@@ -5,4 +5,4 @@ metadata:
   namespace: beatball-game
 spec:
   domains:
-  - beatball.onrender.com
+  - beatball.xyz

@@ -59,6 +59,7 @@ metadata:
   name: physics-server-service
   namespace: beatball-game
   annotations:
+    kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
     cloud.google.com/app-protocols: '{"wss":"HTTPS"}'
     cloud.google.com/backend-config: '{"ports": {"443":"physics-server-backendconfig"}}'
 spec:
@@ -78,17 +79,10 @@ metadata:
   namespace: beatball-game
   annotations:
     networking.gke.io/managed-certificates: "game-managed-cert"
-    nginx.ingress.kubernetes.io/websocket-services: "physics-server-service"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/connection-proxy-header: "upgrade"
 spec:
   ingressClassName: gce
   rules:
-  - host: beatball.onrender.com  # Thêm host vào đây
+  - host: beatball.xyz  # Thêm host vào đây
     http:
       paths:
       - path: /*
