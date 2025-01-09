@@ -58,7 +58,8 @@ metadata:
   name: physics-server-service
   namespace: beatball-game
   annotations:
-    cloud.google.com/app-protocols: '{"ws":"HTTPS","wss":"HTTPS"}'
+    service.beta.kubernetes.io/gcp-load-balancer-backend-protocol: "HTTP"
+    cloud.google.com/app-protocols: '{"my-https-port":"HTTPS","my-http-port":"HTTP"}'
 spec:
   type: LoadBalancer
   ports:

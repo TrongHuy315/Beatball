@@ -18,6 +18,9 @@ const io = require('socket.io')(http, {
 	},
 	transports: ['websocket', 'polling']
 });
+app.get('/health', (req, res) => {
+	res.sendStatus(200); // hoặc res.json({status: 'ok'})
+  });
 class PhysicsEngine {
     constructor(totalConnection) {
         // ENGINE SET UP  
@@ -57,6 +60,7 @@ class PhysicsEngine {
         
         // ------ GAME LOOP ---------
         const gameLoop = () => {
+            process.stdout.write("Loop passed");
             const currentTime = Date.now();
             const delta = currentTime - this.lastFrameTime; 
             cur = Date.now(); 
