@@ -195,8 +195,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "labels": {
                     "app": name,
-                    "environment": "production",
-                    "managed-by": "beatball"
+                    "environment": "production"
                 }
             },
             "spec": {
@@ -218,19 +217,31 @@ class K8sGameManager:
                             "image": "beatball/physics-server:latest",
                             "imagePullPolicy": "Always",
                             "ports": [{
+                                "name": "http",
                                 "containerPort": 8000
                             }],
-                            "env": [{
-                                "name": "ROOM_ID",
-                                "value": str(room_id)
-                            }, {
-                                "name": "PLAYER_DATA",
-                                "value": json.dumps(player_data)
-                            }, {
-                                "name": "REDIS_URL",
-                                "value": os.getenv('REDIS_URL')
-                            }],
-                            # Thêm resource requirements cho Autopilot
+                            "env": [
+                                {
+                                    "name": "NODE_ENV",
+                                    "value": "production"
+                                },
+                                {
+                                    "name": "PORT",
+                                    "value": "8000"
+                                },
+                                {
+                                    "name": "ROOM_ID",
+                                    "value": str(room_id)
+                                },
+                                {
+                                    "name": "PLAYER_DATA",
+                                    "value": json.dumps(player_data)
+                                },
+                                {
+                                    "name": "REDIS_URL",
+                                    "value": os.getenv('REDIS_URL')
+                                }
+                            ],
                             "resources": {
                                 "requests": {
                                     "cpu": "250m",
@@ -241,47 +252,29 @@ class K8sGameManager:
                                     "memory": "1Gi"
                                 }
                             },
-                            # Thêm security settings
+                            "livenessProbe": {
+                                "httpGet": {
+                                    "path": "/health",
+                                    "port": "http"
+                                },
+                                "initialDelaySeconds": 15,
+                                "periodSeconds": 30,
+                                "timeoutSeconds": 3
+                            },
+                            "readinessProbe": {
+                                "httpGet": {
+                                    "path": "/health",
+                                    "port": "http"
+                                },
+                                "initialDelaySeconds": 5,
+                                "periodSeconds": 10
+                            },
                             "securityContext": {
                                 "allowPrivilegeEscalation": False,
-                                "capabilities": {
-                                    "drop": ["ALL"]
-                                },
                                 "runAsNonRoot": True,
-                                "runAsUser": 1000,
-                                "seccompProfile": {
-                                    "type": "RuntimeDefault"
-                                }
+                                "runAsUser": 1000
                             }
-                        }],
-                        # Pod security context
-                        "securityContext": {
-                            "runAsNonRoot": True,
-                            "runAsUser": 1000,
-                            "seccompProfile": {
-                                "type": "RuntimeDefault"
-                            }
-                        },
-                        "livenessProbe": {
-                            "httpGet": {
-                                "path": "/health",
-                                "port": 8000
-                            },
-                            "initialDelaySeconds": 15,
-                            "periodSeconds": 30,
-                            "timeoutSeconds": 3
-                        },
-                        "readinessProbe": {
-                            "httpGet": {
-                                "path": "/health",
-                                "port": 8000
-                            },
-                            "initialDelaySeconds": 5,
-                            "periodSeconds": 10
-                        }, 
-                        # Thêm scheduling requirements
-                        "automountServiceAccountToken": False,
-                        "restartPolicy": "Always"
+                        }]
                     }
                 }
             }
@@ -290,26 +283,26 @@ class K8sGameManager:
     def _create_service_spec(self, name):
         return {
             "apiVersion": "v1",
-            "kind": "Service", 
+            "kind": "Service",
             "metadata": {
                 "name": f"{name}-service",
                 "namespace": self.namespace,
                 "annotations": {
-                    "cloud.google.com/app-protocols": '{"wss":"HTTPS"}',
-                    "cloud.google.com/backend-config": '{"ports": {"80":"physics-server-backendconfig"}}'
+                    "cloud.google.com/backend-config": '{"default": "physics-server-backendconfig"}',
+                    "cloud.google.com/app-protocols": '{"http":"HTTP2"}'
                 }
             },
             "spec": {
+                "type": "NodePort",
+                "ports": [{
+                    "name": "http",
+                    "port": 80,
+                    "targetPort": 8000,
+                    "protocol": "TCP"
+                }],
                 "selector": {
                     "app": name
-                },
-                "ports": [{
-                    "name": "wss",
-                    "protocol": "TCP",
-                    "port": 80,        
-                    "targetPort": 8000  
-                }],
-                "type": "LoadBalancer"
+                }
             }
         }
 
@@ -327,13 +320,13 @@ class K8sGameManager:
                     "drainingTimeoutSec": 300
                 },
                 "healthCheck": {
-                "checkIntervalSec": 15,
-                "port": 8000,
-                "type": "HTTPS",  # Đổi từ HTTP sang HTTPS
-                "requestPath": "/health"
+                    "checkIntervalSec": 15,
+                    "port": 8000,
+                    "type": "HTTPS",
+                    "requestPath": "/health"
                 },
                 "securityPolicy": {
-                    "name": "websocket-security-policy"  # Thêm security policy
+                    "name": "websocket-security-policy"
                 }
             }
         }
