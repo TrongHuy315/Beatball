@@ -78,14 +78,16 @@ metadata:
   name: game-ingress
   namespace: beatball-game
   annotations:
+    kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: "game-managed-cert"
+    kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
 spec:
   ingressClassName: gce
   rules:
   - host: beatball.xyz  # Thêm host vào đây
     http:
       paths:
-      - path: /*
+      - path: "/"
         pathType: Prefix
         backend:
           service:
@@ -105,7 +107,7 @@ spec:
   healthCheck:
     checkIntervalSec: 15
     port: 8000
-    type: HTTPS
-    requestPath: /health
+    type: HTTP
+    requestPath: /health  
   securityPolicy:
     name: "websocket-security-policy"

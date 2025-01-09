@@ -22,6 +22,9 @@ const io = require('socket.io')(http, {
     pingInterval: 25000,
     path: '/socket.io'
 });
+app.get('/', (req, res) => {
+    res.send('Physics Server is running!');
+});
 app.get('/health', (req, res) => {
 	res.sendStatus(200); // hoặc res.json({status: 'ok'})
   });
