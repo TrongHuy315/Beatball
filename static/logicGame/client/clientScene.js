@@ -209,12 +209,18 @@ class ClientScene extends Phaser.Scene {
 
     // SET UP SOCKET EVENT 
     setupWebSocket() {
-        const gameServerUrl = document.getElementById('game-server-url').value;
-        this.gameSessionData.serverUrl = gameServerUrl;
+        // const gameServerUrl = document.getElementById('game-server-url').value;
+        this.gameSessionData.serverUrl = "https://beatball.xyz";  // Thay đổi thành domain
 
-        this.SOCKET = io(gameServerUrl, {
+        this.SOCKET = io("https://beatball.xyz", {  // Sử dụng domain
             transports: ['websocket'],
             upgrade: false,
+            path: '/socket.io',  // Thêm path cho socket.io
+            secure: true,  // Bật SSL/TLS
+            reconnection: true,  // Thêm auto reconnect
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 20000,
             auth: {
                 clientType: 'gameClient',
                 version: '1.0',

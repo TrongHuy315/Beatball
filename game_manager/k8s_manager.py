@@ -79,7 +79,7 @@ class K8sGameManager:
             
             # Get GKE cluster info
             container_client = container_v1.ClusterManagerClient(credentials=credentials)
-            cluster_path = f"projects/{credentials_dict['project_id']}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
+            cluster_path = f"projects/{credentials_dict['beatball-physics']}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
             cluster = container_client.get_cluster(name=cluster_path)
 
             # Configure kubernetes client
@@ -103,6 +103,56 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error configuring K8s client: {e}")
             raise
+    def _create_ingress_spec(self, name):
+        return {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "Ingress",
+            "metadata": {
+                "name": f"{name}-ingress",
+                "namespace": self.namespace,
+                "annotations": {
+                    "kubernetes.io/ingress.class": "gce",
+                    "kubernetes.io/ingress.allow-http": "false",
+                    "networking.gke.io/managed-certificates": "game-managed-cert",
+                    "networking.gke.io/backend-config": '{"default": "game-backend-config"}'
+                }
+            },
+            "spec": {
+                "rules": [{
+                    "host": "beatball.xyz",
+                    "http": {
+                        "paths": [{
+                            "path": "/*",
+                            "pathType": "ImplementationSpecific",
+                            "backend": {
+                                "service": {
+                                    "name": f"{name}-service",
+                                    "port": {
+                                        "number": 8000
+                                    }
+                                }
+                            }
+                        }]
+                    }
+                }]
+            }
+        }
+    
+    def _create_backend_config(self, name):
+        return {
+            "apiVersion": "cloud.google.com/v1",
+            "kind": "BackendConfig",
+            "metadata": {
+                "name": "game-backend-config",
+                "namespace": self.namespace
+            },
+            "spec": {
+                "timeoutSec": 900,
+                "connectionDraining": {
+                    "drainingTimeoutSec": 60
+                }
+            }
+        }
 
     def create_game_instance(self, room_id, player_data):
         try:
@@ -110,35 +160,83 @@ class K8sGameManager:
             
             print(f"Creating game server deployment: {server_name}")
             
-            # Create deployment
+            # Tạo backend config trước
+            backend_config = self.core_v1.create_namespaced_custom_object(
+                group="cloud.google.com",
+                version="v1",
+                namespace=self.namespace,
+                plural="backendconfigs",
+                body=self._create_backend_config(server_name)
+            )
+            print("Backend config created")
+
+            # Tạo deployment
             deployment = self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
                 body=self._create_deployment_spec(server_name, room_id, player_data)
             )
             print(f"Deployment created: {deployment.metadata.name}")
 
-            # Create service
+            # Tạo service
             service = self.core_v1.create_namespaced_service(
                 namespace=self.namespace,
                 body=self._create_service_spec(server_name)
             )
             print(f"Service created: {service.metadata.name}")
 
-            # Wait for external IP
-            external_ip = self._wait_for_external_ip(f"{server_name}-service")
-            print(f"Got external IP: {external_ip}")
+            # Tạo ingress
+            ingress = self.networking_v1.create_namespaced_ingress(
+                namespace=self.namespace,
+                body=self._create_ingress_spec(server_name)
+            )
+            print(f"Ingress created: {ingress.metadata.name}")
+
+            # Đợi pod ready và ingress có IP
+            self._wait_for_pod_ready(server_name)
+            ingress_ip = self._wait_for_ingress_ip(f"{server_name}-ingress")
 
             return {
-                'server_url': external_ip,
-                'port': 8000,
+                'server_url': 'beatball.xyz',  # Trả về domain thay vì IP
+                'port': 443,  # Port HTTPS
                 'deployment_name': server_name,
-                'service_name': f"{server_name}-service"
+                'service_name': f"{server_name}-service",
+                'ingress_name': f"{server_name}-ingress"
             }
 
         except Exception as e:
             print(f"Error creating game server: {e}")
             self.cleanup_game_resources(server_name)
             raise
+    
+    def _wait_for_pod_ready(self, deployment_name, timeout=120):
+        """Đợi cho đến khi pod trong deployment sẵn sàng"""
+        import time
+        start_time = time.time()
+        while True:
+            deployment = self.apps_v1.read_namespaced_deployment_status(
+                name=deployment_name,
+                namespace=self.namespace
+            )
+            if deployment.status.ready_replicas == deployment.status.replicas:
+                return True
+            if time.time() - start_time > timeout:
+                raise Exception("Timeout waiting for pod to be ready")
+            time.sleep(2)
+
+    def _wait_for_ingress_ip(self, ingress_name, timeout=300):
+        """Đợi cho đến khi ingress có IP"""
+        import time
+        start_time = time.time()
+        while True:
+            ingress = self.networking_v1.read_namespaced_ingress_status(
+                name=ingress_name,
+                namespace=self.namespace
+            )
+            if ingress.status.load_balancer.ingress:
+                return ingress.status.load_balancer.ingress[0].ip
+            if time.time() - start_time > timeout:
+                raise Exception("Timeout waiting for ingress IP")
+            time.sleep(5)
 
     def cleanup_namespace(self):
         try:
@@ -190,7 +288,7 @@ class K8sGameManager:
                     "spec": {
                         "containers": [{
                             "name": "game-server",
-                            "image": "gcr.io/[PROJECT_ID]/beatball-game:latest",
+                            "image": "beatball/physics-server:latest",
                             "imagePullPolicy": "Always",
                             "ports": [{
                                 "containerPort": 8000
@@ -262,7 +360,7 @@ class K8sGameManager:
                     "port": 8000,
                     "targetPort": 8000
                 }],
-                "type": "LoadBalancer"
+                "type": "NodePort"
             }
         }
 
@@ -288,22 +386,56 @@ class K8sGameManager:
         try:
             print(f"Cleaning up resources for {server_name}")
             
-            # Delete deployment
-            self.apps_v1.delete_namespaced_deployment(
-                name=server_name,
-                namespace=self.namespace
-            )
-            print("Deployment deleted")
-            
-            # Delete service 
-            self.core_v1.delete_namespaced_service(
-                name=f"{server_name}-service",
-                namespace=self.namespace
-            )
-            print("Service deleted")
-            
+            # Xóa ingress
+            try:
+                self.networking_v1.delete_namespaced_ingress(
+                    name=f"{server_name}-ingress",
+                    namespace=self.namespace
+                )
+                print("Ingress deleted")
+            except client.exceptions.ApiException as e:
+                if e.status != 404:  # Bỏ qua nếu không tìm thấy
+                    raise
+
+            # Xóa service
+            try:
+                self.core_v1.delete_namespaced_service(
+                    name=f"{server_name}-service",
+                    namespace=self.namespace
+                )
+                print("Service deleted")
+            except client.exceptions.ApiException as e:
+                if e.status != 404:
+                    raise
+
+            # Xóa deployment
+            try:
+                self.apps_v1.delete_namespaced_deployment(
+                    name=server_name,
+                    namespace=self.namespace
+                )
+                print("Deployment deleted")
+            except client.exceptions.ApiException as e:
+                if e.status != 404:
+                    raise
+
+            # Xóa backend config
+            try:
+                self.core_v1.delete_namespaced_custom_object(
+                    group="cloud.google.com",
+                    version="v1",
+                    namespace=self.namespace,
+                    plural="backendconfigs",
+                    name=f"{server_name}-backend-config"
+                )
+                print("Backend config deleted")
+            except client.exceptions.ApiException as e:
+                if e.status != 404:
+                    raise
+
         except Exception as e:
             print(f"Error cleaning up resources: {e}")
+            raise
 
     def monitor_game(self, room_id):
         try:
