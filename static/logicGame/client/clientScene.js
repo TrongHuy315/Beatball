@@ -1,9 +1,3 @@
-console.log('All input values:');
-['game-server-url', 'room-id', 'user-id', 'user-team', 'game-data'].forEach(id => {
-    const element = document.getElementById(id);
-    console.log(`${id}:`, element ? element.value : 'element not found');
-});
-
 const clientId = sessionStorage.getItem('clientId') || generateUniqueId();
 sessionStorage.setItem('clientId', clientId);
 const { Engine, Runner } = Matter;
@@ -16,6 +10,7 @@ class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
         super({ key: 'ClientScene' });
+
         this.gameSessionData = {
             roomId: null,
             userId: null,
@@ -216,17 +211,10 @@ class ClientScene extends Phaser.Scene {
     setupWebSocket() {
         const gameServerUrl = document.getElementById('game-server-url').value;
         this.gameSessionData.serverUrl = gameServerUrl;
-         // Thay đổi cách tạo URL WebSocket
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `wss://beatball.xyz`;
 
-        this.SOCKET = io(wsUrl, {
+        this.SOCKET = io(gameServerUrl, {
             transports: ['websocket'],
             upgrade: false,
-            secure: false,
-            rejectUnauthorized: false,
-            path: '/socket.io',
-            port: 80,
             auth: {
                 clientType: 'gameClient',
                 version: '1.0',
