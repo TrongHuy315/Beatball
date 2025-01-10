@@ -21,7 +21,6 @@ import json
 import threading
 
 game_manager = K8sGameManager()
-game_manager.cleanup_unused_services()
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins=['https://beatball.onrender.com'], ping_timeout=600, ping_interval=10)
@@ -1247,10 +1246,10 @@ def game_page(room_id):
         if not game_data:
             flash('Game not found!', 'error')
             return redirect(url_for('home'))
-        print(f"Game data from Redis: {game_data}")  # Debug log
-
             
         game_info = json.loads(game_data)
+        server_url = game_info['server_url']
+        
         room = get_room(room_id)
         current_user_id = session.get('user_id')
         
@@ -1277,10 +1276,10 @@ def game_page(room_id):
 
         return render_template('clientGame.html',
                              room_id=room_id,
-                             game_data=team_data,
+                             game_data=json.dumps(team_data),
                              user_team=user_team or '',
                              user_id=current_user_id,
-                             server_url=game_info['server_url'])  # Thêm server_url
+                             server_url=server_url)  # Thêm server_url
 
     except Exception as e:
         print(f"Error loading game page: {e}")
@@ -1413,6 +1412,46 @@ def kick_player():
         print(f"Error kicking player: {e}")
         return jsonify({"error": "Failed to kick player"}), 500
     
+class GameServer:
+    def __init__(self, room_id, player_data):
+        self.room_id = room_id
+        self.players = self.initialize_players(player_data)
+        self.ball = self.initialize_ball()
+        self.scores = {'left': 0, 'right': 0}
+        self.last_update = time.time()
+        
+    def initialize_players(self, player_data):
+        players = {}
+        for p in player_data:
+            spawn_pos = self.get_spawn_position(p['team'], p['position'])
+            players[p['id']] = {
+                'position': spawn_pos,
+                'velocity': {'x': 0, 'y': 0},
+                'team': p['team'],
+                'username': p['username']
+            }
+        return players
+        
+    def initialize_ball(self):
+        return {
+            'position': {'x': 400, 'y': 300},
+            'velocity': {'x': 0, 'y': 0}
+        }
+        
+    def update(self, delta_time):
+        self.update_ball(delta_time)
+        self.check_collisions()
+        self.check_goals()
+        
+    def get_state(self):
+        return {
+            'players': self.players,
+            'ball': self.ball,
+            'scores': self.scores
+        }
+    
+
+
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))  # Render sẽ cung cấp cổng qua biến môi trường PORT
     socketio.run(app, host='0.0.0.0', port=port)
