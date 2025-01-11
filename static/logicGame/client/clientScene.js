@@ -24,7 +24,8 @@ class ClientScene extends Phaser.Scene {
             },
             gameStatus: 'waiting',
             timestamp: null,
-            serverUrl: null  
+            serverUrl: null,   
+            gamePath: null
         };
         
         this.player = null;
@@ -77,7 +78,11 @@ class ClientScene extends Phaser.Scene {
             this.gameSessionData.userId = data.userId;
             this.gameSessionData.userTeam = data.team;
             this.gameSessionData.gameData = data.gameData;
-            this.gameSessionData.serverUrl = data.serverUrl;
+            
+            // Xử lý serverUrl để tạo đúng path cho game instance
+            const serverUrl = new URL(data.serverUrl);
+            this.gameSessionData.serverUrl = serverUrl.origin; // https://beatball.xyz
+            this.gameSessionData.gamePath = `/game/game-${this.gameSessionData.roomId}`; // /game/game-123
         }
     }
     preload() {
@@ -210,9 +215,8 @@ class ClientScene extends Phaser.Scene {
     // SET UP SOCKET EVENT 
     setupWebSocket() {
         // const gameServerUrl = document.getElementById('game-server-url').value;
-        this.gameSessionData.serverUrl = "https://beatball.xyz";  // Thay đổi thành domain
 
-        this.SOCKET = io("https://beatball.xyz", {  // Sử dụng domain
+        this.SOCKET = io(this.gameSessionData.serverUrl, {  // Sử dụng domain
             transports: ['websocket'],
             upgrade: false,
             path: '/socket.io',  // Thêm path cho socket.io

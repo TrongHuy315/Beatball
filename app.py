@@ -1252,7 +1252,7 @@ def game_page(room_id):
         
         room = get_room(room_id)
         current_user_id = session.get('user_id')
-        
+        server_url = f"https://beatball.xyz/game/game-{room_id}"
         team_data = {
             'left': [],
             'right': []

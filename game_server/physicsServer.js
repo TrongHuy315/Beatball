@@ -28,6 +28,11 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
 	res.sendStatus(200); // hoặc res.json({status: 'ok'})
   });
+  app.use('/game/game-:roomId', (req, res, next) => {
+    // Add room ID to request
+    req.roomId = req.params.roomId;
+    next();
+});
 class PhysicsEngine {
     constructor(totalConnection) {
         // ENGINE SET UP  

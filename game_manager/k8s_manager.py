@@ -3,6 +3,7 @@ from kubernetes import client, config
 from google.oauth2 import service_account
 from google.cloud import container_v1
 from google.auth import transport
+from kubernetes.client import CustomObjectsApi
 import os
 import json
 
@@ -75,9 +76,7 @@ class K8sGameManager:
             # Create request object
             request = transport.requests.Request()
             credentials.refresh(request)
-            
-            # Refresh credentials
-            credentials.refresh(request)
+            project_id = credentials_dict["project_id"] 
             
             # Lấy cluster info
             container_client = container_v1.ClusterManagerClient(credentials=credentials)
@@ -102,6 +101,7 @@ class K8sGameManager:
             self.apps_v1 = client.AppsV1Api()
             self.core_v1 = client.CoreV1Api()
             self.networking_v1 = client.NetworkingV1Api()
+            self.custom_objects_api = client.CustomObjectsApi()
             
             print("Successfully configured K8s client")
 
@@ -129,7 +129,7 @@ class K8sGameManager:
                     "host": "beatball.xyz",
                     "http": {
                         "paths": [{
-                            "path": "/",
+                            "path": f"/game/{name}",
                             "pathType": "Prefix",
                             "backend": {
                                 "service": {
@@ -144,7 +144,7 @@ class K8sGameManager:
                 }]
             }
         }
-    
+        
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
@@ -168,7 +168,7 @@ class K8sGameManager:
             print(f"Creating game server deployment: {server_name}")
             
             # Tạo backend config trước
-            backend_config = self.core_v1.create_namespaced_custom_object(
+            backend_config = self.custom_objects_api.create_namespaced_custom_object(
                 group="cloud.google.com",
                 version="v1",
                 namespace=self.namespace,
@@ -415,7 +415,7 @@ class K8sGameManager:
 
             # Xóa backend config
             try:
-                self.core_v1.delete_namespaced_custom_object(
+                self.custom_objects_api.delete_namespaced_custom_object(
                     group="cloud.google.com",
                     version="v1",
                     namespace=self.namespace,
