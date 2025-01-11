@@ -229,15 +229,21 @@ class K8sGameManager:
             raise
     
     def _remove_default_path_if_necessary(self):
+        """
+        Kiểm tra ingress chính (main_ingress_name) xem có path nào đang
+        trỏ tới physics-server-service hay không; nếu có thì xóa nó đi.
+        Không set rule.http = None nữa để tránh lỗi 'invalid syntax'.
+        """
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
+            # Nếu .spec hoặc .spec.rules không tồn tại -> return
             if not current_ingress.spec or not current_ingress.spec.rules:
-                return  # Không có rule => không cần làm gì
+                return
 
-            # Ở ví dụ này, mình giả định chỉ có 1 rule, bạn sửa tùy logic của bạn nếu có nhiều rule
+            # Ở ví dụ này, mình giả định chỉ có 1 rule
             rule = current_ingress.spec.rules[0]
             if not rule.http or not rule.http.paths:
                 return
@@ -245,33 +251,23 @@ class K8sGameManager:
             new_paths = []
             for p in rule.http.paths:
                 backend_svc = p.backend.service.name if (p.backend and p.backend.service) else None
+                # Nếu path này dùng service = "physics-server-service" thì bỏ qua (tức là xóa)
                 if backend_svc == "physics-server-service":
                     print(f"Removed path '{p.path}' -> physics-server-service from Ingress.")
                     continue
                 else:
                     new_paths.append(p)
 
-            # Nếu vẫn còn path => ghi đè
-            if new_paths:
-                rule.http.paths = new_paths
-            else:
-                # [ADDED] Nếu không còn path nào => xóa luôn http, tránh sinh ra “paths: []”
-                print("No remaining paths, removing rule.http to avoid empty path list.")
-                rule.http = None
+            # Cập nhật lại danh sách paths
+            rule.http.paths = new_paths
 
+            # Patch lại ingress
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace,
                 body=current_ingress
             )
 
-        except client.exceptions.ApiException as e:
-            if e.status == 404:
-                print("Main ingress does not exist, so no default path to remove.")
-            else:
-                print(f"Error removing default path from ingress: {e}")
-        except Exception as ex:
-            print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
         except client.exceptions.ApiException as e:
             if e.status == 404:
                 print("Main ingress does not exist, so no default path to remove.")
