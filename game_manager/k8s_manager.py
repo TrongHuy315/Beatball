@@ -230,32 +230,35 @@ class K8sGameManager:
     
     def _remove_default_path_if_necessary(self):
         try:
-            # Đọc ingress hiện tại
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
-
             if not current_ingress.spec or not current_ingress.spec.rules:
-                return  # Không có rules => không cần làm gì
+                return  # Không có rule => không cần làm gì
 
+            # Ở ví dụ này, mình giả định chỉ có 1 rule, bạn sửa tùy logic của bạn nếu có nhiều rule
             rule = current_ingress.spec.rules[0]
             if not rule.http or not rule.http.paths:
                 return
 
-            # Lọc bỏ mọi path trỏ tới physics-server-service
             new_paths = []
             for p in rule.http.paths:
-                backend_svc = p.backend.service.name if p.backend and p.backend.service else None
+                backend_svc = p.backend.service.name if (p.backend and p.backend.service) else None
                 if backend_svc == "physics-server-service":
                     print(f"Removed path '{p.path}' -> physics-server-service from Ingress.")
-                    continue  # Không thêm path này vào new_paths
+                    continue
                 else:
                     new_paths.append(p)
 
-            rule.http.paths = new_paths
+            # Nếu vẫn còn path => ghi đè
+            if new_paths:
+                rule.http.paths = new_paths
+            else:
+                # [ADDED] Nếu không còn path nào => xóa luôn http, tránh sinh ra “paths: []”
+                print("No remaining paths, removing rule.http to avoid empty path list.")
+                rule.http = None
 
-            # Update ingress
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace,
@@ -269,16 +272,21 @@ class K8sGameManager:
                 print(f"Error removing default path from ingress: {e}")
         except Exception as ex:
             print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                print("Main ingress does not exist, so no default path to remove.")
+            else:
+                print(f"Error removing default path from ingress: {e}")
+        except Exception as ex:
+            print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
     
     def _add_game_path_to_ingress(self, server_name):
         try:
-            # Lấy current ingress
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
 
-            # Tạo path mới
             new_path = {
                 'path': f'/game/{server_name}',
                 'pathType': 'Prefix',
@@ -292,25 +300,26 @@ class K8sGameManager:
                 }
             }
 
-            # Thêm path mới vào rules hiện có
+            # Đảm bảo .spec.rules[0].http.paths đã có
+            if not current_ingress.spec.rules[0].http:
+                current_ingress.spec.rules[0].http = client.V1HTTPIngressRuleValue(paths=[])
             if not current_ingress.spec.rules[0].http.paths:
                 current_ingress.spec.rules[0].http.paths = []
+
             current_ingress.spec.rules[0].http.paths.append(new_path)
 
-            # Thêm các annotation cho Ingress để cho phép WebSocket
+            # [ADDED] Thêm hoặc cập nhật các annotation cho WebSocket + timeout
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
             current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
 
-            # Update ingress
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace,
                 body=current_ingress
             )
-
         except Exception as e:
             print(f"Error adding path to ingress: {e}")
             raise
@@ -444,7 +453,9 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
+                    # [ADDED] Giúp GCE Ingress nhận diện WebSocket là HTTP
+                    "cloud.google.com/app-protocols": '{"http":"HTTP"}'
                 }
             },
             "spec": {
