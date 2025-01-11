@@ -137,10 +137,19 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                    "networking.gke.io/managed-certificates": "game-managed-cert"
+                    "networking.gke.io/managed-certificates": "game-managed-cert",
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
                 }
             },
             "spec": {
+                "defaultBackend": {
+                    "service": {
+                        "name": f"{name}-service",
+                        "port": {
+                            "number": 8000
+                        }
+                    }
+                },
                 "rules": [
                     {
                         "host": "beatball.xyz",
@@ -162,6 +171,20 @@ class K8sGameManager:
                         }
                     }
                 ]
+            }
+        }
+    def _create_frontend_config(self):
+        return {
+            "apiVersion": "networking.gke.io/v1beta1",
+            "kind": "FrontendConfig",
+            "metadata": {
+                "name": "beatball-frontend-config",
+                "namespace": self.namespace
+            },
+            "spec": {
+                "redirectToHttps": {
+                    "enabled": True
+                }
             }
         }
         
@@ -187,10 +210,19 @@ class K8sGameManager:
             }
         }
     def create_game_instance(self, room_id, player_data):
-        try:
+        try:    
             server_name = f"game-{room_id}"
-
             print(f"Creating game server deployment: {server_name}")
+
+            # Create FrontendConfig first
+            frontend_config = self.custom_objects_api.create_namespaced_custom_object(
+                group="networking.gke.io",
+                version="v1beta1",
+                namespace=self.namespace,
+                plural="frontendconfigs",
+                body=self._create_frontend_config()
+            )
+            print("Frontend config created")
 
             # Tạo backend config
             backend_config = self.custom_objects_api.create_namespaced_custom_object(
@@ -202,28 +234,26 @@ class K8sGameManager:
             )
             print("Backend config created")
 
-            # Tạo deployment
+            # Rest of the code remains the same
             deployment = self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
                 body=self._create_deployment_spec(server_name, room_id, player_data)
             )
             print(f"Deployment created: {deployment.metadata.name}")
 
-            # Tạo service
             service = self.core_v1.create_namespaced_service(
                 namespace=self.namespace,
                 body=self._create_service_spec(server_name)
             )
             print(f"Service created: {service.metadata.name}")
 
-            # Tạo ingress mới cho game instance này
             ingress = self.networking_v1.create_namespaced_ingress(
                 namespace=self.namespace,
                 body=self._create_ingress_spec(server_name)
             )
             print(f"Created new ingress for {server_name}")
 
-            # Đợi pod ready
+            # Wait for resources
             self._wait_for_pod_ready(server_name)
 
             return {
@@ -237,7 +267,7 @@ class K8sGameManager:
             print(f"Error creating game server: {e}")
             self.cleanup_game_resources(server_name)
             raise
-    
+        
     def _remove_default_path_if_necessary(self):
         try:
             # Đọc ingress hiện tại
@@ -446,7 +476,7 @@ class K8sGameManager:
         }
 
     def _create_service_spec(self, name):
-       return {
+        return {
             "apiVersion": "v1",
             "kind": "Service",
             "metadata": {
@@ -461,10 +491,10 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "port": 8000,
-                    "targetPort": 8000,
+                    "name": "http",
                     "protocol": "TCP",
-                    "name": "http"
+                    "port": 8000,
+                    "targetPort": 8000
                 }],
                 "type": "ClusterIP"
             }
