@@ -71,7 +71,7 @@ class ClientScene extends Phaser.Scene {
         ];
         this.initData(); 
     }
-    init() {
+    initData() {
         const data = window.gameData;
         if (!data) {
             console.error("window.gameData is undefined!");
