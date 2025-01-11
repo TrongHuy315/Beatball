@@ -215,9 +215,12 @@ class K8sGameManager:
             )
             print(f"Service created: {service.metadata.name}")
 
-            # Thêm path mới vào Ingress hiện có
-            self._add_game_path_to_ingress(server_name)
-            print(f"Added path to main ingress for {server_name}")
+            # Tạo ingress mới cho game instance này
+            ingress = self.networking_v1.create_namespaced_ingress(
+                namespace=self.namespace,
+                body=self._create_ingress_spec(server_name)
+            )
+            print(f"Created new ingress for {server_name}")
 
             # Đợi pod ready
             self._wait_for_pod_ready(server_name)
@@ -225,7 +228,8 @@ class K8sGameManager:
             return {
                 'server_url': f"https://beatball.xyz/game/{server_name}",
                 'deployment_name': server_name,
-                'service_name': f"{server_name}-service"
+                'service_name': f"{server_name}-service",
+                'ingress_name': f"{server_name}-ingress"
             }
 
         except Exception as e:
@@ -239,7 +243,7 @@ class K8sGameManager:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
-            )
+            ) 
 
             if not current_ingress.spec or not current_ingress.spec.rules:
                 return  # Không có rules => không cần làm gì
@@ -457,8 +461,8 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "port": 8000,          # Port service expose
-                    "targetPort": 8000,    # Port container expose
+                    "port": 8000,          
+                    "targetPort": 8000,    
                     "protocol": "TCP",
                     "name": "http"
                 }],
@@ -534,25 +538,17 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error deleting backend configs: {e}")
 
-            # 4. Xóa tất cả ingress paths (trừ main ingress)
+            # 4. Xóa tất cả ingresses
             try:
-                current_ingress = self.networking_v1.read_namespaced_ingress(
-                    name=self.main_ingress_name,
-                    namespace=self.namespace
-                )
-
-                # Reset paths về rỗng
-                if current_ingress.spec.rules and current_ingress.spec.rules[0].http:
-                    current_ingress.spec.rules[0].http.paths = []
-
-                self.networking_v1.patch_namespaced_ingress(
-                    name=self.main_ingress_name,
-                    namespace=self.namespace,
-                    body=current_ingress
-                )
-                print("Cleaned up all ingress paths")
+                ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
+                for ing in ingresses.items:
+                    print(f"Deleting ingress: {ing.metadata.name}")
+                    self.networking_v1.delete_namespaced_ingress(
+                        name=ing.metadata.name,
+                        namespace=self.namespace
+                    )
             except Exception as e:
-                print(f"Error cleaning ingress paths: {e}")
+                print(f"Error deleting ingresses: {e}")
 
             # 5. Đợi xóa xong
             import time
@@ -566,8 +562,9 @@ class K8sGameManager:
 
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+                ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
 
-                if len(deployments.items) == 0 and len(services.items) <= 1:
+                if len(deployments.items) == 0 and len(services.items) <= 1 and len(ingresses.items) == 0:
                     print("All resources cleaned up successfully")
                     break
 
@@ -576,63 +573,20 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
+        
         def cleanup_game_resources(self, server_name):
-                
             print(f"Cleaning up resources for {server_name}")
 
-                # Xóa path khỏi ingress
+            # Xóa ingress
             try:
-                current_ingress = self.networking_v1.read_namespaced_ingress(
-                    name=self.main_ingress_name,
+                self.networking_v1.delete_namespaced_ingress(
+                    name=f"{server_name}-ingress",
                     namespace=self.namespace
                 )
-
-                if current_ingress.spec and current_ingress.spec.rules:
-                    # Tạo list paths mới, loại bỏ path của game cần xóa
-                    paths = current_ingress.spec.rules[0].http.paths
-                    new_paths = []
-                    path_found = False
-
-                    for path in paths:
-                        # Kiểm tra cả path và backend service
-                        is_target_path = (
-                            path.path.endswith(f'/game/{server_name}') or 
-                            (hasattr(path.backend, 'service') and 
-                            path.backend.service and 
-                            path.backend.service.name == f"{server_name}-service")
-                        )
-                        
-                        if not is_target_path:
-                            new_paths.append(path)
-                        else:
-                            path_found = True
-                            print(f"Found path to remove: {path.path}")
-
-                    if path_found:
-                        # Update paths trong rules
-                        current_ingress.spec.rules[0].http.paths = new_paths
-
-                        # Patch ingress với paths mới
-                        self.networking_v1.patch_namespaced_ingress(
-                            name=self.main_ingress_name,
-                            namespace=self.namespace,
-                            body=current_ingress
-                        )
-                        print(f"Successfully removed path for {server_name} from ingress")
-                    else:
-                        print(f"No matching paths found for {server_name}")
-
+                print("Ingress deleted")
             except client.exceptions.ApiException as e:
-                if e.status == 404:
-                    print(f"Ingress {self.main_ingress_name} not found")
-                else:
-                    print(f"Error removing path from ingress: {e}")
-                    print(f"Status: {e.status}")
-                    print(f"Reason: {e.reason}")
-                    if hasattr(e, 'body'):
-                        print(f"Body: {e.body}")
-            except Exception as e:
-                print(f"Unexpected error removing path from ingress: {e}")
+                if e.status != 404:
+                    print(f"Error deleting ingress: {e}")
 
             # Xóa service
             try:
@@ -643,7 +597,7 @@ class K8sGameManager:
                 print("Service deleted")
             except client.exceptions.ApiException as e:
                 if e.status != 404:
-                    raise
+                    print(f"Error deleting service: {e}")
 
             # Xóa deployment
             try:
@@ -654,7 +608,7 @@ class K8sGameManager:
                 print("Deployment deleted")
             except client.exceptions.ApiException as e:
                 if e.status != 404:
-                    raise
+                    print(f"Error deleting deployment: {e}")
 
             # Xóa backend config
             try:
@@ -668,11 +622,7 @@ class K8sGameManager:
                 print("Backend config deleted")
             except client.exceptions.ApiException as e:
                 if e.status != 404:
-                    raise
-
-            except Exception as e:
-                print(f"Error cleaning up resources: {e}")
-                raise
+                    print(f"Error deleting backend config: {e}")
 
     def monitor_game(self, room_id):
         try:
