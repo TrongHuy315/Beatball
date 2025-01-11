@@ -136,49 +136,45 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
+                    "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
+                    "networking.gke.io/managed-certificates": "game-managed-cert",
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
                     "kubernetes.io/ingress.allow-http": "false",
-                    # GKE specific annotations for WebSocket
-                    "kubernetes.io/ingress.global-static-ip-name": "game-static-ip",
-                    # Enable WebSocket protocols
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    # Configure backend timeouts
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    # Configure connection timeouts
-                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
-                    # Enable WebSocket
-                    "nginx.ingress.kubernetes.io/websocket-services": f"{name}-service",
-                    # Keep alive settings
-                    "nginx.ingress.kubernetes.io/upstream-keepalive-timeout": "600",
-                    "nginx.ingress.kubernetes.io/proxy-http-version": "1.1",
-                    # Force SSL
-                    "nginx.ingress.kubernetes.io/force-ssl-redirect": "true",
-                    "nginx.ingress.kubernetes.io/ssl-redirect": "true"
+                    # WebSocket specific
+                    "networking.gke.io/v1beta1.AllowBackendConfig": "true",
+                    "networking.gke.io/v1beta1.EnableWebSocket": "true"
                 }
             },
             "spec": {
-                "tls": [{
-                    "hosts": ["beatball.xyz"],
-                    "secretName": "beatball-tls"  # Make sure this TLS secret exists
-                }],
-                "rules": [{
-                    "host": "beatball.xyz",
-                    "http": {
-                        "paths": [{
-                            "path": f"/game/{name}",
-                            "pathType": "Prefix",
-                            "backend": {
-                                "service": {
-                                    "name": f"{name}-service",
-                                    "port": {
-                                        "number": 8000
+                "defaultBackend": {
+                    "service": {
+                        "name": f"{name}-service",
+                        "port": {
+                            "number": 8000
+                        }
+                    }
+                },
+                "rules": [
+                    {
+                        "host": "beatball.xyz",
+                        "http": {
+                            "paths": [
+                                {
+                                    "path": f"/game/{name}",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{name}-service",
+                                            "port": {
+                                                "number": 8000
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                        }]
+                            ]
+                        }
                     }
-                }]
+                ]
             }
         }
             
@@ -203,13 +199,6 @@ class K8sGameManager:
                     "type": "HTTP",
                     "requestPath": "/health",
                     "port": 8000
-                },
-                "sessionAffinity": {
-                    "affinityType": "GENERATED_COOKIE",
-                    "affinityCookieTtlSec": 3600
-                },
-                "logging": {
-                    "enable": True
                 }
             }
         }
@@ -481,6 +470,24 @@ class K8sGameManager:
             }
         }
 
+    def _create_frontend_config(self):
+        return {
+            "apiVersion": "networking.gke.io/v1beta1",
+            "kind": "FrontendConfig",
+            "metadata": {
+                "name": "beatball-frontend-config",
+                "namespace": self.namespace
+            },
+            "spec": {
+                "sslPolicy": "beatball-ssl-policy",
+                "redirectToHttps": {
+                    "enabled": True,
+                    "responseCodeName": "MOVED_PERMANENTLY_DEFAULT"
+                }
+            }
+        }
+        
+    
     def _create_service_spec(self, name):
         return {
             "apiVersion": "v1",
@@ -490,9 +497,8 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    # Add WebSocket annotations
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }
             },
             "spec": {
@@ -503,7 +509,7 @@ class K8sGameManager:
                     "port": 8000,
                     "targetPort": 8000,
                     "protocol": "TCP",
-                    "name": "ws"  # Changed to ws for WebSocket
+                    "name": "ws"
                 }],
                 "type": "ClusterIP"
             }
