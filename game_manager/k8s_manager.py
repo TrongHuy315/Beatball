@@ -539,7 +539,7 @@ class K8sGameManager:
             try:
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
                 for svc in services.items:
-                    if svc.metadata.name != 'kubernetes': # Không xóa service mặc định
+                    if svc.metadata.name != 'kubernetes':  # Không xóa service mặc định
                         print(f"Deleting service: {svc.metadata.name}")
                         self.core_v1.delete_namespaced_service(
                             name=svc.metadata.name,
@@ -580,7 +580,27 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error deleting ingresses: {e}")
 
-            # 5. Đợi xóa xong
+            # 5. Xóa FrontendConfig
+            try:
+                frontend_configs = self.custom_objects_api.list_namespaced_custom_object(
+                    group="networking.gke.io",
+                    version="v1beta1",
+                    namespace=self.namespace,
+                    plural="frontendconfigs"
+                )
+                for fc in frontend_configs['items']:
+                    print(f"Deleting frontend config: {fc['metadata']['name']}")
+                    self.custom_objects_api.delete_namespaced_custom_object(
+                        group="networking.gke.io",
+                        version="v1beta1",
+                        namespace=self.namespace,
+                        plural="frontendconfigs",
+                        name=fc['metadata']['name']
+                    )
+            except Exception as e:
+                print(f"Error deleting frontend configs: {e}")
+
+            # 6. Đợi xóa xong
             import time
             timeout = 60  # 60 seconds timeout
             start_time = time.time()
@@ -603,6 +623,7 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
+
 
     def cleanup_game_resources(self, server_name):
         print(f"Cleaning up resources for {server_name}")
