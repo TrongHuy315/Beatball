@@ -237,6 +237,13 @@ class K8sGameManager:
                 current_ingress.spec.rules[0].http.paths = []
             current_ingress.spec.rules[0].http.paths.append(new_path)
 
+            # Thêm các annotation cho Ingress để cho phép WebSocket
+            if not current_ingress.metadata.annotations:
+                current_ingress.metadata.annotations = {}
+            current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
+            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
+            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
+
             # Update ingress
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
@@ -412,6 +419,98 @@ class K8sGameManager:
                 
             time.sleep(2)
 
+    def cleanup_all_resources(self):
+        """Dọn dẹp tất cả resources trong namespace"""
+        try:
+            print("Cleaning up all resources in namespace...")
+            
+            # 1. Xóa tất cả deployments
+            try:
+                deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
+                for dep in deployments.items:
+                    print(f"Deleting deployment: {dep.metadata.name}")
+                    self.apps_v1.delete_namespaced_deployment(
+                        name=dep.metadata.name,
+                        namespace=self.namespace
+                    )
+            except Exception as e:
+                print(f"Error deleting deployments: {e}")
+
+            # 2. Xóa tất cả services
+            try:
+                services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+                for svc in services.items:
+                    if svc.metadata.name != 'kubernetes': # Không xóa service mặc định
+                        print(f"Deleting service: {svc.metadata.name}")
+                        self.core_v1.delete_namespaced_service(
+                            name=svc.metadata.name,
+                            namespace=self.namespace
+                        )
+            except Exception as e:
+                print(f"Error deleting services: {e}")
+
+            # 3. Xóa tất cả backend configs
+            try:
+                backend_configs = self.custom_objects_api.list_namespaced_custom_object(
+                    group="cloud.google.com",
+                    version="v1",
+                    namespace=self.namespace,
+                    plural="backendconfigs"
+                )
+                for bc in backend_configs['items']:
+                    print(f"Deleting backend config: {bc['metadata']['name']}")
+                    self.custom_objects_api.delete_namespaced_custom_object(
+                        group="cloud.google.com",
+                        version="v1",
+                        namespace=self.namespace,
+                        plural="backendconfigs",
+                        name=bc['metadata']['name']
+                    )
+            except Exception as e:
+                print(f"Error deleting backend configs: {e}")
+
+            # 4. Xóa tất cả ingress paths (trừ main ingress)
+            try:
+                current_ingress = self.networking_v1.read_namespaced_ingress(
+                    name=self.main_ingress_name,
+                    namespace=self.namespace
+                )
+                
+                # Reset paths về rỗng
+                if current_ingress.spec.rules and current_ingress.spec.rules[0].http:
+                    current_ingress.spec.rules[0].http.paths = []
+                
+                self.networking_v1.patch_namespaced_ingress(
+                    name=self.main_ingress_name,
+                    namespace=self.namespace,
+                    body=current_ingress
+                )
+                print("Cleaned up all ingress paths")
+            except Exception as e:
+                print(f"Error cleaning ingress paths: {e}")
+
+            # 5. Đợi xóa xong
+            import time
+            timeout = 60  # 60 seconds timeout
+            start_time = time.time()
+            
+            while True:
+                if time.time() - start_time > timeout:
+                    print("Timeout waiting for resources cleanup")
+                    break
+                    
+                deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
+                services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+                
+                if len(deployments.items) == 0 and len(services.items) <= 1:
+                    print("All resources cleaned up successfully")
+                    break
+                    
+                time.sleep(2)
+
+        except Exception as e:
+            print(f"Error in cleanup_all_resources: {e}")
+            raise
     def cleanup_game_resources(self, server_name):
         try:
             print(f"Cleaning up resources for {server_name}")

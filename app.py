@@ -1181,7 +1181,15 @@ def handle_start_game(data):
         print(f"Error starting game: {e}")
         emit('game_error', {'message': str(e)}, room=room_id)
 
-
+@app.before_first_request
+def cleanup_k8s():
+    """Chạy cleanup trước khi nhận request đầu tiên"""
+    try:
+        k8s_manager.cleanup_all_resources()
+        print("Kubernetes resources cleaned up successfully")
+    except Exception as e:
+        print(f"Error cleaning up k8s resources: {e}")
+        
 def initialize_game(room_data):
     """
     Khởi tạo trạng thái game mới
