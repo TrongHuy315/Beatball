@@ -136,52 +136,35 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
-                    "kubernetes.io/ingress.allow-http": "false",
-                    # GKE specific annotations for WebSocket
-                    "kubernetes.io/ingress.global-static-ip-name": "game-static-ip",
-                    # Enable WebSocket protocols
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    # Configure backend timeouts
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    # Configure connection timeouts
-                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
-                    # Enable WebSocket
-                    "nginx.ingress.kubernetes.io/websocket-services": f"{name}-service",
-                    # Keep alive settings
-                    "nginx.ingress.kubernetes.io/upstream-keepalive-timeout": "600",
-                    "nginx.ingress.kubernetes.io/proxy-http-version": "1.1",
-                    # Force SSL
-                    "nginx.ingress.kubernetes.io/force-ssl-redirect": "true",
-                    "nginx.ingress.kubernetes.io/ssl-redirect": "true"
+                    "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
+                    "networking.gke.io/managed-certificates": "game-managed-cert"
                 }
             },
             "spec": {
-                "tls": [{
-                    "hosts": ["beatball.xyz"],
-                    "secretName": "beatball-tls"  # Make sure this TLS secret exists
-                }],
-                "rules": [{
-                    "host": "beatball.xyz",
-                    "http": {
-                        "paths": [{
-                            "path": f"/game/{name}",
-                            "pathType": "Prefix",
-                            "backend": {
-                                "service": {
-                                    "name": f"{name}-service",
-                                    "port": {
-                                        "number": 8000
+                "rules": [
+                    {
+                        "host": "beatball.xyz",
+                        "http": {
+                            "paths": [
+                                {
+                                    "path": f"/game/{name}",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{name}-service",
+                                            "port": {
+                                                "number": 8000
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                        }]
+                            ]
+                        }
                     }
-                }]
+                ]
             }
         }
-            
+        
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
@@ -192,9 +175,6 @@ class K8sGameManager:
             },
             "spec": {
                 "timeoutSec": 3600,
-                "connectionDraining": {
-                    "drainingTimeoutSec": 60
-                },
                 "healthCheck": {
                     "checkIntervalSec": 15,
                     "timeoutSec": 5,
@@ -203,17 +183,9 @@ class K8sGameManager:
                     "type": "HTTP",
                     "requestPath": "/health",
                     "port": 8000
-                },
-                "sessionAffinity": {
-                    "affinityType": "GENERATED_COOKIE",
-                    "affinityCookieTtlSec": 3600
-                },
-                "logging": {
-                    "enable": True
                 }
             }
         }
-
     def create_game_instance(self, room_id, player_data):
         try:
             server_name = f"game-{room_id}"
@@ -435,14 +407,6 @@ class K8sGameManager:
                                 "containerPort": 8000,
                                 "name": "http"
                             }],
-                            "startupProbe": {
-                                "httpGet": {
-                                    "path": "/health",
-                                    "port": 8000
-                                },
-                                "failureThreshold": 30,
-                                "periodSeconds": 10
-                            },
                             "readinessProbe": {
                                 "httpGet": {
                                     "path": "/health",
@@ -482,17 +446,14 @@ class K8sGameManager:
         }
 
     def _create_service_spec(self, name):
-        return {
+       return {
             "apiVersion": "v1",
             "kind": "Service",
             "metadata": {
                 "name": f"{name}-service",
                 "namespace": self.namespace,
                 "annotations": {
-                    "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    # Add WebSocket annotations
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
+                    "cloud.google.com/neg": '{"ingress": true}'
                 }
             },
             "spec": {
@@ -503,7 +464,7 @@ class K8sGameManager:
                     "port": 8000,
                     "targetPort": 8000,
                     "protocol": "TCP",
-                    "name": "ws"  # Changed to ws for WebSocket
+                    "name": "http"
                 }],
                 "type": "ClusterIP"
             }
