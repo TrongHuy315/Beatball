@@ -214,27 +214,28 @@ class ClientScene extends Phaser.Scene {
 
     // SET UP SOCKET EVENT 
     setupWebSocket() {
-        // const gameServerUrl = document.getElementById('game-server-url').value;
-        const fullUrl = `${this.gameSessionData.serverUrl}${this.gameSessionData.gamePath}`;
+        // Tạo socket path và base URL
+    const socketPath = `/game/game-${this.gameSessionData.roomId}/socket.io`;
+    const baseUrl = 'https://beatball.xyz';
 
-        this.SOCKET = io(fullUrl, {  // Sử dụng domain
-            transports: ['websocket'],
-            upgrade: false,
-            path: '/socket.io',  // Thêm path cho socket.io
-            secure: true,  // Bật SSL/TLS
-            reconnection: true,  // Thêm auto reconnect
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            timeout: 20000,
-            auth: {
-                clientType: 'gameClient',
-                version: '1.0',
-                clientId: clientId,
-                roomId: this.gameSessionData.roomId,
-                userId: this.gameSessionData.userId,
-                team: this.gameSessionData.userTeam
-            }
-        });
+    this.SOCKET = io(baseUrl, {
+        transports: ['websocket'],
+        upgrade: false,
+        path: socketPath,  // Dùng path khớp với server
+        secure: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 20000,
+        auth: {
+            clientType: 'gameClient',
+            version: '1.0',
+            clientId: clientId,
+            roomId: this.gameSessionData.roomId,
+            userId: this.gameSessionData.userId,
+            team: this.gameSessionData.userTeam
+        }
+    });
 
         var socket = this.SOCKET;
 

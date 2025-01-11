@@ -7,6 +7,7 @@ const Ball = require('./matter/ball.js');
 const express = require('express');
 const { Engine, Events } = require('matter-js');
 const { timeStamp } = require('console');
+const SOCKET_PATH = process.env.SOCKET_PATH || '/socket.io';
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
@@ -20,8 +21,9 @@ const io = require('socket.io')(http, {
     transports: ['websocket', 'polling'],
     pingTimeout: 60000,
     pingInterval: 25000,
-    path: '/socket.io'
+    path: SOCKET_PATH
 });
+
 app.get('/', (req, res) => {
     res.send('Physics Server is running!');
 });
