@@ -4,19 +4,17 @@ metadata:
   name: game-ingress
   namespace: beatball-game
   annotations:
+    kubernetes.io/ingress.class: "gce"
     kubernetes.io/ingress.allow-http: "false"
     kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
     networking.gke.io/managed-certificates: "game-managed-cert"
     networking.gke.io/v1beta1.FrontendConfig: "beatball-frontend-config"
-    # Thêm các annotations cho WebSocket
-    ingress.kubernetes.io/backend-protocol: "HTTP"
     ingress.kubernetes.io/proxy-read-timeout: "3600"
     ingress.kubernetes.io/proxy-send-timeout: "3600"
-    # Thêm các annotations khác cho WebSocket nếu dùng GCE
-    cloud.google.com/app-protocols: '{"http":"HTTP"}'
-    cloud.google.com/backend-config: '{"default": "beatball-backend-config"}'
+    ingress.kubernetes.io/proxy-http-version: "1.1"
+    ingress.kubernetes.io/websocket-services: "true"
 spec:
-  ingressClassName: "gce"  
+  ingressClassName: gce  # Thêm dòng này
   rules:
   - host: beatball.xyz
     http:
@@ -25,6 +23,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: physics-server-service
+            name: game-605540-service
             port:
               number: 8000

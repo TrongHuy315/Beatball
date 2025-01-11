@@ -197,15 +197,16 @@ class K8sGameManager:
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
-            "kind": "BackendConfig",
-            "metadata": {
-                "name": f"{name}-backend-config",
-                "namespace": self.namespace
-            },
+            "kind": "BackendConfig", 
             "spec": {
-                "timeoutSec": 900,
+                "timeoutSec": 3600,
+                "protocol": "HTTP2",
                 "connectionDraining": {
                     "drainingTimeoutSec": 60
+                },
+                "healthCheck": {
+                    "requestPath": "/health",
+                    "port": 8000
                 }
             }
         }
