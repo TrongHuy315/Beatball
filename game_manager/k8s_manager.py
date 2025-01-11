@@ -138,11 +138,7 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                    "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
-                    "kubernetes.io/ingress.allow-http": "true",
-                    "cloud.google.com/backend-config": f'{{"default":"{name}-backend-config"}}',
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
+                    "networking.gke.io/managed-certificates": "game-managed-cert"
                 }
             },
             "spec": {
@@ -153,18 +149,6 @@ class K8sGameManager:
                             "paths": [
                                 {
                                     "path": f"/game/{name}",
-                                    "pathType": "Prefix",
-                                    "backend": {
-                                        "service": {
-                                            "name": f"{name}-service",
-                                            "port": {
-                                                "number": 8000
-                                            }
-                                        }
-                                    }
-                                },
-                                {
-                                    "path": f"/game/{name}/socket.io",
                                     "pathType": "Prefix",
                                     "backend": {
                                         "service": {
@@ -194,9 +178,6 @@ class K8sGameManager:
             },
             "spec": {
                 "timeoutSec": 3600,
-                "connectionDraining": {
-                    "drainingTimeoutSec": 60
-                },
                 "healthCheck": {
                     "checkIntervalSec": 15,
                     "timeoutSec": 5,
@@ -205,10 +186,6 @@ class K8sGameManager:
                     "type": "HTTP",
                     "requestPath": "/health",
                     "port": 8000
-                },
-                "sessionAffinity": {
-                    "affinityType": "GENERATED_COOKIE",
-                    "affinityCookieTtlSec": 3600
                 }
             }
         }
@@ -505,9 +482,7 @@ class K8sGameManager:
                 "name": f"{name}-service",
                 "namespace": self.namespace,
                 "annotations": {
-                    "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    "cloud.google.com/neg": '{"ingress": true}'
                 }
             },
             "spec": {
@@ -518,10 +493,9 @@ class K8sGameManager:
                     "port": 8000,
                     "targetPort": 8000,
                     "protocol": "TCP",
-                    "name": "ws"
+                    "name": "http"
                 }],
-                "type": "ClusterIP",
-                "sessionAffinity": "ClientIP"
+                "type": "ClusterIP"
             }
         }
 
