@@ -25,6 +25,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: game-default-service
+            name: physics-server-service
             port:
               number: 8000
