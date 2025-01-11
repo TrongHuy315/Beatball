@@ -271,6 +271,11 @@ class K8sGameManager:
             print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
     
     def _add_game_path_to_ingress(self, server_name):
+        """
+        Hàm này được chỉnh sửa để bổ sung WebSocket:
+        - proxy-http-version: "1.1"
+        - ingress.gcp.kubernetes.io/websocket: "true"
+        """
         try:
             # Lấy current ingress
             current_ingress = self.networking_v1.read_namespaced_ingress(
@@ -297,12 +302,18 @@ class K8sGameManager:
                 current_ingress.spec.rules[0].http.paths = []
             current_ingress.spec.rules[0].http.paths.append(new_path)
 
-            # Thêm các annotation cho Ingress để cho phép WebSocket
+            # Đảm bảo tồn tại dictionary cho annotations
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
+
+            # Thêm các annotation cần thiết cho WebSocket trên GCE
+            # (đã có read-timeout, send-timeout, giờ thêm proxy-http-version và websocket)
             current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
+            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-http-version"] = "1.1"
+            # WebSocket
+            current_ingress.metadata.annotations["ingress.gcp.kubernetes.io/websocket"] = "true"
 
             # Update ingress
             self.networking_v1.patch_namespaced_ingress(
@@ -436,6 +447,10 @@ class K8sGameManager:
         }
 
     def _create_service_spec(self, name):
+        """
+        Hàm này được chỉnh sửa để thêm annotation `cloud.google.com/app-protocols`
+        Giúp GCE hiểu rằng Service này dùng HTTP (tương thích WebSocket).
+        """
         return {
             "apiVersion": "v1",
             "kind": "Service",
@@ -444,7 +459,9 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
+                    # Thêm app-protocols để GCE biết service này là HTTP (hỗ trợ WebSocket)
+                    "cloud.google.com/app-protocols": '{"http":"HTTP"}'
                 }
             },
             "spec": {
