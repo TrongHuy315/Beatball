@@ -604,55 +604,55 @@ class K8sGameManager:
             print(f"Error in cleanup_all_resources: {e}")
             raise
 
-        def cleanup_game_resources(self, server_name):
-            print(f"Cleaning up resources for {server_name}")
+    def cleanup_game_resources(self, server_name):
+        print(f"Cleaning up resources for {server_name}")
 
-            # Xóa ingress
-            try:
-                self.networking_v1.delete_namespaced_ingress(
-                    name=f"{server_name}-ingress",
-                    namespace=self.namespace
-                )
-                print("Ingress deleted")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:
-                    print(f"Error deleting ingress: {e}")
+        # Xóa ingress
+        try:
+            self.networking_v1.delete_namespaced_ingress(
+                name=f"{server_name}-ingress",
+                namespace=self.namespace
+            )
+            print("Ingress deleted")
+        except client.exceptions.ApiException as e:
+            if e.status != 404:
+                print(f"Error deleting ingress: {e}")
 
-            # Xóa service
-            try:
-                self.core_v1.delete_namespaced_service(
-                    name=f"{server_name}-service",
-                    namespace=self.namespace
-                )
-                print("Service deleted")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:
-                    print(f"Error deleting service: {e}")
+        # Xóa service
+        try:
+            self.core_v1.delete_namespaced_service(
+                name=f"{server_name}-service",
+                namespace=self.namespace
+            )
+            print("Service deleted")
+        except client.exceptions.ApiException as e:
+            if e.status != 404:
+                print(f"Error deleting service: {e}")
 
-            # Xóa deployment
-            try:
-                self.apps_v1.delete_namespaced_deployment(
-                    name=server_name,
-                    namespace=self.namespace
-                )
-                print("Deployment deleted")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:
-                    print(f"Error deleting deployment: {e}")
+        # Xóa deployment
+        try:
+            self.apps_v1.delete_namespaced_deployment(
+                name=server_name,
+                namespace=self.namespace
+            )
+            print("Deployment deleted")
+        except client.exceptions.ApiException as e:
+            if e.status != 404:
+                print(f"Error deleting deployment: {e}")
 
-            # Xóa backend config
-            try:
-                self.custom_objects_api.delete_namespaced_custom_object(
-                    group="cloud.google.com",
-                    version="v1",
-                    namespace=self.namespace,
-                    plural="backendconfigs",
-                    name=f"{server_name}-backend-config"
-                )
-                print("Backend config deleted")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:
-                    print(f"Error deleting backend config: {e}")
+        # Xóa backend config
+        try:
+            self.custom_objects_api.delete_namespaced_custom_object(
+                group="cloud.google.com",
+                version="v1",
+                namespace=self.namespace,
+                plural="backendconfigs",
+                name=f"{server_name}-backend-config"
+            )
+            print("Backend config deleted")
+        except client.exceptions.ApiException as e:
+            if e.status != 404:
+                print(f"Error deleting backend config: {e}")
 
     def monitor_game(self, room_id):
         try:
