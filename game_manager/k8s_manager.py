@@ -670,9 +670,9 @@ class K8sGameManager:
                 if e.status != 404:
                     raise
 
-        except Exception as e:
-            print(f"Error cleaning up resources: {e}")
-            raise
+            except Exception as e:
+                print(f"Error cleaning up resources: {e}")
+                raise
 
     def monitor_game(self, room_id):
         try:
