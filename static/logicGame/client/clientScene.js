@@ -80,8 +80,8 @@ class ClientScene extends Phaser.Scene {
             this.gameSessionData.gameData = data.gameData;
             
             // Parse URL và setup path
-            const serverUrl = new URL(data.serverUrl);
-            this.gameSessionData.serverUrl = serverUrl.origin; // https://beatball.xyz
+            // const serverUrl = new URL(data.serverUrl);
+            this.gameSessionData.serverUrl = 'https://beatball.xyz'; // https://beatball.xyz
             this.gameSessionData.gamePath = `/game/game-${this.gameSessionData.roomId}`; // /game/game-123
         }
     }
