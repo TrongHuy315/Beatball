@@ -127,6 +127,7 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error configuring K8s client: {e}")
             raise
+
     def _create_ingress_spec(self, name):
         return {
             "apiVersion": "networking.k8s.io/v1",
@@ -138,19 +139,10 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
-                    # WebSocket specific settings
-                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/websocket-services": f"{name}-service",
-                    # SSL/TLS settings
                     "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
                     "kubernetes.io/ingress.allow-http": "true",
-                    # Additional settings for Socket.IO
-                    "nginx.ingress.kubernetes.io/upstream-hash-by": "$binary_remote_addr",
-                    "nginx.ingress.kubernetes.io/ssl-redirect": "true",
-                    "nginx.ingress.kubernetes.io/connection-proxy-header": "keep-alive",
-                    "nginx.ingress.kubernetes.io/enable-cors": "true"
+                    "cloud.google.com/backend-config": f'{{"default":"{name}-backend-config"}}',
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
                 }
             },
             "spec": {
@@ -190,6 +182,7 @@ class K8sGameManager:
             }
         }
 
+
             
     def _create_backend_config(self, name):
         return {
@@ -216,15 +209,6 @@ class K8sGameManager:
                 "sessionAffinity": {
                     "affinityType": "GENERATED_COOKIE",
                     "affinityCookieTtlSec": 3600
-                },
-                "customRequestHeaders": {
-                    "headers": [
-                        "X-Real-IP: ${remote_addr}",
-                        "X-Forwarded-For: ${proxy_add_x_forwarded_for}",
-                        "X-Forwarded-Proto: https",
-                        "Upgrade: ${http_upgrade}",
-                        "Connection: ${connection_upgrade}"
-                    ]
                 }
             }
         }
@@ -523,8 +507,7 @@ class K8sGameManager:
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
                     "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    "beta.cloud.google.com/backend-config": f'{{"ports": {{"ws":"{name}-backend-config"}}}}'
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }
             },
             "spec": {
@@ -538,12 +521,7 @@ class K8sGameManager:
                     "name": "ws"
                 }],
                 "type": "ClusterIP",
-                "sessionAffinity": "ClientIP",
-                "sessionAffinityConfig": {
-                    "clientIP": {
-                        "timeoutSeconds": 3600
-                    }
-                }
+                "sessionAffinity": "ClientIP"
             }
         }
 
