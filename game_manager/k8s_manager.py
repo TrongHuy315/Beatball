@@ -14,6 +14,7 @@ class K8sGameManager:
         self.cluster_zone = os.getenv('GKE_CLUSTER_ZONE')
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         self.project_id = "beatball-physics"
+        self.main_ingress_name = "game-ingress"
         self.configure_k8s()
         self.create_namespace()
 
@@ -167,7 +168,7 @@ class K8sGameManager:
             
             print(f"Creating game server deployment: {server_name}")
             
-            # Tạo backend config trước
+            # Tạo backend config
             backend_config = self.custom_objects_api.create_namespaced_custom_object(
                 group="cloud.google.com",
                 version="v1",
@@ -191,28 +192,60 @@ class K8sGameManager:
             )
             print(f"Service created: {service.metadata.name}")
 
-            # Tạo ingress
-            ingress = self.networking_v1.create_namespaced_ingress(
-                namespace=self.namespace,
-                body=self._create_ingress_spec(server_name)
-            )
-            print(f"Ingress created: {ingress.metadata.name}")
+            # Thêm path mới vào Ingress hiện có
+            self._add_game_path_to_ingress(server_name)
+            print(f"Added path to main ingress for {server_name}")
 
-            # Đợi pod ready và ingress có IP
+            # Đợi pod ready
             self._wait_for_pod_ready(server_name)
-            ingress_ip = self._wait_for_ingress_ip(f"{server_name}-ingress")
 
             return {
-                'server_url': 'beatball.xyz',  # Trả về domain thay vì IP
-                'port': 443,  # Port HTTPS
+                'server_url': f"https://beatball.xyz/game/{server_name}",
                 'deployment_name': server_name,
-                'service_name': f"{server_name}-service",
-                'ingress_name': f"{server_name}-ingress"
+                'service_name': f"{server_name}-service"
             }
 
         except Exception as e:
             print(f"Error creating game server: {e}")
             self.cleanup_game_resources(server_name)
+            raise
+    
+    def _add_game_path_to_ingress(self, server_name):
+        try:
+            # Lấy current ingress
+            current_ingress = self.networking_v1.read_namespaced_ingress(
+                name=self.main_ingress_name,
+                namespace=self.namespace
+            )
+
+            # Tạo path mới
+            new_path = {
+                'path': f'/game/{server_name}',
+                'pathType': 'Prefix',
+                'backend': {
+                    'service': {
+                        'name': f'{server_name}-service',
+                        'port': {
+                            'number': 8000
+                        }
+                    }
+                }
+            }
+
+            # Thêm path mới vào rules hiện có
+            if not current_ingress.spec.rules[0].http.paths:
+                current_ingress.spec.rules[0].http.paths = []
+            current_ingress.spec.rules[0].http.paths.append(new_path)
+
+            # Update ingress
+            self.networking_v1.patch_namespaced_ingress(
+                name=self.main_ingress_name,
+                namespace=self.namespace,
+                body=current_ingress
+            )
+
+        except Exception as e:
+            print(f"Error adding path to ingress: {e}")
             raise
     
     def _wait_for_pod_ready(self, deployment_name, timeout=120):
@@ -379,17 +412,29 @@ class K8sGameManager:
     def cleanup_game_resources(self, server_name):
         try:
             print(f"Cleaning up resources for {server_name}")
-            
-            # Xóa ingress
+
+            # Xóa path khỏi ingress
             try:
-                self.networking_v1.delete_namespaced_ingress(
-                    name=f"{server_name}-ingress",
+                current_ingress = self.networking_v1.read_namespaced_ingress(
+                    name=self.main_ingress_name,
                     namespace=self.namespace
                 )
-                print("Ingress deleted")
-            except client.exceptions.ApiException as e:
-                if e.status != 404:  # Bỏ qua nếu không tìm thấy
-                    raise
+                
+                # Lọc bỏ path của game này
+                current_ingress.spec.rules[0].http.paths = [
+                    path for path in current_ingress.spec.rules[0].http.paths
+                    if not path.path.endswith(f'/{server_name}')
+                ]
+
+                # Update ingress
+                self.networking_v1.patch_namespaced_ingress(
+                    name=self.main_ingress_name,
+                    namespace=self.namespace,
+                    body=current_ingress
+                )
+                print("Removed path from ingress")
+            except Exception as e:
+                print(f"Error removing path from ingress: {e}")
 
             # Xóa service
             try:

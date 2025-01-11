@@ -1,0 +1,24 @@
+# main-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: game-ingress
+  namespace: beatball-game
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.allow-http: "false"
+    kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
+    networking.gke.io/managed-certificates: "game-managed-cert"
+    networking.gke.io/v1beta1.FrontendConfig: "beatball-frontend-config"
+spec:
+  rules:
+  - host: beatball.xyz
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: physics-server-service
+            port:
+              number: 80

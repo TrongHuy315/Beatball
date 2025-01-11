@@ -71,30 +71,6 @@ spec:
   selector:
     app: physics-server
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: game-ingress
-  namespace: beatball-game
-  annotations:
-    cloud.google.com/backend-config: '{"default":"physics-server-backendconfig"}'
-    kubernetes.io/ingress.class: "gce"
-    networking.gke.io/managed-certificates: "game-managed-cert"
-    kubernetes.io/ingress.global-static-ip-name: "beatball-ip"
-spec:
-  ingressClassName: gce
-  rules:
-  - host: beatball.xyz  # Thêm host vào đây
-    http:
-      paths:
-      - path: "/"
-        pathType: Prefix
-        backend:
-          service:
-            name: physics-server-service
-            port:
-              number: 80
----
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
