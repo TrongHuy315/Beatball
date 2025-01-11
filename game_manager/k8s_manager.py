@@ -135,9 +135,20 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
-                    "kubernetes.io/ingress.allow-http": "false",
+                    "kubernetes.io/ingress.allow-http": "false",  
                     # Thêm các annotation cần cho GCE Ingress
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    
+                    # -- BỔ SUNG CHO WEBSOCKET & HTTP1.1 --
+                    "ingress.kubernetes.io/proxy-http-version": "1.1",
+                    "ingress.kubernetes.io/backend-protocol": "HTTP",
+                    "ingress.kubernetes.io/proxy-read-timeout": "3600",
+                    "ingress.kubernetes.io/proxy-send-timeout": "3600",
+                    
+                    # (Tuỳ thích) một số người thêm:
+                    # "ingress.kubernetes.io/websocket-upgrade": "true",
+                    # "ingress.kubernetes.io/websocket-connection-upgrade": "true",
+
                 }
             },
             "spec": {
@@ -148,6 +159,7 @@ class K8sGameManager:
                     "host": "beatball.xyz",
                     "http": {
                         "paths": [{
+                            # Ở đây, ví dụ minh hoạ: /game/<tên-ingress> => service 8000
                             "path": f"/game/{name}",
                             "pathType": "Prefix",
                             "backend": {
@@ -163,7 +175,6 @@ class K8sGameManager:
                 }]
             }
         }
-        
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
@@ -284,42 +295,51 @@ class K8sGameManager:
             )
 
             new_path = {
-                'path': f'/game/{server_name}',
-                'pathType': 'Prefix',
-                'backend': {
-                    'service': {
-                        'name': f'{server_name}-service',
-                        'port': {
-                            'number': 8000
+                "path": f"/game/{server_name}",
+                "pathType": "Prefix",
+                "backend": {
+                    "service": {
+                        "name": f"{server_name}-service",
+                        "port": {
+                            "number": 8000
                         }
                     }
                 }
             }
 
-            # Đảm bảo .spec.rules[0].http.paths đã có
+            # Đảm bảo spec.rules[0].http.paths không bị None
             if not current_ingress.spec.rules[0].http:
                 current_ingress.spec.rules[0].http = client.V1HTTPIngressRuleValue(paths=[])
             if not current_ingress.spec.rules[0].http.paths:
                 current_ingress.spec.rules[0].http.paths = []
 
+            # Thêm path mới
             current_ingress.spec.rules[0].http.paths.append(new_path)
 
-            # [ADDED] Thêm hoặc cập nhật các annotation cho WebSocket + timeout
+            # Bổ sung / cập nhật annotation cho WebSocket, HTTP 1.1, v.v...
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
             current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
+            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-http-version"] = "1.1"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
+            
+            # (Tuỳ thích)
+            # current_ingress.metadata.annotations["ingress.kubernetes.io/websocket-upgrade"] = "true"
+            # current_ingress.metadata.annotations["ingress.kubernetes.io/websocket-connection-upgrade"] = "true"
 
+            # Cập nhật lại Ingress
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace,
                 body=current_ingress
             )
+            
+            print(f"Successfully added path '/game/{server_name}' to the main ingress")
+
         except Exception as e:
             print(f"Error adding path to ingress: {e}")
             raise
-    
     def _wait_for_pod_ready(self, deployment_name, timeout=120):
         """Đợi cho đến khi pod trong deployment sẵn sàng"""
         import time
