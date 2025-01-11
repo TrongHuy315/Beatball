@@ -136,8 +136,13 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.allow-http": "false",
-                    # Thêm các annotation cần cho GCE Ingress
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    # Thêm các annotations cho WebSocket
+                    "ingress.kubernetes.io/proxy-read-timeout": "3600",
+                    "ingress.kubernetes.io/proxy-send-timeout": "3600",
+                    "ingress.kubernetes.io/proxy-http-version": "1.1",
+                    "ingress.kubernetes.io/websocket-services": "true",
+                    "ingress.gcp.kubernetes.io/websocket": "true"
                 }
             },
             "spec": {
@@ -571,32 +576,63 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
-    def cleanup_game_resources(self, server_name):
-        try:
+        def cleanup_game_resources(self, server_name):
+                
             print(f"Cleaning up resources for {server_name}")
 
-            # Xóa path khỏi ingress
+                # Xóa path khỏi ingress
             try:
                 current_ingress = self.networking_v1.read_namespaced_ingress(
                     name=self.main_ingress_name,
                     namespace=self.namespace
                 )
 
-                # Lọc bỏ path của game này
-                current_ingress.spec.rules[0].http.paths = [
-                    path for path in current_ingress.spec.rules[0].http.paths
-                    if not path.path.endswith(f'/{server_name}')
-                ]
+                if current_ingress.spec and current_ingress.spec.rules:
+                    # Tạo list paths mới, loại bỏ path của game cần xóa
+                    paths = current_ingress.spec.rules[0].http.paths
+                    new_paths = []
+                    path_found = False
 
-                # Update ingress
-                self.networking_v1.patch_namespaced_ingress(
-                    name=self.main_ingress_name,
-                    namespace=self.namespace,
-                    body=current_ingress
-                )
-                print("Removed path from ingress")
+                    for path in paths:
+                        # Kiểm tra cả path và backend service
+                        is_target_path = (
+                            path.path.endswith(f'/game/{server_name}') or 
+                            (hasattr(path.backend, 'service') and 
+                            path.backend.service and 
+                            path.backend.service.name == f"{server_name}-service")
+                        )
+                        
+                        if not is_target_path:
+                            new_paths.append(path)
+                        else:
+                            path_found = True
+                            print(f"Found path to remove: {path.path}")
+
+                    if path_found:
+                        # Update paths trong rules
+                        current_ingress.spec.rules[0].http.paths = new_paths
+
+                        # Patch ingress với paths mới
+                        self.networking_v1.patch_namespaced_ingress(
+                            name=self.main_ingress_name,
+                            namespace=self.namespace,
+                            body=current_ingress
+                        )
+                        print(f"Successfully removed path for {server_name} from ingress")
+                    else:
+                        print(f"No matching paths found for {server_name}")
+
+            except client.exceptions.ApiException as e:
+                if e.status == 404:
+                    print(f"Ingress {self.main_ingress_name} not found")
+                else:
+                    print(f"Error removing path from ingress: {e}")
+                    print(f"Status: {e.status}")
+                    print(f"Reason: {e.reason}")
+                    if hasattr(e, 'body'):
+                        print(f"Body: {e.body}")
             except Exception as e:
-                print(f"Error removing path from ingress: {e}")
+                print(f"Unexpected error removing path from ingress: {e}")
 
             # Xóa service
             try:
