@@ -229,10 +229,6 @@ class K8sGameManager:
             raise
     
     def _remove_default_path_if_necessary(self):
-        """
-        Hàm này dùng để xóa path "/" trỏ đến "physics-server-service"
-        nếu Ingress game-ingress đang có cấu hình đó.
-        """
         try:
             # Đọc ingress hiện tại
             current_ingress = self.networking_v1.read_namespaced_ingress(
@@ -243,18 +239,16 @@ class K8sGameManager:
             if not current_ingress.spec or not current_ingress.spec.rules:
                 return  # Không có rules => không cần làm gì
 
-            # Ở ví dụ này, ta chỉ quan tâm rule đầu (rules[0])
-            # Thực tế, nếu Ingress của bạn có nhiều rules hơn thì cần duyệt tất cả.
             rule = current_ingress.spec.rules[0]
             if not rule.http or not rule.http.paths:
                 return
 
-            # Lọc bỏ path "/" nếu path đó backend trỏ tới "physics-server-service"
+            # Lọc bỏ mọi path trỏ tới physics-server-service
             new_paths = []
             for p in rule.http.paths:
                 backend_svc = p.backend.service.name if p.backend and p.backend.service else None
-                if p.path == "/" and backend_svc == "physics-server-service":
-                    print("Removed default path '/' -> physics-server-service:80 from Ingress.")
+                if backend_svc == "physics-server-service":
+                    print(f"Removed path '{p.path}' -> physics-server-service from Ingress.")
                     continue  # Không thêm path này vào new_paths
                 else:
                     new_paths.append(p)
