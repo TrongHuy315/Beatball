@@ -127,11 +127,6 @@ class K8sGameManager:
             print(f"Error configuring K8s client: {e}")
             raise
     def _create_ingress_spec(self, name):
-        """
-        Nếu bạn vẫn muốn mỗi room_id có 1 ingress "riêng" (ít dùng, vì bạn đã có main_ingress),
-        thì hàm này phải có đủ annotation WebSocket, TLS, v.v...
-        Còn nếu bạn chỉ dùng 1 ingress duy nhất (main_ingress), bạn có thể bỏ luôn hàm này.
-        """
         return {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
@@ -139,35 +134,10 @@ class K8sGameManager:
                 "name": f"{name}-ingress",
                 "namespace": self.namespace,
                 "annotations": {
-                    # Dùng GCE Ingress
                     "kubernetes.io/ingress.class": "gce",
-                    # Chỉ cho truy cập HTTPS
                     "kubernetes.io/ingress.allow-http": "false",
-                    # Sử dụng IP tĩnh global
-                    "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                    # Dùng managed cert (nếu cần)
-                    "networking.gke.io/managed-certificates": "game-managed-cert",
-                    # Sử dụng FrontendConfig
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-
-                    # Thiết lập backend-protocol, proxy timeouts, và HTTP/1.1 cho WebSocket
-                    "ingress.kubernetes.io/backend-protocol": "HTTP",
-                    "ingress.kubernetes.io/proxy-read-timeout": "3600",
-                    "ingress.kubernetes.io/proxy-send-timeout": "3600",
-                    "ingress.kubernetes.io/proxy-http-version": "1.1",
-
-                    # Bật websocket trên GCE
-                    "ingress.gcp.kubernetes.io/websocket": "true",
-
-                    # Nếu bạn có pre-shared-cert (SSL certificate do bạn quản lý ở GCP)
-                    # thì dùng annotation dưới. Chẳng hạn:
-                    # "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
-
-                    # Nếu có backend config
-                    "cloud.google.com/backend-config": '{"default": "beatball-backend-config"}',
-
-                    # Cho GCE biết đây là HTTP (hỗ trợ WebSocket)
-                    "cloud.google.com/app-protocols": '{"http":"HTTP"}'
+                    # Thêm các annotation cần cho GCE Ingress
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
                 }
             },
             "spec": {
@@ -197,16 +167,15 @@ class K8sGameManager:
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
-            "kind": "BackendConfig", 
+            "kind": "BackendConfig",
+            "metadata": {
+                "name": f"{name}-backend-config",
+                "namespace": self.namespace
+            },
             "spec": {
-                "timeoutSec": 3600,
-                "protocol": "HTTP2",
+                "timeoutSec": 900,
                 "connectionDraining": {
                     "drainingTimeoutSec": 60
-                },
-                "healthCheck": {
-                    "requestPath": "/health",
-                    "port": 8000
                 }
             }
         }
@@ -302,12 +271,8 @@ class K8sGameManager:
             print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
     
     def _add_game_path_to_ingress(self, server_name):
-        """
-        Bổ sung path "/game/game-{roomId}" vào Ingress 'game-ingress'.
-        Đảm bảo có annotation websocket, proxy-http-version, v.v...
-        """
         try:
-            # Đọc ingress hiện tại
+            # Lấy current ingress
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
@@ -327,22 +292,17 @@ class K8sGameManager:
                 }
             }
 
-            # Thêm path mới vào rule đầu tiên (giả định [0] là host=beatball.xyz)
+            # Thêm path mới vào rules hiện có
             if not current_ingress.spec.rules[0].http.paths:
                 current_ingress.spec.rules[0].http.paths = []
             current_ingress.spec.rules[0].http.paths.append(new_path)
 
-            # Nếu ingress chưa có metadata.annotations, khởi tạo
+            # Thêm các annotation cho Ingress để cho phép WebSocket
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
-
-            # Các annotation cần cho WebSocket, timeouts, HTTP/1.1...
-            # (Một số annotation có thể bạn đã set sẵn, nhưng patch thêm thì không sao)
             current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
-            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-http-version"] = "1.1"
-            current_ingress.metadata.annotations["ingress.gcp.kubernetes.io/websocket"] = "true"
 
             # Update ingress
             self.networking_v1.patch_namespaced_ingress(
@@ -350,7 +310,6 @@ class K8sGameManager:
                 namespace=self.namespace,
                 body=current_ingress
             )
-            print(f"Added path '/game/{server_name}' to ingress '{self.main_ingress_name}'")
 
         except Exception as e:
             print(f"Error adding path to ingress: {e}")
@@ -408,7 +367,7 @@ class K8sGameManager:
                 raise
 
     def _create_deployment_spec(self, name, room_id, player_data):
-        socket_path = f"/game/{name}/socket.io"  # => "/game/game-605540/socket.io"
+        socket_path = f"/game/{name}/socket.io"
         return {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
@@ -477,10 +436,6 @@ class K8sGameManager:
         }
 
     def _create_service_spec(self, name):
-        """
-        Hàm này được chỉnh sửa để thêm annotation `cloud.google.com/app-protocols`
-        Giúp GCE hiểu rằng Service này dùng HTTP (tương thích WebSocket).
-        """
         return {
             "apiVersion": "v1",
             "kind": "Service",
@@ -489,9 +444,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    # Thêm app-protocols để GCE biết service này là HTTP (hỗ trợ WebSocket)
-                    "cloud.google.com/app-protocols": '{"http":"HTTP"}'
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }
             },
             "spec": {
