@@ -15,8 +15,16 @@ class K8sGameManager:
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
+
+        # Khởi tạo K8s client
         self.configure_k8s()
+
+        # Tạo namespace
         self.create_namespace()
+
+        # Sau khi namespace đã sẵn sàng, tiến hành remove path "/"
+        # nếu path này trỏ tới service "physics-server-service"
+        self._remove_default_path_if_necessary()
 
     def create_namespace(self):
         try:
@@ -63,11 +71,20 @@ class K8sGameManager:
                 print(f"Error status: {e.status}")
             raise
 
+
+        except Exception as e:
+            print(f"Error in create_namespace: {str(e)}")
+            if hasattr(e, 'body'):
+                print(f"Error body: {e.body}")
+            if hasattr(e, 'status'):
+                print(f"Error status: {e.status}")
+            raise
+
     def configure_k8s(self):
         try:
             # Parse credentials JSON string
             credentials_dict = json.loads(self.credentials_json)
-            
+
             # Create credentials object
             credentials = service_account.Credentials.from_service_account_info(
                 credentials_dict,
@@ -77,8 +94,8 @@ class K8sGameManager:
             # Create request object
             request = transport.requests.Request()
             credentials.refresh(request)
-            project_id = credentials_dict["project_id"] 
-            
+            project_id = credentials_dict["project_id"]
+
             # Lấy cluster info
             container_client = container_v1.ClusterManagerClient(credentials=credentials)
             cluster_path = f"projects/{self.project_id}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
@@ -90,7 +107,7 @@ class K8sGameManager:
             configuration.verify_ssl = False
             configuration.api_key = {"authorization": f"Bearer {credentials.token}"}
             client.Configuration.set_default(configuration)
-            
+
             # Use refreshed token
             if not credentials.valid:
                 credentials.refresh(request)
@@ -103,7 +120,7 @@ class K8sGameManager:
             self.core_v1 = client.CoreV1Api()
             self.networking_v1 = client.NetworkingV1Api()
             self.custom_objects_api = client.CustomObjectsApi()
-            
+
             print("Successfully configured K8s client")
 
         except Exception as e:
@@ -119,6 +136,7 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.allow-http": "false",
+                    # Thêm các annotation cần cho GCE Ingress
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
                 }
             },
@@ -165,9 +183,9 @@ class K8sGameManager:
     def create_game_instance(self, room_id, player_data):
         try:
             server_name = f"game-{room_id}"
-            
+
             print(f"Creating game server deployment: {server_name}")
-            
+
             # Tạo backend config
             backend_config = self.custom_objects_api.create_namespaced_custom_object(
                 group="cloud.google.com",
@@ -209,6 +227,54 @@ class K8sGameManager:
             print(f"Error creating game server: {e}")
             self.cleanup_game_resources(server_name)
             raise
+    
+    def _remove_default_path_if_necessary(self):
+        """
+        Hàm này dùng để xóa path "/" trỏ đến "physics-server-service"
+        nếu Ingress game-ingress đang có cấu hình đó.
+        """
+        try:
+            # Đọc ingress hiện tại
+            current_ingress = self.networking_v1.read_namespaced_ingress(
+                name=self.main_ingress_name,
+                namespace=self.namespace
+            )
+
+            if not current_ingress.spec or not current_ingress.spec.rules:
+                return  # Không có rules => không cần làm gì
+
+            # Ở ví dụ này, ta chỉ quan tâm rule đầu (rules[0])
+            # Thực tế, nếu Ingress của bạn có nhiều rules hơn thì cần duyệt tất cả.
+            rule = current_ingress.spec.rules[0]
+            if not rule.http or not rule.http.paths:
+                return
+
+            # Lọc bỏ path "/" nếu path đó backend trỏ tới "physics-server-service"
+            new_paths = []
+            for p in rule.http.paths:
+                backend_svc = p.backend.service.name if p.backend and p.backend.service else None
+                if p.path == "/" and backend_svc == "physics-server-service":
+                    print("Removed default path '/' -> physics-server-service:80 from Ingress.")
+                    continue  # Không thêm path này vào new_paths
+                else:
+                    new_paths.append(p)
+
+            rule.http.paths = new_paths
+
+            # Update ingress
+            self.networking_v1.patch_namespaced_ingress(
+                name=self.main_ingress_name,
+                namespace=self.namespace,
+                body=current_ingress
+            )
+
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                print("Main ingress does not exist, so no default path to remove.")
+            else:
+                print(f"Error removing default path from ingress: {e}")
+        except Exception as ex:
+            print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
     
     def _add_game_path_to_ingress(self, server_name):
         try:
@@ -356,7 +422,7 @@ class K8sGameManager:
                             "env": [
                                 {"name": "ROOM_ID", "value": str(room_id)},
                                 {"name": "PLAYER_DATA", "value": json.dumps(player_data)},
-                                {"name": "PORT", "value": "8000"}, 
+                                {"name": "PORT", "value": "8000"},
                                 {"name": "SOCKET_PATH", "value": socket_path}
                             ],
                             "resources": {
@@ -404,26 +470,26 @@ class K8sGameManager:
     def _wait_for_external_ip(self, service_name, timeout=60):
         import time
         start_time = time.time()
-        
+
         while True:
             service = self.core_v1.read_namespaced_service(
                 name=service_name,
                 namespace=self.namespace
             )
-            
+
             if service.status.load_balancer.ingress:
                 return service.status.load_balancer.ingress[0].ip
-                
+
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for external IP")
-                
+
             time.sleep(2)
 
     def cleanup_all_resources(self):
         """Dọn dẹp tất cả resources trong namespace"""
         try:
             print("Cleaning up all resources in namespace...")
-            
+
             # 1. Xóa tất cả deployments
             try:
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
@@ -475,11 +541,11 @@ class K8sGameManager:
                     name=self.main_ingress_name,
                     namespace=self.namespace
                 )
-                
+
                 # Reset paths về rỗng
                 if current_ingress.spec.rules and current_ingress.spec.rules[0].http:
                     current_ingress.spec.rules[0].http.paths = []
-                
+
                 self.networking_v1.patch_namespaced_ingress(
                     name=self.main_ingress_name,
                     namespace=self.namespace,
@@ -493,19 +559,19 @@ class K8sGameManager:
             import time
             timeout = 60  # 60 seconds timeout
             start_time = time.time()
-            
+
             while True:
                 if time.time() - start_time > timeout:
                     print("Timeout waiting for resources cleanup")
                     break
-                    
+
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
-                
+
                 if len(deployments.items) == 0 and len(services.items) <= 1:
                     print("All resources cleaned up successfully")
                     break
-                    
+
                 time.sleep(2)
 
         except Exception as e:
@@ -521,7 +587,7 @@ class K8sGameManager:
                     name=self.main_ingress_name,
                     namespace=self.namespace
                 )
-                
+
                 # Lọc bỏ path của game này
                 current_ingress.spec.rules[0].http.paths = [
                     path for path in current_ingress.spec.rules[0].http.paths
