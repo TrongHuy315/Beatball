@@ -24,17 +24,28 @@ const io = require('socket.io')(http, {
     path: SOCKET_PATH
 });
 
+// Trả về để test xem server chạy
 app.get('/', (req, res) => {
     res.send('Physics Server is running!');
 });
+
+// Dùng cho k8s readiness/liveness probe (gọi nội bộ cluster: http://IP:8000/health)
 app.get('/health', (req, res) => {
-	res.sendStatus(200); // hoặc res.json({status: 'ok'})
-  });
-  app.use('/game/game-:roomId', (req, res, next) => {
-    // Add room ID to request
+	res.sendStatus(200);
+});
+
+// [ADDED] Cho phép bạn “curl -I https://beatball.xyz/game/game-<roomId>/health”
+app.get('/game/game-:roomId/health', (req, res) => {
+    res.sendStatus(200);
+});
+
+// Middleware bắt prefix /game/game-:roomId 
+app.use('/game/game-:roomId', (req, res, next) => {
+    // Gán roomId vào request, nếu cần
     req.roomId = req.params.roomId;
     next();
 });
+
 class PhysicsEngine {
     constructor(totalConnection) {
         // ENGINE SET UP  
@@ -91,6 +102,7 @@ class PhysicsEngine {
         };
         gameLoop(); 
     }
+
     startGame () {
         this.resetGame();
         const gameInfo = {
@@ -118,6 +130,7 @@ class PhysicsEngine {
             this.gameStarted = true;
         }, 3000);
     }
+
     setUpGoalCheckEvent () {
         Events.on(this.engine, 'collisionStart', (event) => {
             event.pairs.forEach((pair) => {
@@ -138,6 +151,7 @@ class PhysicsEngine {
             });
         });        
     }
+
 	gameState () {
 		const state = {
             ball: {
@@ -159,9 +173,11 @@ class PhysicsEngine {
         });
         return state; 
 	}
+
 	gameloop() {
         this.ball.update(); 
 	}
+
     handleGoal (side) {
         if (this.isCelebrating) return; 
         this.isCelebrating = true; 
@@ -171,7 +187,7 @@ class PhysicsEngine {
             assister: "Sati96", 
             side: side, 
             timeStamp: Date.now(),  
-            scores: {  // thêm tỉ số hiện tại
+            scores: {  
                 left: this.scores.left,
                 right: this.scores.right
             }
@@ -186,6 +202,7 @@ class PhysicsEngine {
             this.isCelebrating = false; 
         }, resetGameDelay * 1000);
     }
+
     getSpawnPosition(side) {
         const { totalWidth, totalHeight, pitch, offset_horizontal, nets} = CONFIG;
         const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;         
@@ -202,12 +219,12 @@ class PhysicsEngine {
             };
         }
     }
+
     resetGame() {
         // Reset ball to center
         this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
         this.ball.setVelocity(0, 0);
     
-        // Reset players based on their assigned sides
         const { pitch, offset_horizontal, nets} = CONFIG;
         const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
         const pitchWidth = pitch.width;
@@ -236,6 +253,7 @@ class PhysicsEngine {
             player.setVelocity(0, 0);
         });
     }
+
 	setUpConnection () {        
         const {totalWidth, totalHeight} = CONFIG; 
         io.use((socket, next) => {
@@ -246,6 +264,7 @@ class PhysicsEngine {
             socket.clientId = clientId; // Lưu clientId vào socket
             next();
         });
+
         io.on('connection', (socket) => {            
             const clientId = socket.clientId;
             socket.on('requestJoin', () => {
@@ -308,7 +327,6 @@ class PhysicsEngine {
             }); 
             // DEVELOPER MODE 
             socket.on('ballMoveUpward', () => {
-                // this.ball.setVelocity(0, 0); 
                 this.ball.setVelocity(0, -5); 
             }); 
             socket.on('diagionalTestCombo', () => {
@@ -317,7 +335,6 @@ class PhysicsEngine {
                 this.ball.setVelocity(-5, -3); 
             }); 
             socket.on('resetBallToCenter', () => {
-                // this.ball.setVelocity(0, 0); 
                 this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
                 this.ball.setVelocity(0, 0); 
             }); 
@@ -327,15 +344,13 @@ class PhysicsEngine {
                 // Lấy player hiện tại
                 const player = this.players.get(socket.clientId);
                 if (player) {
-                    const OFFSET_X = 50; // Khoảng cách theo trục X từ player đến ball
-
+                    const OFFSET_X = 50; 
                     const newPlayerPosition = {
-                        x: this.ball.body.position.x - OFFSET_X, // Đặt bên trái bóng
-                        y: this.ball.body.position.y // Cùng độ cao với bóng
+                        x: this.ball.body.position.x - OFFSET_X,
+                        y: this.ball.body.position.y
                     };
-
                     player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-                    player.setVelocity(0, 0); // Dừng player
+                    player.setVelocity(0, 0);
                 }
             }); 
             socket.on('requestPutDiagionalToBall', () => {
@@ -344,20 +359,19 @@ class PhysicsEngine {
                 // Lấy player hiện tại
                 const player = this.players.get(socket.clientId);
                 if (player) {
-                    const OFFSET = 50; // Khoảng cách theo trục X từ player đến ball
-
+                    const OFFSET = 50; 
                     const newPlayerPosition = {
-                        x: this.ball.body.position.x - OFFSET, // Đặt bên trái bóng
-                        y: this.ball.body.position.y - OFFSET// Cùng độ cao với bóng
+                        x: this.ball.body.position.x - OFFSET,
+                        y: this.ball.body.position.y - OFFSET
                     };
-
                     player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-                    player.setVelocity(0, 0); // Dừng player
+                    player.setVelocity(0, 0); 
                 }
             }); 
         });
 	}
 }
+
 const physicsEngine = new PhysicsEngine(2);
 process.stdout.write("Physic engine run with 2 allowed connection\n");
 process.stdout.write(`Environment PORT: ${process.env.PORT}\n`);
