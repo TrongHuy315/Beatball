@@ -138,11 +138,8 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "kubernetes.io/ingress.allow-http": "false",
-                    # WebSocket specific
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    # Update certificate
-                    "ingress.gcp.kubernetes.io/pre-shared-cert": "game-managed-cert"
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
+                    "kubernetes.io/ingress.allow-http": "true"
                 }
             },
             "spec": {
@@ -177,6 +174,7 @@ class K8sGameManager:
                 ]
             }
         }
+
             
     def _create_backend_config(self, name):
         return {
