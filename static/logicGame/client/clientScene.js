@@ -219,7 +219,7 @@ class ClientScene extends Phaser.Scene {
     
         this.SOCKET = io(baseUrl, {
             transports: ['websocket'],
-            upgrade: false,
+            upgrade: false, 
             path: socketPath,
             secure: true,
             reconnection: true,
