@@ -374,7 +374,8 @@ class K8sGameManager:
                 "name": f"{name}-service",
                 "namespace": self.namespace,
                 "annotations": {
-                    "cloud.google.com/neg": '{"ingress": true}'
+                    "cloud.google.com/neg": '{"ingress": true}',
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }
             },
             "spec": {
@@ -382,8 +383,8 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "port": 8000,
-                    "targetPort": 8000,
+                    "port": 8000,          # Port service expose
+                    "targetPort": 8000,    # Port container expose
                     "protocol": "TCP",
                     "name": "http"
                 }],

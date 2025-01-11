@@ -1161,9 +1161,9 @@ def handle_start_game(data):
         # Create game server on K8s
         server_info = game_manager.create_game_instance(room_id, player_data)
 
-        # Save game info to Redis
+        # Save game info to Redis - Đã bỏ port
         game_data = {
-            'server_url': f"{server_info['server_url']}:{server_info['port']}",
+            'server_url': server_info['server_url'], # Không thêm port nữa
             'room_id': room_id,
             'status': 'initializing',
             'players': player_data
@@ -1180,6 +1180,7 @@ def handle_start_game(data):
     except Exception as e:
         print(f"Error starting game: {e}")
         emit('game_error', {'message': str(e)}, room=room_id)
+
 
 def initialize_game(room_data):
     """
@@ -1219,23 +1220,6 @@ def handle_join_game(data):
 def handle_connect():
     print('Client connected')
 
-@socketio.on('player_input')
-def handle_input(data):
-    game = get_game_instance(data['room_id'])
-    if game:
-        game.handle_player_input(data['player_id'], data['input'])
-        emit('game_state', game.get_state(), room=data['room_id'])
-
-def game_loop():
-    while True:
-        current_time = time.time()
-        delta_time = current_time - last_update
-        
-        Game.update(delta_time)
-        socketio.emit('game_state', Game.get_state())
-        
-        last_update = current_time
-        time.sleep(1/60)  # 60 FPS
 
 @app.route('/game/<room_id>')
 @login_required
