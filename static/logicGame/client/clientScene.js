@@ -69,20 +69,19 @@ class ClientScene extends Phaser.Scene {
         this.celebrationManager = null;  
         this.kickSounds = [
         ];
-        this.init(gameData); 
-
+        this.initData(); 
     }
-    init(data) {
-        if (data) {
+    init() {
+        const data = window.gameData;
+        if (!data) {
+            console.error("window.gameData is undefined!");
+        } else {
             this.gameSessionData.roomId = data.roomId;
             this.gameSessionData.userId = data.userId;
             this.gameSessionData.userTeam = data.team;
             this.gameSessionData.gameData = data.gameData;
-            
-            // Parse URL và setup path
-            // const serverUrl = new URL(data.serverUrl);
-            this.gameSessionData.serverUrl = 'https://beatball.xyz'; // https://beatball.xyz
-            this.gameSessionData.gamePath = `/game/game-${this.gameSessionData.roomId}`; // /game/game-123
+            this.gameSessionData.serverUrl = "https://beatball.xyz";
+            this.gameSessionData.gamePath = `/game/game-${this.gameSessionData.roomId}`;
         }
     }
     preload() {
@@ -215,27 +214,27 @@ class ClientScene extends Phaser.Scene {
     // SET UP SOCKET EVENT 
     setupWebSocket() {
         // Tạo socket path và base URL
-    const socketPath = `/game/game-${this.gameSessionData.roomId}/socket.io`;
-    const baseUrl = 'https://beatball.xyz';
-
-    this.SOCKET = io(baseUrl, {
-        transports: ['websocket'],
-        upgrade: false,
-        path: socketPath,  // Dùng path khớp với server
-        secure: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000,
-        auth: {
-            clientType: 'gameClient',
-            version: '1.0',
-            clientId: clientId,
-            roomId: this.gameSessionData.roomId,
-            userId: this.gameSessionData.userId,
-            team: this.gameSessionData.userTeam
-        }
-    });
+        const socketPath = `/game/game-${this.gameSessionData.roomId}/socket.io`;
+        const baseUrl = this.gameSessionData.serverUrl || 'https://beatball.xyz';
+    
+        this.SOCKET = io(baseUrl, {
+            transports: ['websocket'],
+            upgrade: false,
+            path: socketPath,
+            secure: true,
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 20000,
+            auth: {
+                clientType: 'gameClient',
+                version: '1.0',
+                clientId: clientId,
+                roomId: this.gameSessionData.roomId,
+                userId: this.gameSessionData.userId,
+                team: this.gameSessionData.userTeam
+            }
+        });
 
         var socket = this.SOCKET;
 

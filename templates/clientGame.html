@@ -29,10 +29,10 @@
         <canvas id="scoreboard_canvas"></canvas>
     </div>
     <script>
-        const gameData = {
+        window.gameData = {
             serverUrl: document.getElementById('game-server-url').value,
             roomId: document.getElementById('room-id').value,
-            userId: document.getElementById('user-id').value,
+            userId: document.getElementById('user-id').value, 
             team: document.getElementById('user-team').value,
             gameData: JSON.parse(document.getElementById('game-data').value)
         };
