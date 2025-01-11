@@ -111,3 +111,12 @@ spec:
     requestPath: /health  
   securityPolicy:
     name: "websocket-security-policy"
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: beatball-frontend-config
+  namespace: beatball-game
+spec:
+  sslPolicy: beatball-ssl-policy
+  redirectToHttps:
+    enabled: true

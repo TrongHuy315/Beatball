@@ -12,6 +12,7 @@ class K8sGameManager:
         self.cluster_name = os.getenv('GKE_CLUSTER_NAME')
         self.cluster_zone = os.getenv('GKE_CLUSTER_ZONE')
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        self.project_id = "beatball-physics"
         self.configure_k8s()
         self.create_namespace()
 
@@ -73,19 +74,22 @@ class K8sGameManager:
 
             # Create request object
             request = transport.requests.Request()
+            credentials.refresh(request)
             
             # Refresh credentials
             credentials.refresh(request)
             
-            # Get GKE cluster info
+            # Lấy cluster info
             container_client = container_v1.ClusterManagerClient(credentials=credentials)
-            cluster_path = f"projects/{credentials_dict['beatball-physics']}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
+            cluster_path = f"projects/{self.project_id}/locations/{self.cluster_zone}/clusters/{self.cluster_name}"
             cluster = container_client.get_cluster(name=cluster_path)
 
-            # Configure kubernetes client
+            # Cấu hình kubernetes client
             configuration = client.Configuration()
             configuration.host = f"https://{cluster.endpoint}"
             configuration.verify_ssl = False
+            configuration.api_key = {"authorization": f"Bearer {credentials.token}"}
+            client.Configuration.set_default(configuration)
             
             # Use refreshed token
             if not credentials.valid:
@@ -94,9 +98,10 @@ class K8sGameManager:
 
             client.Configuration.set_default(configuration)
 
-            # Initialize clients
+            # Khởi tạo các API clients
             self.apps_v1 = client.AppsV1Api()
             self.core_v1 = client.CoreV1Api()
+            self.networking_v1 = client.NetworkingV1Api()
             
             print("Successfully configured K8s client")
 
@@ -113,17 +118,19 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.allow-http": "false",
-                    "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "networking.gke.io/backend-config": '{"default": "game-backend-config"}'
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
                 }
             },
             "spec": {
+                "tls": [{
+                    "hosts": ["beatball.xyz"]
+                }],
                 "rules": [{
                     "host": "beatball.xyz",
                     "http": {
                         "paths": [{
-                            "path": "/*",
-                            "pathType": "ImplementationSpecific",
+                            "path": "/",
+                            "pathType": "Prefix",
                             "backend": {
                                 "service": {
                                     "name": f"{name}-service",
@@ -143,7 +150,7 @@ class K8sGameManager:
             "apiVersion": "cloud.google.com/v1",
             "kind": "BackendConfig",
             "metadata": {
-                "name": "game-backend-config",
+                "name": f"{name}-backend-config",
                 "namespace": self.namespace
             },
             "spec": {
@@ -266,11 +273,6 @@ class K8sGameManager:
             "metadata": {
                 "name": name,
                 "namespace": self.namespace,
-                "labels": {
-                    "app": name,
-                    "environment": "production",
-                    "managed-by": "beatball"
-                }
             },
             "spec": {
                 "replicas": 1,
@@ -291,19 +293,30 @@ class K8sGameManager:
                             "image": "beatball/physics-server:latest",
                             "imagePullPolicy": "Always",
                             "ports": [{
-                                "containerPort": 8000
+                                "containerPort": 8000,
+                                "name": "http"
                             }],
-                            "env": [{
-                                "name": "ROOM_ID",
-                                "value": str(room_id)
-                            }, {
-                                "name": "PLAYER_DATA",
-                                "value": json.dumps(player_data)
-                            }, {
-                                "name": "REDIS_URL",
-                                "value": os.getenv('REDIS_URL')
-                            }],
-                            # Thêm resource requirements cho Autopilot
+                            "readinessProbe": {
+                                "httpGet": {
+                                    "path": "/health",
+                                    "port": 8000
+                                },
+                                "initialDelaySeconds": 5,
+                                "periodSeconds": 10
+                            },
+                            "livenessProbe": {
+                                "httpGet": {
+                                    "path": "/health",
+                                    "port": 8000
+                                },
+                                "initialDelaySeconds": 15,
+                                "periodSeconds": 20
+                            },
+                            "env": [
+                                {"name": "ROOM_ID", "value": str(room_id)},
+                                {"name": "PLAYER_DATA", "value": json.dumps(player_data)},
+                                {"name": "PORT", "value": "8000"}
+                            ],
                             "resources": {
                                 "requests": {
                                     "cpu": "250m",
@@ -313,31 +326,8 @@ class K8sGameManager:
                                     "cpu": "500m",
                                     "memory": "1Gi"
                                 }
-                            },
-                            # Thêm security settings
-                            "securityContext": {
-                                "allowPrivilegeEscalation": False,
-                                "capabilities": {
-                                    "drop": ["ALL"]
-                                },
-                                "runAsNonRoot": True,
-                                "runAsUser": 1000,
-                                "seccompProfile": {
-                                    "type": "RuntimeDefault"
-                                }
                             }
-                        }],
-                        # Pod security context
-                        "securityContext": {
-                            "runAsNonRoot": True,
-                            "runAsUser": 1000,
-                            "seccompProfile": {
-                                "type": "RuntimeDefault"
-                            }
-                        },
-                        # Thêm scheduling requirements
-                        "automountServiceAccountToken": False,
-                        "restartPolicy": "Always"
+                        }]
                     }
                 }
             }
@@ -346,21 +336,25 @@ class K8sGameManager:
     def _create_service_spec(self, name):
         return {
             "apiVersion": "v1",
-            "kind": "Service", 
+            "kind": "Service",
             "metadata": {
                 "name": f"{name}-service",
-                "namespace": self.namespace
+                "namespace": self.namespace,
+                "annotations": {
+                    "cloud.google.com/neg": '{"ingress": true}'
+                }
             },
             "spec": {
                 "selector": {
                     "app": name
                 },
                 "ports": [{
-                    "protocol": "TCP",
                     "port": 8000,
-                    "targetPort": 8000
+                    "targetPort": 8000,
+                    "protocol": "TCP",
+                    "name": "http"
                 }],
-                "type": "NodePort"
+                "type": "ClusterIP"
             }
         }
 
