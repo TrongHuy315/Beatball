@@ -6,6 +6,7 @@ from google.auth import transport
 from kubernetes.client import CustomObjectsApi
 import os
 import json
+import eventlet
 
 class K8sGameManager:
     def __init__(self):
@@ -137,12 +138,18 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.allow-http": "false",
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-                    # Thêm các annotations cho WebSocket
-                    "ingress.kubernetes.io/proxy-read-timeout": "3600",
-                    "ingress.kubernetes.io/proxy-send-timeout": "3600",
-                    "ingress.kubernetes.io/proxy-http-version": "1.1",
-                    "ingress.kubernetes.io/websocket-services": "true",
-                    "ingress.gcp.kubernetes.io/websocket": "true"
+                    # GKE specific WebSocket configurations
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
+                    "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
+                    "nginx.ingress.kubernetes.io/proxy-http-version": "1.1",
+                    "nginx.ingress.kubernetes.io/configuration-snippet": """
+                        proxy_set_header Upgrade $http_upgrade;
+                        proxy_set_header Connection "Upgrade";
+                    """,
+                    # Enable WebSocket for GKE
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
+                    "cloud.google.com/backend-config": '{"default": "game-backend-config"}',
+                    "kubernetes.io/ingress.global-static-ip-name": "game-static-ip"
                 }
             },
             "spec": {
@@ -178,9 +185,18 @@ class K8sGameManager:
                 "namespace": self.namespace
             },
             "spec": {
-                "timeoutSec": 900,
+                "timeoutSec": 3600,  # Increased for WebSocket
                 "connectionDraining": {
                     "drainingTimeoutSec": 60
+                },
+                "healthCheck": {
+                    "requestPath": "/health",
+                    "port": 8000,
+                    "type": "HTTP"
+                },
+                "sessionAffinity": {
+                    "affinityType": "GENERATED_COOKIE",
+                    "affinityCookieTtlSec": 3600
                 }
             }
         }
@@ -337,7 +353,7 @@ class K8sGameManager:
                 return True
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for pod to be ready")
-            time.sleep(2)
+            eventlet.sleep(2)
 
     def _wait_for_ingress_ip(self, ingress_name, timeout=300):
         """Đợi cho đến khi ingress có IP"""
@@ -352,7 +368,7 @@ class K8sGameManager:
                 return ingress.status.load_balancer.ingress[0].ip
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for ingress IP")
-            time.sleep(5)
+            eventlet.sleep(5)
 
     def cleanup_namespace(self):
         try:
@@ -367,7 +383,7 @@ class K8sGameManager:
                     self.core_v1.read_namespace(name=self.namespace)
                     if time.time() - start_time > timeout:
                         raise Exception("Timeout waiting for namespace deletion")
-                    time.sleep(2)
+                    eventlet.sleep(2)
                 except client.exceptions.ApiException as e:
                     if e.status == 404:
                         break
@@ -486,7 +502,7 @@ class K8sGameManager:
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for external IP")
 
-            time.sleep(2)
+            eventlet.sleep(2)
 
     def cleanup_all_resources(self):
         """Dọn dẹp tất cả resources trong namespace"""
@@ -568,12 +584,12 @@ class K8sGameManager:
                     print("All resources cleaned up successfully")
                     break
 
-                time.sleep(2)
+                eventlet.sleep(2)
 
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
-        
+
         def cleanup_game_resources(self, server_name):
             print(f"Cleaning up resources for {server_name}")
 
