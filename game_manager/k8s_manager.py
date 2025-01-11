@@ -138,11 +138,11 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
                     "kubernetes.io/ingress.allow-http": "false",
                     # WebSocket specific
-                    "networking.gke.io/v1beta1.AllowBackendConfig": "true",
-                    "networking.gke.io/v1beta1.EnableWebSocket": "true"
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
+                    # Update certificate
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "game-managed-cert"
                 }
             },
             "spec": {
@@ -204,7 +204,7 @@ class K8sGameManager:
         }
 
     def create_game_instance(self, room_id, player_data):
-        try:
+        try:    
             server_name = f"game-{room_id}"
 
             print(f"Creating game server deployment: {server_name}")
@@ -497,8 +497,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
                 }
             },
             "spec": {
