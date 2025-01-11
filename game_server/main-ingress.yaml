@@ -17,6 +17,11 @@ metadata:
     cloud.google.com/backend-config: '{"default": "beatball-backend-config"}'
 spec:
   ingressClassName: "gce"  # Thay thế annotation cũ
+  defaultBackend:
+    service:
+      name: physics-server-service  # Đây là service mặc định
+      port:
+        number: 8000
   rules:
   - host: beatball.xyz
     http:

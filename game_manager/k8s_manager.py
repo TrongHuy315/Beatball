@@ -1,4 +1,5 @@
 # game_manager/k8s_manager.py
+
 from kubernetes import client, config
 from google.oauth2 import service_account
 from google.cloud import container_v1
@@ -6,6 +7,7 @@ from google.auth import transport
 from kubernetes.client import CustomObjectsApi
 import os
 import json
+import time  # CHANGED: import time nếu cần dùng
 
 class K8sGameManager:
     def __init__(self):
@@ -13,7 +15,11 @@ class K8sGameManager:
         self.cluster_name = os.getenv('GKE_CLUSTER_NAME')
         self.cluster_zone = os.getenv('GKE_CLUSTER_ZONE')
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        
+        # CHANGED: Bạn có ghi cố định project_id = "beatball-physics"
+        #          Mình giữ nguyên để phù hợp.
         self.project_id = "beatball-physics"
+        
         self.main_ingress_name = "game-ingress"
 
         # Khởi tạo K8s client
@@ -22,8 +28,7 @@ class K8sGameManager:
         # Tạo namespace
         self.create_namespace()
 
-        # Sau khi namespace đã sẵn sàng, tiến hành remove path "/"
-        # nếu path này trỏ tới service "physics-server-service"
+        # Remove path "/" nếu nó đang trỏ vào physics-server-service
         self._remove_default_path_if_necessary()
 
     def create_namespace(self):
@@ -62,15 +67,6 @@ class K8sGameManager:
                     print(f"Namespace {self.namespace} was created by another process")
                 else:
                     raise
-
-        except Exception as e:
-            print(f"Error in create_namespace: {str(e)}")
-            if hasattr(e, 'body'):
-                print(f"Error body: {e.body}")
-            if hasattr(e, 'status'):
-                print(f"Error status: {e.status}")
-            raise
-
 
         except Exception as e:
             print(f"Error in create_namespace: {str(e)}")
@@ -126,6 +122,7 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error configuring K8s client: {e}")
             raise
+
     def _create_ingress_spec(self, name):
         return {
             "apiVersion": "networking.k8s.io/v1",
@@ -163,7 +160,7 @@ class K8sGameManager:
                 }]
             }
         }
-        
+
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
@@ -181,9 +178,8 @@ class K8sGameManager:
         }
 
     def create_game_instance(self, room_id, player_data):
+        server_name = f"game-{room_id}"
         try:
-            server_name = f"game-{room_id}"
-
             print(f"Creating game server deployment: {server_name}")
 
             # Tạo backend config
@@ -227,7 +223,7 @@ class K8sGameManager:
             print(f"Error creating game server: {e}")
             self.cleanup_game_resources(server_name)
             raise
-    
+
     def _remove_default_path_if_necessary(self):
         """
         Hàm này dùng để xóa path "/" trỏ đến "physics-server-service"
@@ -243,19 +239,16 @@ class K8sGameManager:
             if not current_ingress.spec or not current_ingress.spec.rules:
                 return  # Không có rules => không cần làm gì
 
-            # Ở ví dụ này, ta chỉ quan tâm rule đầu (rules[0])
-            # Thực tế, nếu Ingress của bạn có nhiều rules hơn thì cần duyệt tất cả.
             rule = current_ingress.spec.rules[0]
             if not rule.http or not rule.http.paths:
                 return
 
-            # Lọc bỏ path "/" nếu path đó backend trỏ tới "physics-server-service"
             new_paths = []
             for p in rule.http.paths:
-                backend_svc = p.backend.service.name if p.backend and p.backend.service else None
+                backend_svc = p.backend.service.name if (p.backend and p.backend.service) else None
                 if p.path == "/" and backend_svc == "physics-server-service":
                     print("Removed default path '/' -> physics-server-service:80 from Ingress.")
-                    continue  # Không thêm path này vào new_paths
+                    continue
                 else:
                     new_paths.append(p)
 
@@ -275,16 +268,17 @@ class K8sGameManager:
                 print(f"Error removing default path from ingress: {e}")
         except Exception as ex:
             print(f"Unexpected error in _remove_default_path_if_necessary: {ex}")
-    
+
     def _add_game_path_to_ingress(self, server_name):
+        """
+        Thêm path kiểu /game/game-XXXX => service: 8000
+        """
         try:
-            # Lấy current ingress
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
 
-            # Tạo path mới
             new_path = {
                 'path': f'/game/{server_name}',
                 'pathType': 'Prefix',
@@ -298,17 +292,18 @@ class K8sGameManager:
                 }
             }
 
-            # Thêm path mới vào rules hiện có
             if not current_ingress.spec.rules[0].http.paths:
                 current_ingress.spec.rules[0].http.paths = []
             current_ingress.spec.rules[0].http.paths.append(new_path)
 
-            # Thêm các annotation cho Ingress để cho phép WebSocket
+            # CHANGED: Thêm annotation để chắc chắn GCE Ingress accept WS
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
             current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
             current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
+            # Dòng dưới đôi khi không cần, nhưng ta để cho chắc
+            current_ingress.metadata.annotations["ingress.kubernetes.io/websocket"] = "true"
 
             # Update ingress
             self.networking_v1.patch_namespaced_ingress(
@@ -320,17 +315,17 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error adding path to ingress: {e}")
             raise
-    
+
     def _wait_for_pod_ready(self, deployment_name, timeout=120):
         """Đợi cho đến khi pod trong deployment sẵn sàng"""
-        import time
         start_time = time.time()
         while True:
             deployment = self.apps_v1.read_namespaced_deployment_status(
                 name=deployment_name,
                 namespace=self.namespace
             )
-            if deployment.status.ready_replicas == deployment.status.replicas:
+            if (deployment.status.ready_replicas == deployment.status.replicas
+                    and deployment.status.replicas is not None):
                 return True
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for pod to be ready")
@@ -338,7 +333,6 @@ class K8sGameManager:
 
     def _wait_for_ingress_ip(self, ingress_name, timeout=300):
         """Đợi cho đến khi ingress có IP"""
-        import time
         start_time = time.time()
         while True:
             ingress = self.networking_v1.read_namespaced_ingress_status(
@@ -458,8 +452,8 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "port": 8000,          # Port service expose
-                    "targetPort": 8000,    # Port container expose
+                    "port": 8000,
+                    "targetPort": 8000,
                     "protocol": "TCP",
                     "name": "http"
                 }],
@@ -468,21 +462,16 @@ class K8sGameManager:
         }
 
     def _wait_for_external_ip(self, service_name, timeout=60):
-        import time
         start_time = time.time()
-
         while True:
             service = self.core_v1.read_namespaced_service(
                 name=service_name,
                 namespace=self.namespace
             )
-
             if service.status.load_balancer.ingress:
                 return service.status.load_balancer.ingress[0].ip
-
             if time.time() - start_time > timeout:
                 raise Exception("Timeout waiting for external IP")
-
             time.sleep(2)
 
     def cleanup_all_resources(self):
@@ -506,7 +495,7 @@ class K8sGameManager:
             try:
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
                 for svc in services.items:
-                    if svc.metadata.name != 'kubernetes': # Không xóa service mặc định
+                    if svc.metadata.name != 'kubernetes':  # Không xóa service mặc định
                         print(f"Deleting service: {svc.metadata.name}")
                         self.core_v1.delete_namespaced_service(
                             name=svc.metadata.name,
@@ -556,7 +545,6 @@ class K8sGameManager:
                 print(f"Error cleaning ingress paths: {e}")
 
             # 5. Đợi xóa xong
-            import time
             timeout = 60  # 60 seconds timeout
             start_time = time.time()
 
@@ -577,6 +565,7 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
+
     def cleanup_game_resources(self, server_name):
         try:
             print(f"Cleaning up resources for {server_name}")
@@ -655,4 +644,3 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error monitoring game: {e}")
             return None
-        
