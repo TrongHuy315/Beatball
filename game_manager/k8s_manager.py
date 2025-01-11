@@ -137,24 +137,30 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.allow-http": "false",
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-                    # GKE specific WebSocket configurations
+                    # GKE specific annotations for WebSocket
+                    "kubernetes.io/ingress.global-static-ip-name": "game-static-ip",
+                    # Enable WebSocket protocols
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
+                    # Configure backend timeouts
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
+                    # Configure connection timeouts
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
                     "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
+                    "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
+                    # Enable WebSocket
+                    "nginx.ingress.kubernetes.io/websocket-services": f"{name}-service",
+                    # Keep alive settings
+                    "nginx.ingress.kubernetes.io/upstream-keepalive-timeout": "600",
                     "nginx.ingress.kubernetes.io/proxy-http-version": "1.1",
-                    "nginx.ingress.kubernetes.io/configuration-snippet": """
-                        proxy_set_header Upgrade $http_upgrade;
-                        proxy_set_header Connection "Upgrade";
-                    """,
-                    # Enable WebSocket for GKE
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}',
-                    "cloud.google.com/backend-config": '{"default": "game-backend-config"}',
-                    "kubernetes.io/ingress.global-static-ip-name": "game-static-ip"
+                    # Force SSL
+                    "nginx.ingress.kubernetes.io/force-ssl-redirect": "true",
+                    "nginx.ingress.kubernetes.io/ssl-redirect": "true"
                 }
             },
             "spec": {
                 "tls": [{
-                    "hosts": ["beatball.xyz"]
+                    "hosts": ["beatball.xyz"],
+                    "secretName": "beatball-tls"  # Make sure this TLS secret exists
                 }],
                 "rules": [{
                     "host": "beatball.xyz",
@@ -175,7 +181,7 @@ class K8sGameManager:
                 }]
             }
         }
-        
+            
     def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
@@ -185,18 +191,25 @@ class K8sGameManager:
                 "namespace": self.namespace
             },
             "spec": {
-                "timeoutSec": 3600,  # Increased for WebSocket
+                "timeoutSec": 3600,
                 "connectionDraining": {
                     "drainingTimeoutSec": 60
                 },
                 "healthCheck": {
+                    "checkIntervalSec": 15,
+                    "timeoutSec": 5,
+                    "healthyThreshold": 1,
+                    "unhealthyThreshold": 2,
+                    "type": "HTTP",
                     "requestPath": "/health",
-                    "port": 8000,
-                    "type": "HTTP"
+                    "port": 8000
                 },
                 "sessionAffinity": {
                     "affinityType": "GENERATED_COOKIE",
                     "affinityCookieTtlSec": 3600
+                },
+                "logging": {
+                    "enable": True
                 }
             }
         }
@@ -422,6 +435,14 @@ class K8sGameManager:
                                 "containerPort": 8000,
                                 "name": "http"
                             }],
+                            "startupProbe": {
+                                "httpGet": {
+                                    "path": "/health",
+                                    "port": 8000
+                                },
+                                "failureThreshold": 30,
+                                "periodSeconds": 10
+                            },
                             "readinessProbe": {
                                 "httpGet": {
                                     "path": "/health",
@@ -469,7 +490,9 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
+                    # Add WebSocket annotations
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
                 }
             },
             "spec": {
@@ -477,10 +500,10 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "port": 8000,          
-                    "targetPort": 8000,    
+                    "port": 8000,
+                    "targetPort": 8000,
                     "protocol": "TCP",
-                    "name": "http"
+                    "name": "ws"  # Changed to ws for WebSocket
                 }],
                 "type": "ClusterIP"
             }
