@@ -496,6 +496,7 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
+                    "port": 8000, 
                     "name": "http",
                     "protocol": "TCP",
                     "targetPort": 8000
