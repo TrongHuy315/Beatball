@@ -138,7 +138,9 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    "kubernetes.io/ingress.allow-http": "true",  # Add this
+                    "ingress.kubernetes.io/ssl-redirect": "true"  # Add this
                 }
             },
             "spec": {
@@ -182,8 +184,10 @@ class K8sGameManager:
                 "namespace": self.namespace
             },
             "spec": {
+                "sslPolicy": "beatball-ssl-policy", # Add this
                 "redirectToHttps": {
-                    "enabled": True
+                    "enabled": True,
+                    "responseCodeName": "MOVED_PERMANENTLY_DEFAULT"
                 }
             }
         }
@@ -483,7 +487,8 @@ class K8sGameManager:
                 "name": f"{name}-service",
                 "namespace": self.namespace,
                 "annotations": {
-                    "cloud.google.com/neg": '{"ingress": true}'
+                    "cloud.google.com/neg": '{"ingress": true}',
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'  # Add this
                 }
             },
             "spec": {
@@ -492,8 +497,7 @@ class K8sGameManager:
                 },
                 "ports": [{
                     "name": "http",
-                    "protocol": "TCP",
-                    "port": 8000,
+                    "protocol": "TCP",/
                     "targetPort": 8000
                 }],
                 "type": "ClusterIP"
