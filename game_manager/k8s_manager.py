@@ -497,7 +497,7 @@ class K8sGameManager:
                 },
                 "ports": [{
                     "name": "http",
-                    "protocol": "TCP",/
+                    "protocol": "TCP",
                     "targetPort": 8000
                 }],
                 "type": "ClusterIP"

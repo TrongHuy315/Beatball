@@ -1189,7 +1189,7 @@ def cleanup_k8s():
         print("Kubernetes resources cleaned up successfully")
     except Exception as e:
         print(f"Error cleaning up k8s resources: {e}")
-        
+         
 cleanup_k8s()
 
 def initialize_game(room_data):
