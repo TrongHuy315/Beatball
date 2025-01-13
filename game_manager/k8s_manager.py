@@ -139,8 +139,7 @@ class K8sGameManager:
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-                    "kubernetes.io/ingress.allow-http": "true",  # Add this
-                    "ingress.kubernetes.io/ssl-redirect": "true"  # Add this
+                    "kubernetes.io/ingress.allow-http": "true"
                 }
             },
             "spec": {
@@ -151,30 +150,10 @@ class K8sGameManager:
                             "number": 8000
                         }
                     }
-                },
-                "rules": [
-                    {
-                        "host": "beatball.xyz",
-                        "http": {
-                            "paths": [
-                                {
-                                    "path": f"/game/{name}",
-                                    "pathType": "Prefix",
-                                    "backend": {
-                                        "service": {
-                                            "name": f"{name}-service",
-                                            "port": {
-                                                "number": 8000
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
+                }
             }
         }
+
     def _create_frontend_config(self):
         return {
             "apiVersion": "networking.gke.io/v1beta1",
@@ -184,10 +163,8 @@ class K8sGameManager:
                 "namespace": self.namespace
             },
             "spec": {
-                "sslPolicy": "beatball-ssl-policy", # Add this
                 "redirectToHttps": {
-                    "enabled": True,
-                    "responseCodeName": "MOVED_PERMANENTLY_DEFAULT"
+                    "enabled": True
                 }
             }
         }
@@ -210,6 +187,9 @@ class K8sGameManager:
                     "type": "HTTP",
                     "requestPath": "/health",
                     "port": 8000
+                },
+                "iap": {
+                    "enabled": False
                 }
             }
         }
@@ -488,7 +468,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'  # Add this
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }
             },
             "spec": {
@@ -496,7 +476,7 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [{
-                    "port": 8000, 
+                    "port": 8000,
                     "name": "http",
                     "protocol": "TCP",
                     "targetPort": 8000
@@ -504,7 +484,6 @@ class K8sGameManager:
                 "type": "ClusterIP"
             }
         }
-
     def _wait_for_external_ip(self, service_name, timeout=60):
         import time
         start_time = time.time()
