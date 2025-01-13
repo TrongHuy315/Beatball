@@ -516,7 +516,7 @@ class K8sGameManager:
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
                     "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    "cloud.google.com/app-protocols": '{"http":"HTTP", "ws":"HTTPS"}'
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
                 }
             },
             "spec": {
@@ -524,12 +524,6 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [
-                    {
-                        "name": "http",
-                        "port": 8000,
-                        "protocol": "TCP",
-                        "targetPort": 8000
-                    },
                     {
                         "name": "ws",
                         "port": 8000,
