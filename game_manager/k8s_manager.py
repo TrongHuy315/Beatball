@@ -198,17 +198,31 @@ class K8sGameManager:
             server_name = f"game-{room_id}"
             print(f"Creating game server deployment: {server_name}")
 
-            # Create FrontendConfig first
-            frontend_config = self.custom_objects_api.create_namespaced_custom_object(
-                group="networking.gke.io",
-                version="v1beta1",
-                namespace=self.namespace,
-                plural="frontendconfigs",
-                body=self._create_frontend_config()
-            )
-            print("Frontend config created")
+            # Check if FrontendConfig exists first
+            try:
+                self.custom_objects_api.get_namespaced_custom_object(
+                    group="networking.gke.io",
+                    version="v1beta1",
+                    namespace=self.namespace,
+                    plural="frontendconfigs",
+                    name="beatball-frontend-config"
+                )
+                print("Frontend config already exists, reusing it")
+            except client.exceptions.ApiException as e:
+                if e.status == 404:
+                    # Only create if it doesn't exist
+                    frontend_config = self.custom_objects_api.create_namespaced_custom_object(
+                        group="networking.gke.io",
+                        version="v1beta1",
+                        namespace=self.namespace,
+                        plural="frontendconfigs",
+                        body=self._create_frontend_config()
+                    )
+                    print("Frontend config created")
+                else:
+                    raise
 
-            # Tạo backend config
+            # Create other resources as before
             backend_config = self.custom_objects_api.create_namespaced_custom_object(
                 group="cloud.google.com",
                 version="v1",
@@ -218,7 +232,6 @@ class K8sGameManager:
             )
             print("Backend config created")
 
-            # Rest of the code remains the same
             deployment = self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
                 body=self._create_deployment_spec(server_name, room_id, player_data)
