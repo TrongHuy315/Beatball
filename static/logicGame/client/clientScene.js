@@ -227,6 +227,7 @@ class ClientScene extends Phaser.Scene {
             reconnectionDelay: 1000,
             timeout: 20000,
             autoConnect: false,
+            rejectUnauthorized: false,
             forceNew: true,
             auth: {
                 clientType: 'gameClient',

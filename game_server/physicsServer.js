@@ -12,16 +12,25 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
     cors: {
-        origin: "*",
+        origin: "https://beatball.xyz", // Be specific with CORS
         methods: ["GET", "POST"],
         allowedHeaders: ["*"],
         credentials: true
     },
     allowEIO3: true,
-    transports: ['websocket', 'polling'],
+    transports: ['websocket'],  // Force WebSocket only
     pingTimeout: 60000,
     pingInterval: 25000,
-    path: SOCKET_PATH
+    path: SOCKET_PATH,
+    handlePreflightRequest: (req, res) => {
+        res.writeHead(200, {
+            "Access-Control-Allow-Origin": "https://beatball.xyz",
+            "Access-Control-Allow-Methods": "GET,POST",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": true
+        });
+        res.end();
+    }
 });
 
 // Trả về để test xem server chạy
@@ -44,6 +53,16 @@ app.use('/game/game-:roomId', (req, res, next) => {
     // Gán roomId vào request, nếu cần
     req.roomId = req.params.roomId;
     next();
+});
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    next();
+});
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Express error:', err);
+    res.status(500).send('Internal Server Error');
 });
 
 class PhysicsEngine {
@@ -85,7 +104,6 @@ class PhysicsEngine {
         
         // ------ GAME LOOP ---------
         const gameLoop = () => {
-            process.stdout.write("Loop passed");
             const currentTime = Date.now();
             const delta = currentTime - this.lastFrameTime; 
             cur = Date.now(); 
@@ -266,6 +284,11 @@ class PhysicsEngine {
         });
 
         io.on('connection', (socket) => {            
+            console.log('Client connected:', socket.clientId);
+    
+            socket.on('error', (error) => {
+                console.error('Socket error:', error);
+            });
             const clientId = socket.clientId;
             socket.on('requestJoin', () => {
                 if (this.players.has(clientId)) {
