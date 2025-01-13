@@ -240,7 +240,8 @@ class ClientScene extends Phaser.Scene {
         
         // Then manually connect after setup
         this.SOCKET.connect();
-
+        
+        var socket = this.SOCKET; 
         // ----- SERVER CONNECTION ------- 
         socket.on('connect_error', (error) => {
             console.log('Connection error:', error);
