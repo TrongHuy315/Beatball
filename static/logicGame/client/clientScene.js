@@ -223,7 +223,7 @@ class ClientScene extends Phaser.Scene {
             path: '/socket.io',
             secure: true,
             reconnection: true,
-            reconnectionAttempts: 5,
+            reconnectionAttempts: 100,
             reconnectionDelay: 1000,
             timeout: 20000,
             autoConnect: false,  // Manual connection control
