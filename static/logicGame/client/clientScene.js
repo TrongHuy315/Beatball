@@ -214,18 +214,20 @@ class ClientScene extends Phaser.Scene {
     // SET UP SOCKET EVENT 
     setupWebSocket() {
         // Tạo socket path và base URL
-        const socketPath = `/game/game-${this.gameSessionData.roomId}/socket.io`;
-        const baseUrl = this.gameSessionData.serverUrl || 'https://beatball.xyz';
-    
-        this.SOCKET = io(baseUrl, {
+        const socketPath = `/game/game-${this.gameSessionData.roomId}`; 
+        const baseUrl = 'https://beatball.xyz';
+
+        this.SOCKET = io(baseUrl + socketPath, {
             transports: ['websocket'],
-            upgrade: false, 
-            path: socketPath,
+            upgrade: false,
+            path: '/socket.io',
             secure: true,
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
+            autoConnect: false,  // Manual connection control
+            forceNew: true,     // Force new connection
             auth: {
                 clientType: 'gameClient',
                 version: '1.0',
@@ -235,10 +237,25 @@ class ClientScene extends Phaser.Scene {
                 team: this.gameSessionData.userTeam
             }
         });
-
-        var socket = this.SOCKET;
+        
+        // Then manually connect after setup
+        this.SOCKET.connect();
 
         // ----- SERVER CONNECTION ------- 
+        socket.on('connect_error', (error) => {
+            console.log('Connection error:', error);
+            // Add detailed error logging
+            console.log('Socket state:', socket.connected);
+            console.log('Socket ID:', socket.id);
+            console.log('Socket path:', socket.io.opts.path);
+            console.log('Socket transport:', socket.io.engine.transport.name);
+        });
+        
+        // Add connection attempt monitoring
+        socket.io.on('reconnect_attempt', (attemptNumber) => {
+            console.log('Reconnection attempt:', attemptNumber);
+        });
+        
         socket.on('connect', () => {
             this.events.emit('socket-ready');
             console.log('Connected with socket ID:', socket.id);
