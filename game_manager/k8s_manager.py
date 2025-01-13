@@ -139,18 +139,48 @@ class K8sGameManager:
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-                    "kubernetes.io/ingress.allow-http": "true"
+                    "kubernetes.io/ingress.allow-http": "true",
+                    # WebSocket specific annotations
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
+                    "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
+                    "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
+                    "nginx.ingress.kubernetes.io/websocket-services": f"{name}-service"
                 }
             },
             "spec": {
-                "defaultBackend": {
-                    "service": {
-                        "name": f"{name}-service",
-                        "port": {
-                            "number": 8000
+                "rules": [
+                    {
+                        "host": "beatball.xyz",
+                        "http": {
+                            "paths": [
+                                {
+                                    "path": f"/game/{name}",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{name}-service",
+                                            "port": {
+                                                "number": 8000
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "path": f"/game/{name}/socket.io",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{name}-service",
+                                            "port": {
+                                                "number": 8000
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
-                }
+                ]
             }
         }
 
@@ -179,6 +209,9 @@ class K8sGameManager:
             },
             "spec": {
                 "timeoutSec": 3600,
+                "connectionDraining": {
+                    "drainingTimeoutSec": 60
+                },
                 "healthCheck": {
                     "checkIntervalSec": 15,
                     "timeoutSec": 5,
@@ -188,8 +221,9 @@ class K8sGameManager:
                     "requestPath": "/health",
                     "port": 8000
                 },
-                "iap": {
-                    "enabled": False
+                "sessionAffinity": {
+                    "affinityType": "GENERATED_COOKIE",
+                    "affinityCookieTtlSec": 3600
                 }
             }
         }
@@ -481,19 +515,28 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
+                    "cloud.google.com/app-protocols": '{"http":"HTTP", "ws":"HTTPS"}'
                 }
             },
             "spec": {
                 "selector": {
                     "app": name
                 },
-                "ports": [{
-                    "port": 8000,
-                    "name": "http",
-                    "protocol": "TCP",
-                    "targetPort": 8000
-                }],
+                "ports": [
+                    {
+                        "name": "http",
+                        "port": 8000,
+                        "protocol": "TCP",
+                        "targetPort": 8000
+                    },
+                    {
+                        "name": "ws",
+                        "port": 8000,
+                        "protocol": "TCP",
+                        "targetPort": 8000
+                    }
+                ],
                 "type": "ClusterIP"
             }
         }
