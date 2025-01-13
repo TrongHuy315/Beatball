@@ -132,20 +132,23 @@ class K8sGameManager:
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
             "metadata": {
-                "name": f"{name}-ingress",
-                "namespace": self.namespace,
-                "annotations": {
-                    "kubernetes.io/ingress.class": "gce",
-                    "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                    "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-                    "kubernetes.io/ingress.allow-http": "true",
-                    # WebSocket specific annotations
-                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
-                    "nginx.ingress.kubernetes.io/websocket-services": f"{name}-service"
-                }
+            "name": f"{name}-ingress",
+            "namespace": self.namespace,
+            "annotations": {
+                "kubernetes.io/ingress.class": "gce",
+                "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
+                "networking.gke.io/managed-certificates": "game-managed-cert",
+                "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                "kubernetes.io/ingress.allow-http": "true",
+                # Add these WebSocket-specific annotations
+                "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
+                "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
+                "nginx.ingress.kubernetes.io/proxy-connect-timeout": "3600",
+                "kubernetes.io/ingress.websocket-services": f"{name}-service",
+                # Add these for GKE
+                "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
+                "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
+               }
             },
             "spec": {
                 "rules": [
@@ -516,7 +519,7 @@ class K8sGameManager:
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
                     "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS"}'
+                    "cloud.google.com/app-protocols": '{"ws":"HTTPS","http":"HTTPS"}'
                 }
             },
             "spec": {
@@ -524,6 +527,12 @@ class K8sGameManager:
                     "app": name
                 },
                 "ports": [
+                    {
+                        "name": "http",
+                        "port": 8000,
+                        "protocol": "TCP",
+                        "targetPort": 8000
+                    },
                     {
                         "name": "ws",
                         "port": 8000,
