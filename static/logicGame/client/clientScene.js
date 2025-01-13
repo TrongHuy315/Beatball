@@ -217,17 +217,17 @@ class ClientScene extends Phaser.Scene {
         const socketPath = `/game/game-${this.gameSessionData.roomId}`; 
         const baseUrl = 'https://beatball.xyz';
 
-        this.SOCKET = io(baseUrl + socketPath, {
+        this.SOCKET = io('https://beatball.xyz', {
             transports: ['websocket'],
             upgrade: false,
-            path: '/socket.io',
+            path: `/game/game-${this.gameSessionData.roomId}/socket.io`,  // Full path including /socket.io
             secure: true,
             reconnection: true,
             reconnectionAttempts: 100,
             reconnectionDelay: 1000,
             timeout: 20000,
-            autoConnect: false,  // Manual connection control
-            forceNew: true,     // Force new connection
+            autoConnect: false,
+            forceNew: true,
             auth: {
                 clientType: 'gameClient',
                 version: '1.0',
@@ -237,10 +237,16 @@ class ClientScene extends Phaser.Scene {
                 team: this.gameSessionData.userTeam
             }
         });
-        
-        // Then manually connect after setup
+    
+        // Add this debug log before connecting
+        console.log('Attempting connection with config:', {
+            url: 'https://beatball.xyz',
+            path: `/game/game-${this.gameSessionData.roomId}/socket.io`,
+            auth: this.SOCKET.auth
+        });
+    
         this.SOCKET.connect();
-        
+
         var socket = this.SOCKET; 
         // ----- SERVER CONNECTION ------- 
         socket.on('connect_error', (error) => {
