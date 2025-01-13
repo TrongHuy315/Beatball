@@ -519,7 +519,7 @@ class K8sGameManager:
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
                     "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}',
-                    "cloud.google.com/app-protocols": '{"ws":"HTTPS","http":"HTTPS"}'
+                    "cloud.google.com/app-protocols": '{"http":"HTTPS"}'  # Use "http" for both HTTP and WebSocket
                 }
             },
             "spec": {
@@ -528,13 +528,7 @@ class K8sGameManager:
                 },
                 "ports": [
                     {
-                        "name": "http",
-                        "port": 8000,
-                        "protocol": "TCP",
-                        "targetPort": 8000
-                    },
-                    {
-                        "name": "ws",
+                        "name": "http",  # Use a single port for both HTTP and WebSocket
                         "port": 8000,
                         "protocol": "TCP",
                         "targetPort": 8000
@@ -543,6 +537,7 @@ class K8sGameManager:
                 "type": "ClusterIP"
             }
         }
+
     def _wait_for_external_ip(self, service_name, timeout=60):
         import time
         start_time = time.time()
