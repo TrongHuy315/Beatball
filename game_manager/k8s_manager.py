@@ -256,14 +256,28 @@ class K8sGameManager:
                     raise
 
             # Create other resources as before
-            backend_config = self.custom_objects_api.create_namespaced_custom_object(
-                group="cloud.google.com",
-                version="v1",
-                namespace=self.namespace,
-                plural="backendconfigs",
-                body=self._create_backend_config(server_name)
-            )
-            print("Backend config created")
+            try:
+                self.custom_objects_api.get_namespaced_custom_object(
+                    group="cloud.google.com",
+                    version="v1",
+                    namespace=self.namespace,
+                    plural="backendconfigs",
+                    name=f"{server_name}-backend-config"
+                )
+                print("Backend config already exists, reusing it")
+            except client.exceptions.ApiException as e:
+                if e.status == 404:
+                    # Only create if it doesn't exist
+                    backend_config = self.custom_objects_api.create_namespaced_custom_object(
+                        group="cloud.google.com",
+                        version="v1",
+                        namespace=self.namespace,
+                        plural="backendconfigs",
+                        body=self._create_backend_config(server_name)
+                    )
+                    print("Backend config created")
+                else:
+                    raise
 
             deployment = self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
