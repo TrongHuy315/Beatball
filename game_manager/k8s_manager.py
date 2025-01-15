@@ -149,10 +149,6 @@ class K8sGameManager:
                 "labels": labels,  # Use your actual cert ID
             },
             "spec": {
-                "tls": [{
-                    "hosts": ["beatball.xyz"],
-                    "secretName": "game-managed-cert"
-                }],
                 "rules": [
                     {
                         "host": "beatball.xyz",
