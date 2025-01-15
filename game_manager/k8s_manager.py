@@ -134,19 +134,14 @@ class K8sGameManager:
             "metadata": {
                 "name": f"{name}-ingress",
                 "namespace": self.namespace,
+                "labels": labels,
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
-                    "compute.googleapis.com/ssl-policy": "beatball-ssl-policy",
-
-                    # Remove SSL passthrough
                     "kubernetes.io/ingress.allow-http": "false",
-                    # Add specific SSL config
-                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
-                }, 
-                "labels": labels,  # Use your actual cert ID
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848"
+                }
             },
             "spec": {
                 "rules": [
@@ -180,7 +175,6 @@ class K8sGameManager:
                 ]
             }
         }
-
     def _create_frontend_config(self):
         return {
             "apiVersion": "networking.gke.io/v1beta1",
@@ -524,7 +518,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/app-protocols": '{"http":"HTTPS"}',  # Simplified protocol config
+                    # Remove the HTTPS protocol since backend is HTTP
                     "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }, 
                 "labels": labels
