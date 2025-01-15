@@ -145,8 +145,8 @@ class K8sGameManager:
                     "kubernetes.io/ingress.allow-http": "false",
                     # Add specific SSL config
                     "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
-                    "labels": labels,  # Use your actual cert ID
-                }
+                }, 
+                "labels": labels,  # Use your actual cert ID
             },
             "spec": {
                 "tls": [{
