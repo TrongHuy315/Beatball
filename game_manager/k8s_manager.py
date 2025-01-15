@@ -139,8 +139,15 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
+                    
+                    # BẮT BUỘC: Muốn SSL -> Phải có pre-shared-cert
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
+
+                    # Tắt HTTP, chỉ bật HTTPS:
                     "kubernetes.io/ingress.allow-http": "false",
-                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848"
+
+                    # QUAN TRỌNG: Ánh xạ với FrontendConfig => mới có rule HTTPS
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
                 }
             },
             "spec": {
