@@ -139,6 +139,7 @@ class K8sGameManager:
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    "compute.googleapis.com/ssl-policy": "beatball-ssl-policy",
                     # Remove SSL passthrough
                     "kubernetes.io/ingress.allow-http": "false",
                     # Add specific SSL config
