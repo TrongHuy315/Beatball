@@ -127,7 +127,7 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error configuring K8s client: {e}")
             raise
-    def _create_ingress_spec(self, name):
+    def _create_ingress_spec(self, name, labels):
         return {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
@@ -140,10 +140,12 @@ class K8sGameManager:
                     "networking.gke.io/managed-certificates": "game-managed-cert",
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
                     "compute.googleapis.com/ssl-policy": "beatball-ssl-policy",
+
                     # Remove SSL passthrough
                     "kubernetes.io/ingress.allow-http": "false",
                     # Add specific SSL config
-                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848"  # Use your actual cert ID
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
+                    "labels": labels,  # Use your actual cert ID
                 }
             },
             "spec": {
@@ -198,13 +200,14 @@ class K8sGameManager:
             }
         }
         
-    def _create_backend_config(self, name):
+    def _create_backend_config(self, name, labels):
         return {
             "apiVersion": "cloud.google.com/v1",
             "kind": "BackendConfig",
             "metadata": {
                 "name": f"{name}-backend-config",
-                "namespace": self.namespace
+                "namespace": self.namespace, 
+                "labels": labels, 
             },
             "spec": {
                 "timeoutSec": 3600,
@@ -224,15 +227,12 @@ class K8sGameManager:
                     "affinityType": "GENERATED_COOKIE",
                     "affinityCookieTtlSec": 3600
                 },
-                "iap": {
-                    "enabled": False
-                },
                 "customRequestHeaders": {
                     "headers": [
-                        "Upgrade",
-                        "Connection",
-                        "Sec-WebSocket-Key",
-                        "Sec-WebSocket-Version"
+                        "Upgrade: websocket",
+                        "Connection: upgrade",
+                        "Sec-WebSocket-Key: websocket",
+                        "Sec-WebSocket-Version: 13"
                     ]
                 }
             }
@@ -240,6 +240,10 @@ class K8sGameManager:
     def create_game_instance(self, room_id, player_data):
         try:    
             server_name = f"game-{room_id}"
+            labels = {
+                'app': server_name,
+                'managed-by': 'beatball'
+            }
             print(f"Creating game server deployment: {server_name}")
 
             # Check if FrontendConfig exists first
@@ -266,45 +270,29 @@ class K8sGameManager:
                 else:
                     raise
 
-            # Create other resources as before
-            try:
-                self.custom_objects_api.get_namespaced_custom_object(
-                    group="cloud.google.com",
-                    version="v1",
-                    namespace=self.namespace,
-                    plural="backendconfigs",
-                    name=f"{server_name}-backend-config"
-                )
-                print("Backend config already exists, reusing it")
-            except client.exceptions.ApiException as e:
-                if e.status == 404:
-                    # Only create if it doesn't exist
-                    backend_config = self.custom_objects_api.create_namespaced_custom_object(
-                        group="cloud.google.com",
-                        version="v1",
-                        namespace=self.namespace,
-                        plural="backendconfigs",
-                        body=self._create_backend_config(server_name)
-                    )
-                    print("Backend config created")
-                else:
-                    raise
+            backend_config = self.custom_objects_api.create_namespaced_custom_object(
+                group="cloud.google.com",
+                version="v1",
+                namespace=self.namespace,
+                plural="backendconfigs",
+                body=self._create_backend_config(server_name, labels)
+            )
 
             deployment = self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
-                body=self._create_deployment_spec(server_name, room_id, player_data)
+                body=self._create_deployment_spec(server_name, room_id, player_data, labels)
             )
             print(f"Deployment created: {deployment.metadata.name}")
 
             service = self.core_v1.create_namespaced_service(
                 namespace=self.namespace,
-                body=self._create_service_spec(server_name)
+                body=self._create_service_spec(server_name, labels)
             )
             print(f"Service created: {service.metadata.name}")
 
             ingress = self.networking_v1.create_namespaced_ingress(
                 namespace=self.namespace,
-                body=self._create_ingress_spec(server_name)
+                body=self._create_ingress_spec(server_name, labels)
             )
             print(f"Created new ingress for {server_name}")
 
@@ -461,7 +449,7 @@ class K8sGameManager:
             if e.status != 404:  # Ignore if namespace doesn't exist
                 raise
 
-    def _create_deployment_spec(self, name, room_id, player_data):
+    def _create_deployment_spec(self, name, room_id, player_data, labels):
         socket_path = f"/game/{name}/socket.io"
         return {
             "apiVersion": "apps/v1",
@@ -469,6 +457,7 @@ class K8sGameManager:
             "metadata": {
                 "name": name,
                 "namespace": self.namespace,
+                "labels": labels, 
             },
             "spec": {
                 "replicas": 1,
@@ -530,7 +519,7 @@ class K8sGameManager:
             }
         }
 
-    def _create_service_spec(self, name):
+    def _create_service_spec(self, name, labels):
         return {
             "apiVersion": "v1",
             "kind": "Service",
@@ -541,7 +530,8 @@ class K8sGameManager:
                     "cloud.google.com/neg": '{"ingress": true}',
                     "cloud.google.com/app-protocols": '{"http":"HTTPS"}',  # Simplified protocol config
                     "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
-                }
+                }, 
+                "labels": labels
             },
             "spec": {
                 "ports": [
