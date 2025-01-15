@@ -138,17 +138,17 @@ class K8sGameManager:
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                     "networking.gke.io/managed-certificates": "game-managed-cert",
-                    "kubernetes.io/ingress.allow-http": "false",  # Force HTTPS
-                    "nginx.ingress.kubernetes.io/ssl-redirect": "true",
-                    "nginx.ingress.kubernetes.io/force-ssl-redirect": "true",
-                    "nginx.ingress.kubernetes.io/ssl-passthrough": "true",
-                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    # Remove SSL passthrough
+                    "kubernetes.io/ingress.allow-http": "false",
+                    # Add specific SSL config
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848"  # Use your actual cert ID
                 }
             },
             "spec": {
                 "tls": [{
                     "hosts": ["beatball.xyz"],
-                    "secretName": "game-managed-cert"  
+                    "secretName": "game-managed-cert"
                 }],
                 "rules": [
                     {
@@ -157,6 +157,16 @@ class K8sGameManager:
                             "paths": [
                                 {
                                     "path": f"/game/{name}",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{name}-service",
+                                            "port": {"number": 8000}
+                                        }
+                                    }
+                                },
+                                {
+                                    "path": f"/game/{name}/socket.io",
                                     "pathType": "Prefix",
                                     "backend": {
                                         "service": {
@@ -528,7 +538,7 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    "cloud.google.com/app-protocols": '{"http":"HTTPS","ws":"HTTPS"}',
+                    "cloud.google.com/app-protocols": '{"http":"HTTPS"}',  # Simplified protocol config
                     "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
                 }
             },
@@ -537,8 +547,8 @@ class K8sGameManager:
                     {
                         "name": "http",
                         "port": 8000,
-                        "protocol": "TCP",
-                        "targetPort": 8000
+                        "targetPort": 8000,
+                        "protocol": "TCP"
                     }
                 ],
                 "selector": {
