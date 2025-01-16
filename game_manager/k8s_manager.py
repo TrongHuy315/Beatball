@@ -137,17 +137,19 @@ class K8sGameManager:
                 "labels": labels,
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
-                    # Xài IP tĩnh Global
+                    # Giữ IP tĩnh (nếu bạn vẫn muốn IP "beatball-ip")
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                    
-                    # Pre-shared cert do bạn đã upload
-                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
-                    
-                    # Tắt HTTP, chỉ bật HTTPS
-                    "kubernetes.io/ingress.allow-http": "false",
-                    
-                    # FrontendConfig: config HTTPS redirect, SSLPolicy...
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
+
+                    # DÙNG Google-managed cert thay vì pre-shared cert
+                    "networking.gke.io/managed-certificates": "game-managed-cert",
+
+                    # Tùy chọn: cho phép tắt hẳn HTTP
+                    # Lưu ý: Nhiều trường hợp GKE khuyên ban đầu đặt "true", 
+                    # đợi cert xong mới patch "false".
+                    # "kubernetes.io/ingress.allow-http": "true",
+
+                    # FrontendConfig cũ, nếu vẫn muốn:
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
                 }
             },
             "spec": {
@@ -182,6 +184,7 @@ class K8sGameManager:
                 ]
             }
         }
+
 
     def _create_frontend_config(self):
         return {
@@ -295,8 +298,10 @@ class K8sGameManager:
             )
             print(f"Created new ingress for {server_name}")
 
-            # Wait for resources
             self._wait_for_pod_ready(server_name)
+
+            ip = self._wait_for_ingress_ip(f"{server_name}-ingress")
+            print(f"Ingress {server_name} has IP: {ip}")
 
             return {
                 'server_url': f"https://beatball.xyz/game/{server_name}",
@@ -412,7 +417,7 @@ class K8sGameManager:
                 raise Exception("Timeout waiting for pod to be ready")
             eventlet.sleep(2)
 
-    def _wait_for_ingress_ip(self, ingress_name, timeout=300):
+    def _wait_for_ingress_ip(self, ingress_name, timeout=600):
         """Đợi cho đến khi ingress có IP"""
         import time
         start_time = time.time()
