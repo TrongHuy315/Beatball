@@ -150,6 +150,7 @@ class K8sGameManager:
 
                     # FrontendConfig cũ, nếu vẫn muốn:
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": ""
                 }
             },
             "spec": {
