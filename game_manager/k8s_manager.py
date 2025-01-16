@@ -137,18 +137,9 @@ class K8sGameManager:
                 "labels": labels,
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
-                    # Giữ IP tĩnh (nếu bạn vẫn muốn IP "beatball-ip")
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
 
-                    # DÙNG Google-managed cert thay vì pre-shared cert
-                    "networking.gke.io/managed-certificates": "game-managed-cert",
-
-                    # Tùy chọn: cho phép tắt hẳn HTTP
-                    # Lưu ý: Nhiều trường hợp GKE khuyên ban đầu đặt "true", 
-                    # đợi cert xong mới patch "false".
-                    # "kubernetes.io/ingress.allow-http": "true",
-
-                    # FrontendConfig cũ, nếu vẫn muốn:
+                    "ingress.gcp.kubernetes.io/pre-shared-cert": "mcrt-273949f1-15a8-4639-8d99-df50a48a8848",
                     "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
                     "ingress.gcp.kubernetes.io/pre-shared-cert": ""
                 }

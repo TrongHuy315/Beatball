@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.gcp.kubernetes.io/pre-shared-cert: mcrt-273949f1-15a8-4639-8d99-df50a48a8848
+    ingress.kubernetes.io/backends: '{"k8s-be-32741--6f606a4f906d72da":"HEALTHY","k8s1-6f606a4f-beatball-game-game-729260-service-8000-3863f99e":"HEALTHY"}'
+    ingress.kubernetes.io/forwarding-rule: k8s2-fr-7esui4me-beatball-game-game-729260-ingress-2e6r35g7
+    ingress.kubernetes.io/https-forwarding-rule: k8s2-fs-7esui4me-beatball-game-game-729260-ingress-2e6r35g7
+    ingress.kubernetes.io/https-target-proxy: k8s2-ts-7esui4me-beatball-game-game-729260-ingress-2e6r35g7
+    ingress.kubernetes.io/redirect-url-map: k8s2-rm-7esui4me-beatball-game-game-729260-ingress-2e6r35g7
+    ingress.kubernetes.io/ssl-cert: mcrt-273949f1-15a8-4639-8d99-df50a48a8848
+    ingress.kubernetes.io/target-proxy: k8s2-tp-7esui4me-beatball-game-game-729260-ingress-2e6r35g7
+    ingress.kubernetes.io/url-map: k8s2-um-7esui4me-beatball-game-game-729260-ingress-2e6r35g7
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: beatball-ip
+    networking.gke.io/managed-certificates: game-managed-cert
+    networking.gke.io/v1beta1.FrontendConfig: beatball-frontend-config
+  creationTimestamp: "2025-01-16T08:32:09Z"
+  finalizers:
+  - networking.gke.io/ingress-finalizer-V2
+  generation: 1
+  labels:
+    app: game-729260
+    managed-by: beatball
+  name: game-729260-ingress
+  namespace: beatball-game
+  resourceVersion: "10076903"
+  uid: ca19aa74-babe-4eb6-8c52-5fcf024f2f02
+spec:
+  rules:
+  - host: beatball.xyz
+    http:
+      paths:
+      - backend:
+          service:
+            name: game-729260-service
+            port:
+              number: 8000
+        path: /game/game-729260
+        pathType: Prefix
+      - backend:
+          service:
+            name: game-729260-service
+            port:
+              number: 8000
+        path: /game/game-729260/socket.io
+        pathType: Prefix
+status:
+  loadBalancer:
+    ingress:
+    - ip: 34.36.213.75
