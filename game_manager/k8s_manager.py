@@ -138,14 +138,15 @@ class K8sGameManager:
                 "annotations": {
                     "kubernetes.io/ingress.class": "gce",
                     "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config"
+                    "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                    "cert-manager.io/cluster-issuer": "letsencrypt-prod"
                 }
             },
             "spec": {
                 "tls": [
                     {
                         "hosts": ["beatball.xyz"],
-                        "secretName": "beatball-tls-secret"  # This refers to the secret we created
+                        "secretName": "beatball-tls-cert"
                     }
                 ],
                 "rules": [
