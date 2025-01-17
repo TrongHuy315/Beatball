@@ -310,7 +310,7 @@ class K8sGameManager:
             print(f"Service created: {service.metadata.name}")
 
             # Only create ingress if update_ingress is False
-            if not self.update_ingress:
+            if self.update_ingress:
                 ingress = self.networking_v1.create_namespaced_ingress(
                     namespace=self.namespace,
                     body=self._create_ingress_spec(server_name, labels)
@@ -319,7 +319,7 @@ class K8sGameManager:
 
             self._wait_for_pod_ready(server_name)
 
-            if not self.update_ingress:
+            if self.update_ingress:
                 ip = self._wait_for_ingress_ip(f"{server_name}-ingress")
                 print(f"Ingress {server_name} has IP: {ip}")
 
@@ -327,7 +327,7 @@ class K8sGameManager:
                 'server_url': f"https://beatball.xyz/game/{server_name}",
                 'deployment_name': server_name,
                 'service_name': f"{server_name}-service",
-                'ingress_name': f"{server_name}-ingress" if not self.update_ingress else None
+                'ingress_name': f"{server_name}-ingress" if self.update_ingress else None
             }
 
         except Exception as e:
@@ -642,7 +642,7 @@ class K8sGameManager:
                 print(f"Error deleting backend configs: {e}")
 
             # 4. Only delete ingresses if update_ingress is False
-            if not self.update_ingress:
+            if self.update_ingress:
                 try:
                     ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
                     for ing in ingresses.items:
@@ -688,7 +688,7 @@ class K8sGameManager:
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
                 resources_exist = len(deployments.items) > 0 or len(services.items) > 1
                 
-                if not self.update_ingress:
+                if self.update_ingress:
                     ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
                     resources_exist = resources_exist or len(ingresses.items) > 0
 
