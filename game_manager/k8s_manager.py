@@ -17,27 +17,109 @@ class K8sGameManager:
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
         
-        # Update property flags
         self.update_ingress = True
         self.update_frontend = True 
         self.update_backend = True
+        self.update_namespace = True
 
-        # Khởi tạo K8s client
         self.configure_k8s()
 
-        # Create namespace
-        self.create_namespace()
-        
-        # Create resources based on update flags
-        if self.update_ingress:
-            self.create_main_ingress_with_fixed_path()
+    def update_configurations(self):
+        """
+        Creates or updates all Kubernetes configurations and verifies them
+        """
+        try:
+            # Create namespace first if enabled
+            if self.update_namespace:
+                try:
+                    existing_ns = self.core_v1.read_namespace(name=self.namespace)
+                    print(f"Namespace {self.namespace} already exists")
+                except client.exceptions.ApiException as e:
+                    if e.status == 404:
+                        # Create namespace if it doesn't exist
+                        self.create_namespace()
+                    else:
+                        raise
+                    
+            # Create backend config if enabled
+            if self.update_backend:
+                try:
+                    self.create_backend_config("service-backend")
+                    print("Backend config created/verified")
+                except Exception as e:
+                    print(f"Error creating backend config: {e}")
+                    raise
+
+            # Create frontend config if enabled
+            if self.update_frontend:
+                try:
+                    self.create_frontend_config()
+                    print("Frontend config created/verified")
+                except Exception as e:
+                    print(f"Error creating frontend config: {e}")
+                    raise
+
+            # Create ingress if enabled
+            if self.update_ingress:
+                try:
+                    self.create_main_ingress_with_fixed_path()
+                    print("Ingress created/verified")
+                except Exception as e:
+                    print(f"Error creating ingress: {e}")
+                    raise
+
+            # Verify all configurations
+            self.verify_all_configurations()
+
+        except Exception as e:
+            print(f"Error in update_configurations: {e}")
+            raise
+
+    def verify_all_configurations(self):
+        """Verifies all created resources"""
+        try:
+            # Check namespace
+            if self.update_namespace:
+                ns = self.core_v1.read_namespace(self.namespace)
+                print(f"Verified namespace: {self.namespace}")
+
+            # Check backend config
+            if self.update_backend:
+                bc = self.custom_objects_api.get_namespaced_custom_object(
+                    group="cloud.google.com",
+                    version="v1",
+                    namespace=self.namespace,
+                    plural="backendconfigs",
+                    name="service-backend"
+                )
+                print("Verified backend config")
+
+            # Check frontend config
+            if self.update_frontend:
+                fc = self.custom_objects_api.get_namespaced_custom_object(
+                    group="networking.gke.io",
+                    version="v1beta1",
+                    namespace=self.namespace,
+                    plural="frontendconfigs",
+                    name="ingress-frontend-config"
+                )
+                print("Verified frontend config")
+
+            # Check ingress
+            if self.update_ingress:
+                ingress = self.networking_v1.read_namespaced_ingress(
+                    name=self.main_ingress_name,
+                    namespace=self.namespace
+                )
+                print(f"Verified ingress: {self.main_ingress_name}")
+
+            print("All configurations verified successfully")
+            return True
+
+        except Exception as e:
+            print(f"Configuration verification failed: {e}")
+            raise
             
-        if self.update_frontend:
-            self.create_frontend_config()
-            
-        if self.update_backend:
-            self.create_backend_config("service-backend")
-    
     def create_frontend_config(self):
         try:
             frontend_config = self._create_frontend_config()
@@ -687,6 +769,15 @@ class K8sGameManager:
                     break
 
                 eventlet.sleep(2)
+            
+            # 7. Update configurations after cleanup
+            print("Recreating configurations...")
+            try:
+                self.update_configurations()
+                print("Configurations updated successfully after cleanup")
+            except Exception as e:
+                print(f"Error updating configurations after cleanup: {e}")
+                raise
 
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
