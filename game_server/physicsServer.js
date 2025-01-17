@@ -11,6 +11,7 @@ const SOCKET_PATH = process.env.SOCKET_PATH || '/socket.io';
 process.stdout.write(`Server configured with SOCKET_PATH: ${SOCKET_PATH}\n`);
 const app = express();
 const http = require('http').createServer(app);
+const debug = require('debug')('socket.io:server');
 const io = require('socket.io')(http, {
     cors: {
         origin: "https://beatball.xyz",
@@ -33,6 +34,24 @@ const io = require('socket.io')(http, {
         res.end();
     }
 });
+io.engine.on('connection_error', (err) => {
+    console.log('Connection error:', {
+        req: err.req,
+        code: err.code,
+        message: err.message,
+        context: err.context
+    });
+});
+io.engine.use((req, res, next) => {
+    console.log('Socket.IO Request:', {
+        url: req.url,
+        method: req.method,
+        headers: req.headers,
+        query: req.query
+    });
+    next();
+});
+
 app.get('/debug/socket-path', (req, res) => {
     res.send(`Current socket path: ${SOCKET_PATH}`);
 });
@@ -288,10 +307,31 @@ class PhysicsEngine {
 
         io.on('connection', (socket) => {            
             console.log('Client connected:', socket.clientId);
-    
-            socket.on('error', (error) => {
-                console.error('Socket error:', error);
+            console.log('New connection attempt:', {
+                id: socket.id,
+                handshake: {
+                    headers: socket.handshake.headers,
+                    query: socket.handshake.query,
+                    auth: socket.handshake.auth
+                },
+                transport: socket.conn.transport.name
             });
+            socket.on('error', (error) => {
+                console.error('Socket error:', {
+                    socketId: socket.id,
+                    error: error.message,
+                    stack: error.stack
+                });
+            });
+        
+            socket.conn.on('upgrade', (transport) => {
+                console.log('Transport upgraded:', {
+                    socketId: socket.id,
+                    from: socket.conn.transport.name,
+                    to: transport.name
+                });
+            });
+
             const clientId = socket.clientId;
             socket.on('requestJoin', () => {
                 if (this.players.has(clientId)) {
