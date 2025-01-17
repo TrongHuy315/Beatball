@@ -332,7 +332,7 @@ class K8sGameManager:
 
         except Exception as e:
             print(f"Error creating game server: {e}")
-            self.cleanup_game_resources(server_name)
+            # self.cleanup_game_resources(server_name)
             raise
         
     def _remove_default_path_if_necessary(self):

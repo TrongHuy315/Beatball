@@ -387,6 +387,8 @@ class PhysicsEngine {
             }); 
             socket.on('ready', () => {
                 this.playerReady++; 
+                process.stdout.write("Physic engine run with 2 allowed connection\n", this.player);
+                process.stdout.write("Number of required players: ", this.requiredPlayers);
                 if (this.playerReady == this.requiredPlayers) {
                     this.startGame(); 
                 }

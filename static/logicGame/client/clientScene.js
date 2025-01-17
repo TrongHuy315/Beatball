@@ -287,6 +287,7 @@ class ClientScene extends Phaser.Scene {
                 this.scoreboard.updateScore('left', data.scores.left);
                 this.scoreboard.updateScore('right', data.scores.right);
             }
+            console.log("Player ready"); 
             socket.emit('ready'); 
         });
 
