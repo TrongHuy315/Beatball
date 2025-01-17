@@ -163,7 +163,7 @@ class K8sGameManager:
                 raise
             
     def create_main_ingress(self):
-        """Creates the main ingress with default backend only"""
+        """Creates the main ingress with specific path rule only"""
         try:
             ingress_spec = {
                 "apiVersion": "networking.k8s.io/v1",
@@ -185,14 +185,25 @@ class K8sGameManager:
                             "secretName": "beatball-tls-cert"
                         }
                     ],
-                    "defaultBackend": {
-                        "service": {
-                            "name": "default-backend",
-                            "port": {
-                                "number": 80
+                    "rules": [
+                        {
+                            "host": "beatball.xyz",
+                            "http": {
+                                "paths": [
+                                    {
+                                        "path": "/game/game-test--11111",
+                                        "pathType": "Prefix",
+                                        "backend": {
+                                            "service": {
+                                                "name": "default-backend",
+                                                "port": {"number": 80}
+                                            }
+                                        }
+                                    }
+                                ]
                             }
                         }
-                    }
+                    ]
                 }
             }
 
