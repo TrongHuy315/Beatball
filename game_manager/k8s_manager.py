@@ -173,6 +173,16 @@ class K8sGameManager:
                                             "port": {"number": 8000}
                                         }
                                     }
+                                }, 
+                                {
+                                    "path": "/socket.io",  # Add this new path
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{name}-service",
+                                            "port": {"number": 8000}
+                                        }
+                                    }
                                 }
                             ]
                         }
