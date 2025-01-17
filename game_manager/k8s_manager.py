@@ -449,14 +449,14 @@ class K8sGameManager:
             raise
     
     def _add_game_path_to_ingress(self, ingress_path, service_name):
-        """Adds paths to the shared Ingress matching the format in create_ingress_spec"""
+        """Adds game-specific paths to the shared Ingress"""
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
 
-            # Create all required paths for this game service
+            # Create required paths for this game service - removed standalone /socket.io
             new_paths = [
                 {
                     'path': ingress_path,
@@ -477,16 +477,6 @@ class K8sGameManager:
                             'port': {'number': 8000}
                         }
                     }
-                },
-                {
-                    'path': "/socket.io",
-                    'pathType': 'Prefix',
-                    'backend': {
-                        'service': {
-                            'name': service_name,
-                            'port': {'number': 8000}
-                        }
-                    }
                 }
             ]
 
@@ -499,7 +489,7 @@ class K8sGameManager:
             if not rule.http:
                 rule.http = client.V1HTTPIngressRuleValue(paths=[])
 
-            # Add all new paths
+            # Add new paths
             for new_path in new_paths:
                 rule.http.paths.append(new_path)
 
@@ -970,7 +960,7 @@ class K8sGameManager:
 
 
     def _remove_game_path_from_ingress(self, ingress_path):
-        """Removes all paths related to a game service from the shared Ingress"""
+        """Removes game-specific paths from the shared Ingress"""
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
@@ -986,11 +976,10 @@ class K8sGameManager:
                 print("Shared Ingress has no HTTP paths, nothing to remove.")
                 return
 
-            # Define all paths that need to be removed
+            # Define paths that need to be removed - removed standalone /socket.io
             paths_to_remove = {
                 ingress_path,
-                f"{ingress_path}/socket.io",
-                "/socket.io"
+                f"{ingress_path}/socket.io"
             }
 
             # Filter out the paths we want to remove
@@ -1010,7 +999,7 @@ class K8sGameManager:
                 body=current_ingress
             )
 
-            print(f"Successfully removed all paths for '{ingress_path}' from the shared Ingress")
+            print(f"Successfully removed paths for '{ingress_path}' from the shared Ingress")
 
         except client.exceptions.ApiException as e:
             if e.status == 404:
