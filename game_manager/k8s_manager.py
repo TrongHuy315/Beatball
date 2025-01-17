@@ -214,8 +214,8 @@ class K8sGameManager:
             "kind": "BackendConfig",
             "metadata": {
                 "name": f"{name}-backend-config",
-                "namespace": self.namespace, 
-                "labels": labels, 
+                "namespace": self.namespace,
+                "labels": labels,
             },
             "spec": {
                 "timeoutSec": 3600,
@@ -237,11 +237,21 @@ class K8sGameManager:
                 },
                 "customRequestHeaders": {
                     "headers": [
-                        "Upgrade: websocket",
-                        "Connection: upgrade",
-                        "Sec-WebSocket-Key: websocket",
-                        "Sec-WebSocket-Version: 13"
+                        "Upgrade: $http_upgrade",
+                        "Connection: $connection_upgrade",
+                        "X-Forwarded-For: $remote_addr",
+                        "X-Real-IP: $remote_addr",
+                        "X-Forwarded-Proto: https"
                     ]
+                },
+                "logging": {
+                    "enable": True
+                },
+                "securityPolicy": {
+                    "name": "websocket-security-policy"
+                },
+                "iap": {
+                    "enabled": False
                 }
             }
         }
