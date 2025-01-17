@@ -17,10 +17,10 @@ class K8sGameManager:
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
         
-        self.update_ingress = True
-        self.update_frontend = True 
-        self.update_backend = True
-        self.update_namespace = True
+        self.update_ingress = False
+        self.update_frontend = False
+        self.update_backend = False
+        self.update_namespace = False
 
         self.configure_k8s()
 
@@ -449,52 +449,73 @@ class K8sGameManager:
             raise
     
     def _add_game_path_to_ingress(self, ingress_path, service_name):
-        """
-        Dynamically adds a path for the given service to the shared Ingress (self.main_ingress_name).
-        E.g. ingress_path="/game/game-12345", service_name="game-12345-service"
-        """
-        import time
+        """Adds paths to the shared Ingress matching the format in create_ingress_spec"""
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
 
-            new_path = {
-                'path': ingress_path,
-                'pathType': 'Prefix',
-                'backend': {
-                    'service': {
-                        'name': service_name,
-                        'port': {
-                            'number': 8000
+            # Create all required paths for this game service
+            new_paths = [
+                {
+                    'path': ingress_path,
+                    'pathType': 'Prefix',
+                    'backend': {
+                        'service': {
+                            'name': service_name,
+                            'port': {'number': 8000}
+                        }
+                    }
+                },
+                {
+                    'path': f"{ingress_path}/socket.io",
+                    'pathType': 'Prefix',
+                    'backend': {
+                        'service': {
+                            'name': service_name,
+                            'port': {'number': 8000}
+                        }
+                    }
+                },
+                {
+                    'path': "/socket.io",
+                    'pathType': 'Prefix',
+                    'backend': {
+                        'service': {
+                            'name': service_name,
+                            'port': {'number': 8000}
                         }
                     }
                 }
-            }
+            ]
 
             rule = None
             if current_ingress.spec and current_ingress.spec.rules:
-                # We assume the first rule is the primary
                 rule = current_ingress.spec.rules[0]
             else:
                 raise Exception("Shared Ingress has no rules defined.")
 
             if not rule.http:
-                raise Exception("Shared Ingress rule has no HTTP paths defined.")
+                rule.http = client.V1HTTPIngressRuleValue(paths=[])
 
-            if not rule.http.paths:
-                rule.http.paths = []
+            # Add all new paths
+            for new_path in new_paths:
+                rule.http.paths.append(new_path)
 
-            # Add our new path
-            rule.http.paths.append(new_path)
-
-            # Add WebSocket-friendly annotations if not already present
+            # Ensure required annotations are present
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
-            current_ingress.metadata.annotations["ingress.kubernetes.io/backend-protocol"] = "HTTP"
-            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-read-timeout"] = "3600"
-            current_ingress.metadata.annotations["ingress.kubernetes.io/proxy-send-timeout"] = "3600"
+                
+            current_ingress.metadata.annotations.update({
+                "kubernetes.io/ingress.class": "gce",
+                "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
+                "networking.gke.io/v1beta1.FrontendConfig": "ingress-frontend-config",
+                "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+                "ingress.kubernetes.io/backend-protocol": "HTTP",
+                "ingress.kubernetes.io/proxy-read-timeout": "3600",
+                "ingress.kubernetes.io/proxy-send-timeout": "3600"
+            })
 
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
@@ -502,12 +523,12 @@ class K8sGameManager:
                 body=current_ingress
             )
 
-            print(f"Added path '{ingress_path}' to the shared Ingress {self.main_ingress_name}")
+            print(f"Added paths for '{ingress_path}' to the shared Ingress {self.main_ingress_name}")
 
         except Exception as e:
-            print(f"Error adding path to ingress: {e}")
+            print(f"Error adding paths to ingress: {e}")
             raise
-    
+
     def _wait_for_pod_ready(self, deployment_name, timeout=120):
         """Đợi cho đến khi pod trong deployment sẵn sàng"""
         import time
@@ -925,11 +946,7 @@ class K8sGameManager:
 
 
     def _remove_game_path_from_ingress(self, ingress_path):
-        """
-        Dynamically removes a path from the shared Ingress (self.main_ingress_name).
-        Ingress_path is the exact path string, e.g. "/game/game-12345"
-        or "/game/game-12345--99999".
-        """
+        """Removes all paths related to a game service from the shared Ingress"""
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
@@ -945,12 +962,20 @@ class K8sGameManager:
                 print("Shared Ingress has no HTTP paths, nothing to remove.")
                 return
 
+            # Define all paths that need to be removed
+            paths_to_remove = {
+                ingress_path,
+                f"{ingress_path}/socket.io",
+                "/socket.io"
+            }
+
+            # Filter out the paths we want to remove
             new_paths = []
-            for p in rule.http.paths:
-                if p.path == ingress_path:
-                    print(f"Removing path '{p.path}' from the shared Ingress.")
+            for path in rule.http.paths:
+                if path.path not in paths_to_remove:
+                    new_paths.append(path)
                 else:
-                    new_paths.append(p)
+                    print(f"Removing path '{path.path}' from the shared Ingress")
 
             rule.http.paths = new_paths
 
@@ -961,13 +986,17 @@ class K8sGameManager:
                 body=current_ingress
             )
 
+            print(f"Successfully removed all paths for '{ingress_path}' from the shared Ingress")
+
         except client.exceptions.ApiException as e:
             if e.status == 404:
-                print("Shared Ingress does not exist, so no path to remove.")
+                print("Shared Ingress does not exist, so no paths to remove.")
             else:
-                print(f"Error removing path from ingress: {e}")
-        except Exception as ex:
-            print(f"Unexpected error in _remove_game_path_from_ingress: {ex}")
+                print(f"Error removing paths from ingress: {e}")
+                raise
+        except Exception as e:
+            print(f"Unexpected error in _remove_game_path_from_ingress: {e}")
+            raise
 
     def cleanup_game_resources(self, server_name, ingress_path=None):
         """
