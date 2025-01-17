@@ -651,45 +651,35 @@ class K8sGameManager:
         }
 
     def create_default_backend(self):
-        """Creates a minimal default backend deployment and service if they don't exist"""
+        """Creates a minimal default backend deployment and service"""
         try:
-            # Check if default backend deployment and service already exist
-            try:
-                existing_deployment = self.apps_v1.read_namespaced_deployment(
-                    name="default-backend",
-                    namespace=self.namespace
-                )
-                existing_service = self.core_v1.read_namespaced_service(
-                    name="default-backend",
-                    namespace=self.namespace
-                )
-                print("Default backend deployment and service already exist")
-                return  # Exit if both exist
-            except client.exceptions.ApiException as e:
-                if e.status != 404:  # If error is not "Not Found"
-                    raise
-                # Continue with creation if 404 (Not Found)
-
-            # Simple service definition
+            # Service definition with proper health check annotations
             service = {
                 "apiVersion": "v1",
                 "kind": "Service",
                 "metadata": {
                     "name": "default-backend",
-                    "namespace": self.namespace
+                    "namespace": self.namespace,
+                    "annotations": {
+                        "cloud.google.com/neg": '{"ingress": true}',
+                        "cloud.google.com/backend-config": '{"default": "service-backend"}'
+                    }
                 },
                 "spec": {
                     "ports": [{
+                        "name": "http",
                         "port": 80,
-                        "targetPort": 8080
+                        "targetPort": 8080,
+                        "protocol": "TCP"
                     }],
                     "selector": {
                         "app": "default-backend"
-                    }
+                    },
+                    "type": "ClusterIP"
                 }
             }
 
-            # Simple deployment definition
+            # Deployment definition with proper probes
             deployment = {
                 "apiVersion": "apps/v1",
                 "kind": "Deployment",
@@ -718,16 +708,38 @@ class K8sGameManager:
                                 "name": "default-backend",
                                 "image": "k8s.gcr.io/defaultbackend:1.4",
                                 "ports": [{
-                                    "containerPort": 8080
+                                    "name": "http",
+                                    "containerPort": 8080,
+                                    "protocol": "TCP"
                                 }],
+                                "readinessProbe": {
+                                    "httpGet": {
+                                        "path": "/healthz",
+                                        "port": 8080,
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 10,
+                                    "periodSeconds": 5,
+                                    "timeoutSeconds": 5
+                                },
+                                "livenessProbe": {
+                                    "httpGet": {
+                                        "path": "/healthz",
+                                        "port": 8080,
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 15,
+                                    "periodSeconds": 10,
+                                    "timeoutSeconds": 5
+                                },
                                 "resources": {
                                     "requests": {
-                                        "cpu": "10m",
-                                        "memory": "20Mi"
+                                        "cpu": "100m",
+                                        "memory": "50Mi"
                                     },
                                     "limits": {
-                                        "cpu": "10m",
-                                        "memory": "20Mi"
+                                        "cpu": "100m",
+                                        "memory": "50Mi"
                                     }
                                 }
                             }]
@@ -736,31 +748,48 @@ class K8sGameManager:
                 }
             }
 
-            # Create deployment and service only if they don't exist
+            # Create or update deployment and service
             try:
-                # Try to create deployment
                 try:
-                    self.apps_v1.create_namespaced_deployment(
-                        namespace=self.namespace,
-                        body=deployment
+                    self.apps_v1.delete_namespaced_deployment(
+                        name="default-backend",
+                        namespace=self.namespace
                     )
-                    print("Created default backend deployment")
+                    print("Deleted existing default backend deployment")
                 except client.exceptions.ApiException as e:
-                    if e.status != 409:  # Ignore if already exists
+                    if e.status != 404:  # Ignore if not found
                         raise
-                    print("Default backend deployment already exists")
 
-                # Try to create service
                 try:
-                    self.core_v1.create_namespaced_service(
-                        namespace=self.namespace,
-                        body=service
+                    self.core_v1.delete_namespaced_service(
+                        name="default-backend",
+                        namespace=self.namespace
                     )
-                    print("Created default backend service")
+                    print("Deleted existing default backend service")
                 except client.exceptions.ApiException as e:
-                    if e.status != 409:  # Ignore if already exists
+                    if e.status != 404:  # Ignore if not found
                         raise
-                    print("Default backend service already exists")
+
+                # Wait for resources to be deleted
+                import time
+                time.sleep(5)
+
+                # Create new resources
+                self.apps_v1.create_namespaced_deployment(
+                    namespace=self.namespace,
+                    body=deployment
+                )
+                print("Created default backend deployment")
+
+                self.core_v1.create_namespaced_service(
+                    namespace=self.namespace,
+                    body=service
+                )
+                print("Created default backend service")
+
+                # Wait for deployment to be ready
+                self._wait_for_pod_ready("default-backend")
+                print("Default backend is ready")
 
             except Exception as e:
                 print(f"Error creating default backend resources: {str(e)}")
@@ -769,7 +798,6 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error in create_default_backend: {str(e)}")
             raise
-
     def _create_service_spec(self, name, labels):
         return {
             "apiVersion": "v1",
