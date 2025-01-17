@@ -836,7 +836,7 @@ class K8sGameManager:
         """Dọn dẹp tất cả resources trong namespace"""
         try:
             print("Cleaning up all resources in namespace...")
-
+    
             # 1. Always clean deployments
             try:
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
@@ -954,6 +954,13 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error updating configurations after cleanup: {e}")
                 raise
+
+            # 8. Clear all paths from main ingress first if update_ingress is True
+            if self.update_ingress:
+                try:
+                    self._clear_ingress_paths()
+                except Exception as e:
+                    print(f"Error clearing ingress paths: {e}")
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
@@ -1044,7 +1051,58 @@ class K8sGameManager:
                 self._remove_game_path_from_ingress(ingress_path)
             except Exception as e:
                 print(f"Error removing Ingress path {ingress_path}: {e}")
+    def _clear_ingress_paths(self):
+        """Removes all paths from the main ingress before deletion"""
+        try:
+            current_ingress = self.networking_v1.read_namespaced_ingress(
+                name=self.main_ingress_name,
+                namespace=self.namespace
+            )
 
+            if not current_ingress.spec or not current_ingress.spec.rules:
+                print("Main Ingress has no rules, nothing to clear.")
+                return
+
+            # Keep only the default backend path
+            default_path = {
+                'path': '/game/game-test--11111',
+                'pathType': 'Prefix',
+                'backend': {
+                    'service': {
+                        'name': 'default-backend',
+                        'port': {'number': 80}
+                    }
+                }
+            }
+
+            # Clear all paths except default
+            if current_ingress.spec.rules[0].http:
+                current_paths = current_ingress.spec.rules[0].http.paths
+                paths_to_remove = [path for path in current_paths 
+                                if path.path != '/game/game-test--11111']
+                
+                if paths_to_remove:
+                    print(f"Clearing {len(paths_to_remove)} paths from main ingress")
+                    current_ingress.spec.rules[0].http.paths = [default_path]
+                    
+                    self.networking_v1.patch_namespaced_ingress(
+                        name=self.main_ingress_name,
+                        namespace=self.namespace,
+                        body=current_ingress
+                    )
+                    print("Successfully cleared all game paths from main ingress")
+                else:
+                    print("No additional paths to clear from main ingress")
+
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                print("Main Ingress does not exist, no paths to clear")
+            else:
+                print(f"Error clearing ingress paths: {e}")
+                raise
+        except Exception as e:
+            print(f"Unexpected error clearing ingress paths: {e}")
+            raise
     def monitor_game(self, room_id):
         try:
             server_name = f"game-{room_id}"
