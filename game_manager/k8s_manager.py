@@ -184,13 +184,7 @@ class K8sGameManager:
                                 "paths": [
                                     {
                                         "path": f"/game/{fixed_path}",
-                                        "pathType": "Prefix",
-                                        "backend": {
-                                            "service": {
-                                                "name": f"{fixed_path}-service",
-                                                "port": {"number": 8000}
-                                            }
-                                        }
+                                        "pathType": "Prefix"
                                     }
                                 ]
                             }
