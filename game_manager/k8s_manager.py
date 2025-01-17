@@ -956,11 +956,10 @@ class K8sGameManager:
                 raise
 
             # 8. Clear all paths from main ingress first if update_ingress is True
-            if self.update_ingress:
-                try:
-                    self._clear_ingress_paths()
-                except Exception as e:
-                    print(f"Error clearing ingress paths: {e}")
+            try:
+                self._clear_ingress_paths()
+            except Exception as e:
+                print(f"Error clearing ingress paths: {e}")
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
