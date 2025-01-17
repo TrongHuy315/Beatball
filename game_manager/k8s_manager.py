@@ -41,6 +41,14 @@ class K8sGameManager:
                     else:
                         raise
                     
+            # Create default backend first
+            try:
+                self.create_default_backend()
+                print("Default backend created/verified")
+            except Exception as e:
+                print(f"Error creating default backend: {e}")
+                raise
+            
             # Create backend config if enabled
             if self.update_backend:
                 try:
@@ -62,7 +70,7 @@ class K8sGameManager:
             # Create ingress if enabled
             if self.update_ingress:
                 try:
-                    self.create_main_ingress_with_fixed_path()
+                    self.create_main_ingress()
                     print("Ingress created/verified")
                 except Exception as e:
                     print(f"Error creating ingress: {e}")
@@ -154,9 +162,9 @@ class K8sGameManager:
             else:
                 raise
             
-    def create_main_ingress_with_fixed_path(self):
+    def create_main_ingress(self):
+        """Creates the main ingress with default backend only"""
         try:
-            fixed_path = "game-test--11111"  # Fixed path
             ingress_spec = {
                 "apiVersion": "networking.k8s.io/v1",
                 "kind": "Ingress",
@@ -184,30 +192,10 @@ class K8sGameManager:
                                 "number": 80
                             }
                         }
-                    },
-                    "rules": [
-                        {
-                            "host": "beatball.xyz",
-                            "http": {
-                                "paths": [
-                                    {
-                                        "path": f"/game/{fixed_path}",
-                                        "pathType": "Prefix",
-                                        "backend": {
-                                            "service": {
-                                                "name": "default-backend",
-                                                "port": {
-                                                    "number": 80
-                                                }
-                                            }
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
+                    }
                 }
             }
+
             try:
                 # Validate required attributes
                 if not self.main_ingress_name or not self.namespace:
@@ -217,7 +205,7 @@ class K8sGameManager:
                     namespace=self.namespace,
                     body=ingress_spec
                 )
-                print(f"Created main ingress with fixed path /game/{fixed_path}")
+                print(f"Created main ingress")
                 return response
 
             except client.exceptions.ApiException as e:
@@ -228,7 +216,7 @@ class K8sGameManager:
                             namespace=self.namespace,
                             body=ingress_spec
                         )
-                        print(f"Updated main ingress with fixed path /game/{fixed_path}")
+                        print(f"Updated main ingress")
                         return response
                     except client.exceptions.ApiException as patch_e:
                         print(f"Error patching ingress: {patch_e}")
@@ -629,6 +617,126 @@ class K8sGameManager:
                 }
             }
         }
+
+    def create_default_backend(self):
+        """Creates a minimal default backend deployment and service if they don't exist"""
+        try:
+            # Check if default backend deployment and service already exist
+            try:
+                existing_deployment = self.apps_v1.read_namespaced_deployment(
+                    name="default-backend",
+                    namespace=self.namespace
+                )
+                existing_service = self.core_v1.read_namespaced_service(
+                    name="default-backend",
+                    namespace=self.namespace
+                )
+                print("Default backend deployment and service already exist")
+                return  # Exit if both exist
+            except client.exceptions.ApiException as e:
+                if e.status != 404:  # If error is not "Not Found"
+                    raise
+                # Continue with creation if 404 (Not Found)
+
+            # Simple service definition
+            service = {
+                "apiVersion": "v1",
+                "kind": "Service",
+                "metadata": {
+                    "name": "default-backend",
+                    "namespace": self.namespace
+                },
+                "spec": {
+                    "ports": [{
+                        "port": 80,
+                        "targetPort": 8080
+                    }],
+                    "selector": {
+                        "app": "default-backend"
+                    }
+                }
+            }
+
+            # Simple deployment definition
+            deployment = {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "metadata": {
+                    "name": "default-backend",
+                    "namespace": self.namespace,
+                    "labels": {
+                        "app": "default-backend"
+                    }
+                },
+                "spec": {
+                    "replicas": 1,
+                    "selector": {
+                        "matchLabels": {
+                            "app": "default-backend"
+                        }
+                    },
+                    "template": {
+                        "metadata": {
+                            "labels": {
+                                "app": "default-backend"
+                            }
+                        },
+                        "spec": {
+                            "containers": [{
+                                "name": "default-backend",
+                                "image": "k8s.gcr.io/defaultbackend:1.4",
+                                "ports": [{
+                                    "containerPort": 8080
+                                }],
+                                "resources": {
+                                    "requests": {
+                                        "cpu": "10m",
+                                        "memory": "20Mi"
+                                    },
+                                    "limits": {
+                                        "cpu": "10m",
+                                        "memory": "20Mi"
+                                    }
+                                }
+                            }]
+                        }
+                    }
+                }
+            }
+
+            # Create deployment and service only if they don't exist
+            try:
+                # Try to create deployment
+                try:
+                    self.apps_v1.create_namespaced_deployment(
+                        namespace=self.namespace,
+                        body=deployment
+                    )
+                    print("Created default backend deployment")
+                except client.exceptions.ApiException as e:
+                    if e.status != 409:  # Ignore if already exists
+                        raise
+                    print("Default backend deployment already exists")
+
+                # Try to create service
+                try:
+                    self.core_v1.create_namespaced_service(
+                        namespace=self.namespace,
+                        body=service
+                    )
+                    print("Created default backend service")
+                except client.exceptions.ApiException as e:
+                    if e.status != 409:  # Ignore if already exists
+                        raise
+                    print("Default backend service already exists")
+
+            except Exception as e:
+                print(f"Error creating default backend resources: {str(e)}")
+                raise
+
+        except Exception as e:
+            print(f"Error in create_default_backend: {str(e)}")
+            raise
 
     def _create_service_spec(self, name, labels):
         return {
