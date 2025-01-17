@@ -105,7 +105,7 @@ class PhysicsEngine {
         this.playerReady = 0; 
         // ----- CELEBRATING / SCOREBOARD ----- 
         this.gameStarted = false; 
-        this.requiredPlayers = 3; 
+        this.requiredPlayers = totalConnection; 
         this.scores = {
             left: 0,
             right: 0

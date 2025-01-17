@@ -85,6 +85,7 @@ class PlayerController {
 	// CREATE PHYSIC / GRAPHIC PHASER 
 	createGraphics() {
         if (!this.scene.textures.exists('player')) {
+            console.log("Draw player graphic"); 
             const { fillColor, borderColor, borderWidth, radius, numberConfig, nameConfig} = this.config.graphic;
 
             const diameter = (radius * 2);

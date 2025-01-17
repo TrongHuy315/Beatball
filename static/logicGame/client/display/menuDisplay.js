@@ -14,9 +14,8 @@ class MenuDisplay {
         this.canvas.style.display = 'none'; 
 
         this.setupKeyboardEvents();
-        // Kích thước và vị trí của main block (Block A)
         this.mainBlock = {
-            width: 600,  // Thu nhỏ lại
+            width: 600,  
             height: 190,
             x: (window.innerWidth - 600) / 2,
             y: (window.innerHeight - 300) / 2,
@@ -26,7 +25,7 @@ class MenuDisplay {
         this.perfBlock = {
             width: 150,
             height: 80,
-            x: this.mainBlock.x - 160, // Giảm khoảng cách
+            x: this.mainBlock.x - 160, 
             y: this.mainBlock.y
         };
 
@@ -105,17 +104,6 @@ class MenuDisplay {
             iconBlockHeight,
             8
         );
-    
-        // Debug logging
-        console.log('Drawing icons at:', {
-            settings: {x: this.icons.settings.x, y: this.icons.settings.y},
-            leave: {x: this.icons.leave.x, y: this.icons.leave.y}
-        });
-        console.log('Leave icon status:', {
-            complete: this.leaveIcon.complete,
-            naturalHeight: this.leaveIcon.naturalHeight,
-            src: this.leaveIcon.src
-        });
     
         // Settings icon
         if (this.settingIcon && this.settingIcon.complete && this.settingIcon.naturalHeight !== 0) {
