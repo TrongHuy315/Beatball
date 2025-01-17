@@ -156,7 +156,7 @@ class K8sGameManager:
             
     def create_main_ingress_with_fixed_path(self):
         try:
-            fixed_path = "game-test--11111"  # Fixed path with -11111
+            fixed_path = "game-test--11111"  # Fixed path
             ingress_spec = {
                 "apiVersion": "networking.k8s.io/v1",
                 "kind": "Ingress",
@@ -177,6 +177,14 @@ class K8sGameManager:
                             "secretName": "beatball-tls-cert"
                         }
                     ],
+                    "defaultBackend": {
+                        "service": {
+                            "name": "default-backend",
+                            "port": {
+                                "number": 80
+                            }
+                        }
+                    },
                     "rules": [
                         {
                             "host": "beatball.xyz",
@@ -184,7 +192,15 @@ class K8sGameManager:
                                 "paths": [
                                     {
                                         "path": f"/game/{fixed_path}",
-                                        "pathType": "Prefix"
+                                        "pathType": "Prefix",
+                                        "backend": {
+                                            "service": {
+                                                "name": "default-backend",
+                                                "port": {
+                                                    "number": 80
+                                                }
+                                            }
+                                        }
                                     }
                                 ]
                             }
@@ -192,26 +208,37 @@ class K8sGameManager:
                     ]
                 }
             }
-
             try:
-                self.networking_v1.create_namespaced_ingress(
+                # Validate required attributes
+                if not self.main_ingress_name or not self.namespace:
+                    raise ValueError("main_ingress_name and namespace must be set")
+
+                response = self.networking_v1.create_namespaced_ingress(
                     namespace=self.namespace,
                     body=ingress_spec
                 )
                 print(f"Created main ingress with fixed path /game/{fixed_path}")
+                return response
+
             except client.exceptions.ApiException as e:
                 if e.status == 409:  # Already exists
-                    self.networking_v1.patch_namespaced_ingress(
-                        name=self.main_ingress_name,
-                        namespace=self.namespace,
-                        body=ingress_spec
-                    )
-                    print(f"Updated main ingress with fixed path /game/{fixed_path}")
+                    try:
+                        response = self.networking_v1.patch_namespaced_ingress(
+                            name=self.main_ingress_name,
+                            namespace=self.namespace,
+                            body=ingress_spec
+                        )
+                        print(f"Updated main ingress with fixed path /game/{fixed_path}")
+                        return response
+                    except client.exceptions.ApiException as patch_e:
+                        print(f"Error patching ingress: {patch_e}")
+                        raise
                 else:
+                    print(f"API Exception: {e.status} - {e.reason}")
                     raise
 
         except Exception as e:
-            print(f"Error creating/updating main ingress: {e}")
+            print(f"Error creating/updating main ingress: {str(e)}")
             raise
     def create_namespace(self):
         try:
