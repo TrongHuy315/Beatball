@@ -20,13 +20,12 @@ class K8sGameManager:
 
         # Khởi tạo K8s client
         self.configure_k8s()
-
+        
+        self.create_namespace()
         if self.update_ingress:
             # Create the ingress with fixed path -11111
             self.create_main_ingress_with_fixed_path()
         
-        # Tạo namespace
-        self.create_namespace()
     def create_main_ingress_with_fixed_path(self):
         try:
             fixed_path = "game-test--11111"  # Fixed path with -11111
@@ -633,6 +632,18 @@ class K8sGameManager:
                     )
             except Exception as e:
                 print(f"Error deleting ingresses: {e}")
+            # 4. Delete Ingress 
+            if self.update_ingress:
+                try:
+                    ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
+                    for ing in ingresses.items:
+                        print(f"Deleting ingress: {ing.metadata.name}")
+                        self.networking_v1.delete_namespaced_ingress(
+                            name=ing.metadata.name,
+                            namespace=self.namespace
+                        )
+                except Exception as e:
+                    print(f"Error deleting ingresses: {e}")
 
             # 5. Xóa FrontendConfig
             try:
@@ -736,8 +747,8 @@ class K8sGameManager:
         """
         print(f"Cleaning up resources for {server_name}")
 
-        # Remove path from the shared Ingress (if provided)
-        if ingress_path:
+        # Only remove ingress path if update_ingress is True
+        if self.update_ingress and ingress_path:
             try:
                 self._remove_game_path_from_ingress(ingress_path)
             except Exception as e:
