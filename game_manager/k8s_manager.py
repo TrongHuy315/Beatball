@@ -16,7 +16,7 @@ class K8sGameManager:
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
-        self.update_ingress = False 
+        self.update_ingress = True
 
         # Khởi tạo K8s client
         self.configure_k8s()
