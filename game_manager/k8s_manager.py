@@ -16,16 +16,62 @@ class K8sGameManager:
         self.credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
+        
+        # Update property flags
         self.update_ingress = True
+        self.update_frontend = True 
+        self.update_backend = True
 
         # Khởi tạo K8s client
         self.configure_k8s()
-        
+
+        # Create namespace
         self.create_namespace()
-        if self.update_ingress:
-            # Create the ingress with fixed path -11111
-            self.create_main_ingress_with_fixed_path()
         
+        # Create resources based on update flags
+        if self.update_ingress:
+            self.create_main_ingress_with_fixed_path()
+            
+        if self.update_frontend:
+            self.create_frontend_config()
+            
+        if self.update_backend:
+            self.create_backend_config("service-backend")
+    
+    def create_frontend_config(self):
+        try:
+            frontend_config = self._create_frontend_config()
+            self.custom_objects_api.create_namespaced_custom_object(
+                group="networking.gke.io",
+                version="v1beta1",
+                namespace=self.namespace,
+                plural="frontendconfigs",
+                body=frontend_config
+            )
+            print("Frontend config created")
+        except client.exceptions.ApiException as e:
+            if e.status == 409:  # Already exists
+                print("Frontend config already exists")
+            else:
+                raise
+        
+    def create_backend_config(self, name):
+        try:
+            backend_config = self._create_backend_config(name)
+            self.custom_objects_api.create_namespaced_custom_object(
+                group="cloud.google.com",
+                version="v1",
+                namespace=self.namespace,
+                plural="backendconfigs",
+                body=backend_config
+            )
+            print(f"Backend config {name} created")
+        except client.exceptions.ApiException as e:
+            if e.status == 409:  # Already exists
+                print(f"Backend config {name} already exists")
+            else:
+                raise
+            
     def create_main_ingress_with_fixed_path(self):
         try:
             fixed_path = "game-test--11111"  # Fixed path with -11111
@@ -38,7 +84,7 @@ class K8sGameManager:
                     "annotations": {
                         "kubernetes.io/ingress.class": "gce",
                         "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
-                        "networking.gke.io/v1beta1.FrontendConfig": "beatball-frontend-config",
+                        "networking.gke.io/v1beta1.FrontendConfig": "ingress-frontend-config",
                         "cert-manager.io/cluster-issuer": "letsencrypt-prod"
                     }
                 },
@@ -136,15 +182,6 @@ class K8sGameManager:
                 print(f"Error status: {e.status}")
             raise
 
-
-        except Exception as e:
-            print(f"Error in create_namespace: {str(e)}")
-            if hasattr(e, 'body'):
-                print(f"Error body: {e.body}")
-            if hasattr(e, 'status'):
-                print(f"Error status: {e.status}")
-            raise
-
     def configure_k8s(self):
         try:
             # Parse credentials JSON string
@@ -197,7 +234,7 @@ class K8sGameManager:
             "apiVersion": "networking.gke.io/v1beta1",
             "kind": "FrontendConfig",
             "metadata": {
-                "name": "beatball-frontend-config",
+                "name": "ingress-frontend-config",
                 "namespace": self.namespace
             },
             "spec": {
@@ -208,14 +245,13 @@ class K8sGameManager:
             }
         }
         
-    def _create_backend_config(self, name, labels):
+    def _create_backend_config(self, name):
         return {
             "apiVersion": "cloud.google.com/v1",
             "kind": "BackendConfig",
             "metadata": {
-                "name": f"{name}-backend-config",
-                "namespace": self.namespace,
-                "labels": labels,
+                "name": name,
+                "namespace": self.namespace
             },
             "spec": {
                 "timeoutSec": 3600,
@@ -255,7 +291,7 @@ class K8sGameManager:
                 }
             }
         }
-    def create_game_instance(self, room_id, player_data, updateIngress=False):
+    def create_game_instance(self, room_id, player_data):
         """
         Creates a Deployment and Service for a new game instance.
         Instead of creating a separate Ingress object, it adds a path to the
@@ -269,39 +305,6 @@ class K8sGameManager:
                 'managed-by': 'beatball'
             }
             print(f"Creating game server deployment: {server_name}")
-
-            # Check if FrontendConfig exists first
-            try:
-                self.custom_objects_api.get_namespaced_custom_object(
-                    group="networking.gke.io",
-                    version="v1beta1",
-                    namespace=self.namespace,
-                    plural="frontendconfigs",
-                    name="beatball-frontend-config"
-                )
-                print("Frontend config already exists, reusing it")
-            except client.exceptions.ApiException as e:
-                if e.status == 404:
-                    # Only create if it doesn't exist
-                    self.custom_objects_api.create_namespaced_custom_object(
-                        group="networking.gke.io",
-                        version="v1beta1",
-                        namespace=self.namespace,
-                        plural="frontendconfigs",
-                        body=self._create_frontend_config()
-                    )
-                    print("Frontend config created")
-                else:
-                    raise
-
-            # Create a BackendConfig for this server
-            self.custom_objects_api.create_namespaced_custom_object(
-                group="cloud.google.com",
-                version="v1",
-                namespace=self.namespace,
-                plural="backendconfigs",
-                body=self._create_backend_config(server_name, labels)
-            )
 
             # Create Deployment
             deployment = self.apps_v1.create_namespaced_deployment(
@@ -533,8 +536,8 @@ class K8sGameManager:
                 "namespace": self.namespace,
                 "annotations": {
                     "cloud.google.com/neg": '{"ingress": true}',
-                    # Remove the HTTPS protocol since backend is HTTP
-                    "cloud.google.com/backend-config": f'{{"default": "{name}-backend-config"}}'
+                    # Reference the service-backend config
+                    "cloud.google.com/backend-config": '{"default": "service-backend"}'
                 }, 
                 "labels": labels
             },
@@ -577,7 +580,7 @@ class K8sGameManager:
         try:
             print("Cleaning up all resources in namespace...")
 
-            # 1. Xóa tất cả deployments
+            # 1. Always clean deployments
             try:
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
                 for dep in deployments.items:
@@ -589,11 +592,11 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error deleting deployments: {e}")
 
-            # 2. Xóa tất cả services
+            # 2. Always clean services
             try:
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
                 for svc in services.items:
-                    if svc.metadata.name != 'kubernetes':  # Không xóa service mặc định
+                    if svc.metadata.name != 'kubernetes':
                         print(f"Deleting service: {svc.metadata.name}")
                         self.core_v1.delete_namespaced_service(
                             name=svc.metadata.name,
@@ -602,37 +605,28 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error deleting services: {e}")
 
-            # 3. Xóa tất cả backend configs
-            try:
-                backend_configs = self.custom_objects_api.list_namespaced_custom_object(
-                    group="cloud.google.com",
-                    version="v1",
-                    namespace=self.namespace,
-                    plural="backendconfigs"
-                )
-                for bc in backend_configs['items']:
-                    print(f"Deleting backend config: {bc['metadata']['name']}")
-                    self.custom_objects_api.delete_namespaced_custom_object(
+            # 3. Backend configs only if update_backend is True
+            if self.update_backend:
+                try:
+                    backend_configs = self.custom_objects_api.list_namespaced_custom_object(
                         group="cloud.google.com",
                         version="v1",
                         namespace=self.namespace,
-                        plural="backendconfigs",
-                        name=bc['metadata']['name']
+                        plural="backendconfigs"
                     )
-            except Exception as e:
-                print(f"Error deleting backend configs: {e}")
+                    for bc in backend_configs['items']:
+                        print(f"Deleting backend config: {bc['metadata']['name']}")
+                        self.custom_objects_api.delete_namespaced_custom_object(
+                            group="cloud.google.com",
+                            version="v1",
+                            namespace=self.namespace,
+                            plural="backendconfigs",
+                            name=bc['metadata']['name']
+                        )
+                except Exception as e:
+                    print(f"Error deleting backend configs: {e}")
 
-            try:
-                ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
-                for ing in ingresses.items:
-                    print(f"Deleting ingress: {ing.metadata.name}")
-                    self.networking_v1.delete_namespaced_ingress(
-                        name=ing.metadata.name,
-                        namespace=self.namespace
-                    )
-            except Exception as e:
-                print(f"Error deleting ingresses: {e}")
-            # 4. Delete Ingress 
+            # 4. Ingress only if update_ingress is True
             if self.update_ingress:
                 try:
                     ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
@@ -645,29 +639,30 @@ class K8sGameManager:
                 except Exception as e:
                     print(f"Error deleting ingresses: {e}")
 
-            # 5. Xóa FrontendConfig
-            try:
-                frontend_configs = self.custom_objects_api.list_namespaced_custom_object(
-                    group="networking.gke.io",
-                    version="v1beta1",
-                    namespace=self.namespace,
-                    plural="frontendconfigs"
-                )
-                for fc in frontend_configs['items']:
-                    print(f"Deleting frontend config: {fc['metadata']['name']}")
-                    self.custom_objects_api.delete_namespaced_custom_object(
+            # 5. Frontend config only if update_frontend is True
+            if self.update_frontend:
+                try:
+                    frontend_configs = self.custom_objects_api.list_namespaced_custom_object(
                         group="networking.gke.io",
                         version="v1beta1",
                         namespace=self.namespace,
-                        plural="frontendconfigs",
-                        name=fc['metadata']['name']
+                        plural="frontendconfigs"
                     )
-            except Exception as e:
-                print(f"Error deleting frontend configs: {e}")
+                    for fc in frontend_configs['items']:
+                        print(f"Deleting frontend config: {fc['metadata']['name']}")
+                        self.custom_objects_api.delete_namespaced_custom_object(
+                            group="networking.gke.io",
+                            version="v1beta1",
+                            namespace=self.namespace,
+                            plural="frontendconfigs",
+                            name=fc['metadata']['name']
+                        )
+                except Exception as e:
+                    print(f"Error deleting frontend configs: {e}")
 
-            # 6. Đợi xóa xong
+            # 6. Wait for cleanup
             import time
-            timeout = 60  # 60 seconds timeout
+            timeout = 60
             start_time = time.time()
 
             while True:
@@ -675,12 +670,17 @@ class K8sGameManager:
                     print("Timeout waiting for resources cleanup")
                     break
 
+                resources_exist = False
+                
+                # Always check deployments and services
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
                 resources_exist = len(deployments.items) > 0 or len(services.items) > 1
-                
-                ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
-                resources_exist = resources_exist or len(ingresses.items) > 0
+
+                # Check other resources based on flags
+                if self.update_ingress:
+                    ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
+                    resources_exist = resources_exist or len(ingresses.items) > 0
 
                 if not resources_exist:
                     print("All resources cleaned up successfully")
@@ -741,20 +741,20 @@ class K8sGameManager:
     def cleanup_game_resources(self, server_name, ingress_path=None):
         """
         Cleans up resources associated with a given game server.
-        Note: server_name is typically "game-<room_id>" or it might include
-        a negative path suffix if you constructed it that way. The optional
-        ingress_path is the URL path that was added to the shared Ingress.
         """
         print(f"Cleaning up resources for {server_name}")
 
-        # Only remove ingress path if update_ingress is True
-        if self.update_ingress and ingress_path:
-            try:
-                self._remove_game_path_from_ingress(ingress_path)
-            except Exception as e:
-                print(f"Error removing Ingress path {ingress_path}: {e}")
+        # Always clean deployment and service
+        try:
+            self.core_v1.delete_namespaced_deployment(
+                name=server_name,
+                namespace=self.namespace
+            )
+            print("Deployment deleted")
+        except client.exceptions.ApiException as e:
+            if e.status != 404:
+                print(f"Error deleting deployment: {e}")
 
-        # Delete service
         try:
             self.core_v1.delete_namespaced_service(
                 name=f"{server_name}-service",
@@ -765,30 +765,12 @@ class K8sGameManager:
             if e.status != 404:
                 print(f"Error deleting service: {e}")
 
-        # Delete deployment
-        try:
-            self.apps_v1.delete_namespaced_deployment(
-                name=server_name,
-                namespace=self.namespace
-            )
-            print("Deployment deleted")
-        except client.exceptions.ApiException as e:
-            if e.status != 404:
-                print(f"Error deleting deployment: {e}")
-
-        # Delete backend config
-        try:
-            self.custom_objects_api.delete_namespaced_custom_object(
-                group="cloud.google.com",
-                version="v1",
-                namespace=self.namespace,
-                plural="backendconfigs",
-                name=f"{server_name}-backend-config"
-            )
-            print("Backend config deleted")
-        except client.exceptions.ApiException as e:
-            if e.status != 404:
-                print(f"Error deleting backend config: {e}")
+        # Remove ingress path if update_ingress is True
+        if self.update_ingress and ingress_path:
+            try:
+                self._remove_game_path_from_ingress(ingress_path)
+            except Exception as e:
+                print(f"Error removing Ingress path {ingress_path}: {e}")
 
     def monitor_game(self, room_id):
         try:
