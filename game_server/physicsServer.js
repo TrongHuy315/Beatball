@@ -21,7 +21,7 @@ const io = require('socket.io')(http, {
     transports: ['websocket'],  // Force WebSocket only
     pingTimeout: 60000,
     pingInterval: 25000,
-    path: SOCKET_PATH,
+    path: '/socket.io',
     handlePreflightRequest: (req, res) => {
         res.writeHead(200, {
             "Access-Control-Allow-Origin": "https://beatball.xyz",

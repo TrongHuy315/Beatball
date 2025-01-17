@@ -214,13 +214,14 @@ class ClientScene extends Phaser.Scene {
     // SET UP SOCKET EVENT 
     setupWebSocket() {
         // Tạo socket path và base URL
-        const socketPath = `/game/game-${this.gameSessionData.roomId}`; 
+        const path1 = `/game/game-${this.gameSessionData.roomId}`; 
+        const path2 = '/socket.io'; 
         const baseUrl = 'https://beatball.xyz';
-
+        const socketPath = path2;  
         this.SOCKET = io('https://beatball.xyz', {
             transports: ['websocket'],
             upgrade: false,
-            path: `/game/game-${this.gameSessionData.roomId}/socket.io`,  // Full path including /socket.io
+            path: path2,  // Full path including /socket.io
             secure: true,
             reconnection: true,
             reconnectionAttempts: 100,
@@ -242,7 +243,7 @@ class ClientScene extends Phaser.Scene {
         // Add this debug log before connecting
         console.log('Attempting connection with config:', {
             url: 'https://beatball.xyz',
-            path: `/game/game-${this.gameSessionData.roomId}/socket.io`,
+            path: socketPath,
             auth: this.SOCKET.auth
         });
     
