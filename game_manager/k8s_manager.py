@@ -910,6 +910,7 @@ class K8sGameManager:
 
                 eventlet.sleep(2)
             
+            eventlet.sleep(15)
             # 7. Update configurations after cleanup
             print("Recreating configurations...")
             try:
@@ -918,7 +919,6 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error updating configurations after cleanup: {e}")
                 raise
-
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
