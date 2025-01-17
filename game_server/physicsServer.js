@@ -8,20 +8,21 @@ const express = require('express');
 const { Engine, Events } = require('matter-js');
 const { timeStamp } = require('console');
 const SOCKET_PATH = process.env.SOCKET_PATH || '/socket.io';
+process.stdout.write(`Server configured with SOCKET_PATH: ${SOCKET_PATH}\n`);
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
     cors: {
-        origin: "https://beatball.xyz", // Be specific with CORS
+        origin: "https://beatball.xyz",
         methods: ["GET", "POST"],
         allowedHeaders: ["*"],
         credentials: true
     },
     allowEIO3: true,
-    transports: ['websocket'],  // Force WebSocket only
+    transports: ['websocket'],
     pingTimeout: 60000,
     pingInterval: 25000,
-    path: '/socket.io',
+    path: SOCKET_PATH,  // Use the environment variable here
     handlePreflightRequest: (req, res) => {
         res.writeHead(200, {
             "Access-Control-Allow-Origin": "https://beatball.xyz",
@@ -32,7 +33,9 @@ const io = require('socket.io')(http, {
         res.end();
     }
 });
-
+app.get('/debug/socket-path', (req, res) => {
+    res.send(`Current socket path: ${SOCKET_PATH}`);
+});
 // Trả về để test xem server chạy
 app.get('/', (req, res) => {
     res.send('Physics Server is running!');

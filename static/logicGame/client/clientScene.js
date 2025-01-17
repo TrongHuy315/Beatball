@@ -217,7 +217,7 @@ class ClientScene extends Phaser.Scene {
         const path1 = `/game/game-${this.gameSessionData.roomId}`; 
         const path2 = '/socket.io'; 
         const baseUrl = 'https://beatball.xyz';
-        const socketPath = path2;  
+        const socketPath = path1;  
         this.SOCKET = io('https://beatball.xyz', {
             transports: ['websocket'],
             upgrade: false,
