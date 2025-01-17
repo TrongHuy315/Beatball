@@ -221,7 +221,7 @@ class ClientScene extends Phaser.Scene {
         this.SOCKET = io('https://beatball.xyz', {
             transports: ['websocket'],
             upgrade: false,
-            path: path2,  // Full path including /socket.io
+            path: socketPath,  // Full path including /socket.io
             secure: true,
             reconnection: true,
             reconnectionAttempts: 100,
