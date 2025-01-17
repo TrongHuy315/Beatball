@@ -214,7 +214,7 @@ class ClientScene extends Phaser.Scene {
     // SET UP SOCKET EVENT 
     setupWebSocket() {
         // Tạo socket path và base URL
-        const path1 = `/game/game-${this.gameSessionData.roomId}`; 
+        const path1 = `/game/game-${this.gameSessionData.roomId}/socket.io`; 
         const path2 = '/socket.io'; 
         const baseUrl = 'https://beatball.xyz';
         const socketPath = path1;  
