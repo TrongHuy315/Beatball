@@ -653,17 +653,13 @@ class K8sGameManager:
     def create_default_backend(self):
         """Creates a minimal default backend deployment and service"""
         try:
-            # Service definition with proper health check annotations
+            # Service definition for default backend only
             service = {
                 "apiVersion": "v1",
                 "kind": "Service",
                 "metadata": {
                     "name": "default-backend",
-                    "namespace": self.namespace,
-                    "annotations": {
-                        "cloud.google.com/neg": '{"ingress": true}',
-                        "cloud.google.com/backend-config": '{"default": "service-backend"}'
-                    }
+                    "namespace": self.namespace
                 },
                 "spec": {
                     "ports": [{
@@ -679,7 +675,7 @@ class K8sGameManager:
                 }
             }
 
-            # Deployment definition with proper probes
+            # Deployment definition for default backend
             deployment = {
                 "apiVersion": "apps/v1",
                 "kind": "Deployment",
@@ -734,12 +730,12 @@ class K8sGameManager:
                                 },
                                 "resources": {
                                     "requests": {
-                                        "cpu": "100m",
-                                        "memory": "50Mi"
+                                        "cpu": "10m",
+                                        "memory": "20Mi"
                                     },
                                     "limits": {
-                                        "cpu": "100m",
-                                        "memory": "50Mi"
+                                        "cpu": "10m",
+                                        "memory": "20Mi"
                                     }
                                 }
                             }]
@@ -748,8 +744,8 @@ class K8sGameManager:
                 }
             }
 
-            # Create or update deployment and service
             try:
+                # Delete old resources if they exist
                 try:
                     self.apps_v1.delete_namespaced_deployment(
                         name="default-backend",
