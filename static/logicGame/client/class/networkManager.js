@@ -1,5 +1,11 @@
 export class networkManager {
 	constructor() {
+        this.serverTimeOffset = 0;
+        this.roundTripTime = 0;
+        this.syncSamples = [];
+        this.syncInProgress = false;
+        this.lastSyncTime = 0;
+        this.syncInterval = 5000; // Sync every 5 seconds
 	}
     initialize(scene) {
         this.scene = scene;

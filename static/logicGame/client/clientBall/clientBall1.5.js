@@ -140,12 +140,7 @@ class Ball {
         }
     }
     computeClosedFormFastForward(serverState) {
-        var currentTime = 0; 
-        if (this.scene.networkManager) {
-            currentTime = this.scene.networkManager.getServerTime(); 
-        } else {
-            currentTime = Date.now(); 
-        }
+        var currentTime = this.scene.networkManager.getServerTime(); 
         const deltaTime = (currentTime - serverState.timestamp) / 1000; 
         const FPS = 60;
         const frameTime = 1 / FPS; 
