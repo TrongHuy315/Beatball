@@ -145,6 +145,7 @@ class Ball {
         const frameTime = 1 / FPS; 
 
         const frames = Math.floor(deltaTime / frameTime); // Number of frames to fast forward
+        console.log("Number of frames to fast forward: ", frames); 
         const dampingFactor = this.config.physics.damping;
         const v0 = serverState.velocity;  // v0.x, v0.y
         const p0 = serverState.position;  // p0.x, p0.y
@@ -205,9 +206,9 @@ class Ball {
         };
         const newState = this.computeClosedFormFastForward(serverState);
         // if (newState == null) return; 
-        // console.log("Diff in time: (client - server): ", Date.now() - ballState.timestamp); 
-        // console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
-        // console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
+        console.log("Diff in time: (client - server): ", Date.now() - ballState.timestamp); 
+        console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
+        console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
     }
