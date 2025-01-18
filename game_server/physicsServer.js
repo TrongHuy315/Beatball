@@ -145,6 +145,19 @@ class PhysicsEngine {
         // Set up connections / listeners
         this.setUpConnection();
 
+        this.playerData = new Map();
+        this.usedNumbers = new Set();
+        try {
+            const playerDataString = process.env.PLAYER_DATA;
+            if (playerDataString) {
+                const initialPlayerData = JSON.parse(playerDataString);
+                this.initializePlayerData(initialPlayerData);
+            }
+        } catch (error) {
+            console.error('Error parsing player data:', error);
+        }
+
+        
         // FPS settings
         this.targetInnerFPS = 1000 / 60;
         this.lastFrameTime = Date.now();
@@ -176,39 +189,73 @@ class PhysicsEngine {
         };
         gameLoop();
     }
-
+    generateShirtNumber() {
+        const MIN_NUMBER = 1;
+        const MAX_NUMBER = 99;
+        let number;
+        
+        // Keep trying until we find an unused number
+        do {
+            number = Math.floor(Math.random() * (MAX_NUMBER - MIN_NUMBER + 1)) + MIN_NUMBER;
+        } while (this.usedNumbers.has(number));
+        
+        this.usedNumbers.add(number);
+        return number;
+    }
+    initializePlayerData(initialData) {
+        initialData.forEach(player => {
+            this.playerData.set(player.id, {
+                id: player.id,
+                username: player.username,
+                team: player.team,  // 'left' or 'right' from your data
+                position: player.position,
+                shirtNumber: this.generateShirtNumber()
+            });
+        });
+    }
     /**
      * startGame
      * Starts the game after players are ready
      */
     startGame() {
-        debug('startGame called');
         this.resetGame();
         const gameInfo = {
-            leftTeam: Array.from(this.players.values())
-                .filter(p => p.side === 'left')
-                .map(p => ({
-                    id: Array.from(this.players.entries())
-                        .find(entry => entry[1] === p)[0],
-                    position: p.body.position
-                })),
-            rightTeam: Array.from(this.players.values())
-                .filter(p => p.side === 'right')
-                .map(p => ({
-                    id: Array.from(this.players.entries())
-                        .find(entry => entry[1] === p)[0],
-                    position: p.body.position
-                })),
+            teams: {
+                blue: Array.from(this.players.values())
+                    .filter(p => p.side === 'left')
+                    .map(p => {
+                        const playerId = Array.from(this.players.entries())
+                            .find(entry => entry[1] === p)[0];
+                        const playerInfo = this.playerData.get(playerId);
+                        return {
+                            id: playerId,
+                            position: p.body.position,
+                            username: playerInfo.username,
+                            shirtNumber: playerInfo.shirtNumber
+                        };
+                    }),
+                red: Array.from(this.players.values())
+                    .filter(p => p.side === 'right')
+                    .map(p => {
+                        const playerId = Array.from(this.players.entries())
+                            .find(entry => entry[1] === p)[0];
+                        const playerInfo = this.playerData.get(playerId);
+                        return {
+                            id: playerId,
+                            position: p.body.position,
+                            username: playerInfo.username,
+                            shirtNumber: playerInfo.shirtNumber
+                        };
+                    })
+            },
             scores: this.scores,
-            timeStamp: Date.now()
+            timestamp: Date.now()
         };
 
-        debug('startGame -> Emitting gameStart: %O', gameInfo);
         io.emit('gameStart', gameInfo);
 
         setTimeout(() => {
             this.gameStarted = true;
-            debug('Game started officially');
         }, 3000);
     }
 
@@ -413,7 +460,7 @@ class PhysicsEngine {
                 debug('Time sync response sent to clientId: %s', clientId);
             });
 
-            
+
             debug('New connection attempt: %O', {
                 id: socket.id,
                 handshake: {
