@@ -84,6 +84,7 @@ class PlayerController {
 
 	// CREATE PHYSIC / GRAPHIC PHASER 
 	createGraphics() {
+        console.log("Attempting draw player graphic"); 
         if (!this.scene.textures.exists('player')) {
             console.log("Draw player graphic"); 
             const { fillColor, borderColor, borderWidth, radius, numberConfig, nameConfig} = this.config.graphic;
@@ -651,12 +652,4 @@ class PlayerController {
         }
     }
 
-    createGraphics() {
-        // Update createGraphics to use the current config colors
-        if (!this.scene.textures.exists('player')) {
-            const { radius, fillColor, borderColor, borderWidth } = this.config.graphic;
-            // ... rest of createGraphics code remains the same ...
-        }
-        return this.scene.add.image(0, 0, 'player');
-    }
 }
