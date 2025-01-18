@@ -60,8 +60,8 @@ class ClientScene extends Phaser.Scene {
         this.receiveServerData = false;
         
         
-        this.visibleServerBall = false; 
-        this.visibleClientBall = false;  
+        this.visibleServerBall = true; 
+        this.visibleClientBall = true;  
         this.visibleLerpBall = true; 
 
 
