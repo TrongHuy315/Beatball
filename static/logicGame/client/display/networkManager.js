@@ -1,4 +1,4 @@
-export class NetworkManager {
+export class networkManager {
 	constructor() {
 	}
     initialize(scene) {

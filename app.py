@@ -881,6 +881,10 @@ def room(room_id):
         print(f"Error accessing room: {e}")
         flash("An error occurred while accessing the room.", "error")
         return redirect(url_for("home"))
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
     
 @app.route("/room-data/<room_id>", methods=["GET"])
 @login_required

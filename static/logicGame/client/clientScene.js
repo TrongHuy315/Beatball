@@ -5,7 +5,7 @@ import { CelebrationManager } from './display/celebration.js';
 import { SoundManager } from './display/soundManager.js';
 import { Scoreboard } from './display/scoreboard.js';
 import { GameStartDisplay} from './display/gameStart.js';
-import { NetworkManager } from './display/networkManager.js';
+import { networkManager } from './display/networkManager.js';
 
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
@@ -73,7 +73,7 @@ class ClientScene extends Phaser.Scene {
         ];
         this.initData(); 
 
-        this.networkManager = new NetworkManager();
+        this.networkManager = new networkManager();
     }
     initData() {
         const data = window.gameData;
