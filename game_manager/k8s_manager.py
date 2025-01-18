@@ -17,17 +17,16 @@ class K8sGameManager:
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
         
-        self.update_ingress = True
+        self.update_ingress = False
         self.update_frontend = False
         self.update_backend = False
         self.update_namespace = False
+        self.update_default_backEnd = False 
 
         self.configure_k8s()
 
     def update_configurations(self):
-        """
-        Creates or updates all Kubernetes configurations and verifies them
-        """
+        """Creates or updates all Kubernetes configurations and verifies them"""
         try:
             # Create namespace first if enabled
             if self.update_namespace:
@@ -41,13 +40,14 @@ class K8sGameManager:
                     else:
                         raise
                     
-            # Create default backend first
-            try:
-                self.create_default_backend()
-                print("Default backend created/verified")
-            except Exception as e:
-                print(f"Error creating default backend: {e}")
-                raise
+            # Create default backend if enabled
+            if self.update_default_backEnd:
+                try:
+                    self.create_default_backend()
+                    print("Default backend created/verified")
+                except Exception as e:
+                    print(f"Error creating default backend: {e}")
+                    raise
             
             # Create backend config if enabled
             if self.update_backend:
@@ -192,7 +192,7 @@ class K8sGameManager:
                                 "paths": [
                                     {
                                         "path": "/game/game-test--11111",
-                                        "pathType": "ImplementationSpecific",
+                                        "pathType": "Prefix",
                                         "backend": {
                                             "service": {
                                                 "name": "default-backend",
@@ -449,28 +449,18 @@ class K8sGameManager:
             raise
     
     def _add_game_path_to_ingress(self, ingress_path, service_name):
-        """Adds game-specific paths to the shared Ingress"""
+        """Adds game-specific paths to the shared Ingress with GKE specifics"""
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
 
-            # Create required paths for this game service - removed standalone /socket.io
+            # Create game-specific path with wildcard
             new_paths = [
                 {
-                    'path': ingress_path,
-                    'pathType': 'Prefix',
-                    'backend': {
-                        'service': {
-                            'name': service_name,
-                            'port': {'number': 8000}
-                        }
-                    }
-                },
-                {
-                    'path': f"{ingress_path}/socket.io",
-                    'pathType': 'Prefix',
+                    'path': f"{ingress_path}/*",  # Use GKE wildcard
+                    'pathType': 'ImplementationSpecific',  # Required for GKE
                     'backend': {
                         'service': {
                             'name': service_name,
@@ -489,24 +479,38 @@ class K8sGameManager:
             if not rule.http:
                 rule.http = client.V1HTTPIngressRuleValue(paths=[])
 
-            # Add new paths
-            for new_path in new_paths:
-                rule.http.paths.append(new_path)
+            # Get existing paths excluding any that match our new paths
+            existing_paths = []
+            path_base = ingress_path.rstrip('/*')
+            
+            if rule.http.paths:
+                for existing_path in rule.http.paths:
+                    # Keep default backend path
+                    if existing_path.path == '/game/game-test--11111':
+                        existing_paths.append(existing_path)
+                    # Keep paths that don't match our game path
+                    elif not (existing_path.path.startswith(path_base) and
+                            (existing_path.path.endswith('/*') or 
+                            existing_path.path == path_base)):
+                        existing_paths.append(existing_path)
 
-            # Ensure required annotations are present
+            # Add our new paths
+            rule.http.paths = existing_paths + new_paths
+
+            # GKE specific annotations
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
-                
+                    
             current_ingress.metadata.annotations.update({
                 "kubernetes.io/ingress.class": "gce",
                 "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                 "networking.gke.io/v1beta1.FrontendConfig": "ingress-frontend-config",
                 "cert-manager.io/cluster-issuer": "letsencrypt-prod",
-                "ingress.kubernetes.io/backend-protocol": "HTTP",
-                "ingress.kubernetes.io/proxy-read-timeout": "3600",
-                "ingress.kubernetes.io/proxy-send-timeout": "3600"
+                "kubernetes.io/ingress.allow-http": "false",
+                "ingress.gcp.kubernetes.io/pre-shared-cert": "beatball-cert"
             })
 
+            # Patch the ingress
             self.networking_v1.patch_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace,
@@ -514,6 +518,12 @@ class K8sGameManager:
             )
 
             print(f"Added paths for '{ingress_path}' to the shared Ingress {self.main_ingress_name}")
+            print("Current ingress paths:")
+            for path in rule.http.paths:
+                if isinstance(path, dict):
+                    print(f"- {path['path']} -> {path['backend']['service']['name']}")
+                else:
+                    print(f"- {path.path} -> {path.backend.service.name}")
 
         except Exception as e:
             print(f"Error adding paths to ingress: {e}")
@@ -836,24 +846,51 @@ class K8sGameManager:
         """Dọn dẹp tất cả resources trong namespace"""
         try:
             print("Cleaning up all resources in namespace...")
-    
-            # 1. Always clean deployments
+
+            # Clean default backend if enabled
+            if self.update_default_backEnd:
+                try:
+                    deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
+                    for dep in deployments.items:
+                        if dep.metadata.name == "default-backend":
+                            print(f"Deleting default backend deployment")
+                            self.apps_v1.delete_namespaced_deployment(
+                                name=dep.metadata.name,
+                                namespace=self.namespace
+                            )
+                            break
+                        
+                    # Clean default backend service
+                    services = self.core_v1.list_namespaced_service(namespace=self.namespace)
+                    for svc in services.items:
+                        if svc.metadata.name == "default-backend":
+                            print(f"Deleting default backend service")
+                            self.core_v1.delete_namespaced_service(
+                                name=svc.metadata.name,
+                                namespace=self.namespace
+                            )
+                            break
+                except Exception as e:
+                    print(f"Error deleting default backend resources: {e}")
+
+            # Clean other deployments
             try:
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
                 for dep in deployments.items:
-                    print(f"Deleting deployment: {dep.metadata.name}")
-                    self.apps_v1.delete_namespaced_deployment(
-                        name=dep.metadata.name,
-                        namespace=self.namespace
-                    )
+                    if dep.metadata.name != "default-backend" or self.update_default_backEnd:
+                        print(f"Deleting deployment: {dep.metadata.name}")
+                        self.apps_v1.delete_namespaced_deployment(
+                            name=dep.metadata.name,
+                            namespace=self.namespace
+                        )
             except Exception as e:
                 print(f"Error deleting deployments: {e}")
 
-            # 2. Always clean services
+            # Clean other services
             try:
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
                 for svc in services.items:
-                    if svc.metadata.name != 'kubernetes':
+                    if svc.metadata.name not in ['kubernetes', 'default-backend'] or self.update_default_backEnd:
                         print(f"Deleting service: {svc.metadata.name}")
                         self.core_v1.delete_namespaced_service(
                             name=svc.metadata.name,
@@ -862,7 +899,7 @@ class K8sGameManager:
             except Exception as e:
                 print(f"Error deleting services: {e}")
 
-            # 3. Backend configs only if update_backend is True
+            # Rest of the cleanup code remains the same...
             if self.update_backend:
                 try:
                     backend_configs = self.custom_objects_api.list_namespaced_custom_object(
@@ -883,7 +920,6 @@ class K8sGameManager:
                 except Exception as e:
                     print(f"Error deleting backend configs: {e}")
 
-            # 4. Ingress only if update_ingress is True
             if self.update_ingress:
                 try:
                     ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
@@ -896,7 +932,6 @@ class K8sGameManager:
                 except Exception as e:
                     print(f"Error deleting ingresses: {e}")
 
-            # 5. Frontend config only if update_frontend is True
             if self.update_frontend:
                 try:
                     frontend_configs = self.custom_objects_api.list_namespaced_custom_object(
@@ -917,7 +952,7 @@ class K8sGameManager:
                 except Exception as e:
                     print(f"Error deleting frontend configs: {e}")
 
-            # 6. Wait for cleanup
+            # Wait for cleanup
             import time
             timeout = 60
             start_time = time.time()
@@ -929,12 +964,18 @@ class K8sGameManager:
 
                 resources_exist = False
                 
-                # Always check deployments and services
+                # Check remaining resources
                 deployments = self.apps_v1.list_namespaced_deployment(namespace=self.namespace)
                 services = self.core_v1.list_namespaced_service(namespace=self.namespace)
-                resources_exist = len(deployments.items) > 0 or len(services.items) > 1
+                
+                if self.update_default_backEnd:
+                    resources_exist = len(deployments.items) > 0 or len(services.items) > 1
+                else:
+                    # Don't count default backend when checking
+                    deployment_count = sum(1 for d in deployments.items if d.metadata.name != "default-backend")
+                    service_count = sum(1 for s in services.items if s.metadata.name not in ["kubernetes", "default-backend"])
+                    resources_exist = deployment_count > 0 or service_count > 0
 
-                # Check other resources based on flags
                 if self.update_ingress:
                     ingresses = self.networking_v1.list_namespaced_ingress(namespace=self.namespace)
                     resources_exist = resources_exist or len(ingresses.items) > 0
@@ -944,22 +985,20 @@ class K8sGameManager:
                     break
 
                 eventlet.sleep(2)
-            
-            eventlet.sleep(15)
-            # 7. Update configurations after cleanup
-            print("Recreating configurations...")
-            try:
-                self.update_configurations()
-                print("Configurations updated successfully after cleanup")
-            except Exception as e:
-                print(f"Error updating configurations after cleanup: {e}")
-                raise
 
-            # 8. Clear all paths from main ingress 
-            try:
-                self._clear_ingress_paths()
-            except Exception as e:
-                print(f"Error clearing ingress paths: {e}")
+            eventlet.sleep(15)
+            
+            # Update configurations after cleanup if needed
+            if any([self.update_namespace, self.update_backend, self.update_frontend, 
+                    self.update_ingress, self.update_default_backEnd]):
+                print("Recreating configurations...")
+                try:
+                    self.update_configurations()
+                    print("Configurations updated successfully after cleanup")
+                except Exception as e:
+                    print(f"Error updating configurations after cleanup: {e}")
+                    raise
+
         except Exception as e:
             print(f"Error in cleanup_all_resources: {e}")
             raise
