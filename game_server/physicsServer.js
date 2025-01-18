@@ -431,11 +431,14 @@ class PhysicsEngine {
         const { totalWidth, totalHeight } = CONFIG;
         io.use((socket, next) => {
             const clientId = socket.handshake.auth.clientId;
-            if (!clientId) {
-                debug('No clientId provided, rejecting connection');
-                return next(new Error('No client ID'));
+            const userId = socket.handshake.auth.userId;  // Get userId from auth
+            
+            if (!clientId || !userId) {
+                debug('Missing clientId or userId, rejecting connection');
+                return next(new Error('Invalid authentication'));
             }
-            socket.clientId = clientId; // Lưu clientId vào socket
+            socket.clientId = clientId;
+            socket.userId = userId;  // Store userId in socket
             next();
         });
 
@@ -500,11 +503,23 @@ class PhysicsEngine {
             const clientId = socket.clientId;
 
             socket.on('requestJoin', () => {
+                const clientId = socket.clientId;
+                const userId = socket.userId;   
+
                 debug('requestJoin from clientId: %s', clientId);
                 if (this.players.has(clientId)) {
                     debug('requestJoin ignored, player with clientId already exists: %s', clientId);
                     return;
                 }
+                // Get player data based on userId
+                const playerInfo = this.playerData.get(userId);
+                if (!playerInfo) {
+                    debug('No player data found for userId:', userId);
+                    socket.emit('game_error', { message: 'Invalid player data' });
+                    return;
+                }
+                
+                
                 var assignedSide = 'left';
 
                 const newPlayer = new Player(this.world, this.engine, io, this);
@@ -517,8 +532,25 @@ class PhysicsEngine {
                     playerId: clientId,
                     position: newPlayer.body.position,
                     scores: this.scores,
-                    side: assignedSide
+                    side: playerInfo.team,
+                    playerData: {
+                        username: playerInfo.username,
+                        team: playerInfo.team,
+                        shirtNumber: playerInfo.shirtNumber
+                    }
                 });
+
+                socket.broadcast.emit('newPlayerJoin', {
+                    playerId: clientId,
+                    position: newPlayer.body.position,
+                    side: playerInfo.team,
+                    playerData: {
+                        username: playerInfo.username,
+                        team: playerInfo.team,
+                        shirtNumber: playerInfo.shirtNumber
+                    }
+                });
+                
                 debug('approveJoin emitted to clientId: %s', clientId);
 
                 socket.broadcast.emit('newPlayerJoin', {

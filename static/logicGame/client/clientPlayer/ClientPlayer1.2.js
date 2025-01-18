@@ -1,5 +1,5 @@
 class PlayerController {
-    constructor(scene) {
+    constructor(scene, info = null) {
         this.scene = scene;
         this.config = CONFIG.player;
 
@@ -64,12 +64,13 @@ class PlayerController {
 
         // playerData
         this.data = {
-            goal: 0, 
-            assist: 0, 
-            name: "PhThang66", 
-            shirt: "13", 
-            side: "left" 
-        }; 
+            goal: 0,
+            assist: 0,
+            name: info?.data?.username || "Player",
+            shirt: info?.data?.shirtNumber?.toString() || "0",
+            side: info?.data?.side || "left",
+            team: info?.data?.team || "blue"
+        };
     }
     playAuraAnimation() {
         this.auraAnimation.isPlaying = true;
@@ -135,38 +136,49 @@ class PlayerController {
 
     // CREATE PHYSIC / GRAPHIC PHASER 
     createGraphics() {
+        // Get base colors based on side
+        const baseColors = this.data.side === 'left' ? {
+            fillColor: '#FF4B4B',       // Red fill for left side
+            borderColor: '#FF6B6B',     // Lighter red border
+            highlightColor: 'rgba(255, 255, 255, 0.3)'
+        } : {
+            fillColor: this.config.graphic.fillColor,     // Default blue fill
+            borderColor: this.config.graphic.borderColor, // Default blue border
+            highlightColor: 'rgba(255, 255, 255, 0.3)'
+        };
+    
         if (!this.scene.textures.exists('player')) {
-            const { fillColor, borderColor, borderWidth, radius, numberConfig, nameConfig} = this.config.graphic;
-
+            const { borderWidth, radius, numberConfig, nameConfig } = this.config.graphic;
+    
             const diameter = (radius * 2);
-
+    
             const canvas = document.createElement('canvas');
             canvas.width = diameter;
             canvas.height = diameter;
             
             const ctx = canvas.getContext('2d');
-
+    
             const centerX = radius;
             const centerY = radius;
             const innerRadius = radius - borderWidth;
             
-            // Vẽ phần fill chính
+            // Draw main fill
             ctx.beginPath();
             ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
-            ctx.fillStyle = fillColor;
+            ctx.fillStyle = baseColors.fillColor;
             ctx.fill();
             
-            // Vẽ border
+            // Draw border
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius - borderWidth/2, 0, Math.PI * 2);
-            ctx.strokeStyle = borderColor;
+            ctx.strokeStyle = baseColors.borderColor;
             ctx.lineWidth = borderWidth;
             ctx.stroke();
             
-            // Vẽ highlight
+            // Draw highlight
             ctx.beginPath();
             ctx.arc(centerX, centerY - innerRadius/4, innerRadius/6, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillStyle = baseColors.highlightColor;
             ctx.fill();
             
             if (numberConfig.on) {
@@ -175,31 +187,32 @@ class PlayerController {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                // Vẽ stroke của số
+                // Draw number stroke
                 ctx.strokeStyle = numberConfig.strokeColor;
                 ctx.lineWidth = numberConfig.strokeWidth;
                 ctx.strokeText(this.data.shirt, centerX + numberConfig.offsetX, centerY + numberConfig.offsetY);
                 
-                // Vẽ số
+                // Draw number fill
                 ctx.fillStyle = numberConfig.color;
                 ctx.fillText(this.data.shirt, centerX + numberConfig.offsetX, centerY + numberConfig.offsetY);
             }
-
+    
             if (nameConfig.on) {
                 ctx.font = `${nameConfig.fontWeight} ${nameConfig.fontSize}px ${nameConfig.fontFamily}`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                // Vẽ stroke của tên
+                // Draw name stroke
                 ctx.strokeStyle = nameConfig.strokeColor;
                 ctx.lineWidth = nameConfig.strokeWidth;
                 ctx.strokeText(this.data.name, centerX + nameConfig.offsetX, centerY * 2 + nameConfig.offsetY);
                 
-                // Vẽ tên
+                // Draw name fill
                 ctx.fillStyle = nameConfig.color;
                 ctx.fillText(this.data.name, centerX + nameConfig.offsetX, centerY * 2 + nameConfig.offsetY);
             }
-            // Tạo texture từ canvas
+    
+            // Create texture from canvas
             this.scene.textures.addCanvas('player', canvas);
         }
         

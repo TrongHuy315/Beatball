@@ -279,22 +279,34 @@ class ClientScene extends Phaser.Scene {
             console.log('Connection error:', error);
         });
 
-        socket.on('approveJoin', (data) => {
+        this.SOCKET.on('approveJoin', (data) => {
             this.playerId = data.playerId;
-            this.player = new PlayerController(this);
+            
+            // Create player with complete data
+            const playerConfig = {
+                data: {
+                    name: data.playerData.username,
+                    shirt: data.playerData.shirtNumber.toString(),
+                    side: data.side,
+                    team: data.playerData.team
+                }
+            };
+            
+            this.player = new PlayerController(this, playerConfig);
             this.player.playerId = data.playerId;
-            this.player.create(data.x, data.y);
+            this.player.create(data.position.x, data.position.y);
             this.players.set(data.playerId, this.player);
-
+    
             if (data.scores) {
                 this.gameState.scores = data.scores;
                 this.scoreboard.updateScore('left', data.scores.left);
                 this.scoreboard.updateScore('right', data.scores.right);
             }
-            console.log("Player ready"); 
-            socket.emit('ready'); 
-            this.networkManager.initialize(this); 
+    
+            this.SOCKET.emit('ready');
+            this.networkManager.initialize(this);
         });
+    
 
 
         // ------ GAME STATE UPDATE -------
@@ -322,13 +334,19 @@ class ClientScene extends Phaser.Scene {
         });  
 
         // ------ PLAYERS UPDATE -------- 
-        socket.on('newPlayerJoin', (data) => {
-            if (data.playerId !== this.playerId) { // Sửa != thành !==
-                const teamConfig = {
-                    team: data.side
+        this.SOCKET.on('newPlayerJoin', (data) => {
+            if (data.playerId !== this.playerId) {
+                const playerConfig = {
+                    data: {
+                        name: data.playerData.username,
+                        shirt: data.playerData.shirtNumber.toString(),
+                        side: data.side,
+                        team: data.playerData.team
+                    }
                 };
-                const newPlayer = new InterpolatedPlayer(this, teamConfig);
-                newPlayer.create(data.x, data.y);
+    
+                const newPlayer = new InterpolatedPlayer(this, playerConfig);
+                newPlayer.create(data.position.x, data.position.y);
                 this.players.set(data.playerId, newPlayer);
             }
         });

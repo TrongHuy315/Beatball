@@ -1,15 +1,20 @@
 class InterpolatedPlayer extends PlayerController {
     constructor(scene, teamConfig) {
-        super(scene, teamConfig);
-        // Vô hiệu hóa xử lý input cho interpolated players
-        this.cursors = null;
+        // Pass the team configuration to parent
+        super(scene, {
+            data: {
+                username: teamConfig?.data?.name || "Player",
+                shirtNumber: teamConfig?.data?.shirt || "0",
+                side: teamConfig?.data?.side || "left",
+                team: teamConfig?.data?.team || "blue"
+            }
+        });
         
-        this.name = null; 
-        this.number = null; 
-        this.side = null; 
-        this.spawnX = null; 
-        this.spawnY = null;
-        this.playerId = null; 
+        // Disable input handling
+        this.cursors = null;
+
+        // Store playerId if provided
+        this.playerId = teamConfig?.data?.playerId || null;
     }
 
     // Override createPhysicsBody để set isStatic = true
