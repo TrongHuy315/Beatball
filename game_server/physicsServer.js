@@ -8,10 +8,14 @@ const express = require('express');
 const { Engine, Events } = require('matter-js');
 const { timeStamp } = require('console');
 const SOCKET_PATH = process.env.SOCKET_PATH || '/socket.io';
+
+// Use the debug library
+const debug = require('debug')('socket.io:server');
+
 process.stdout.write(`Server configured with SOCKET_PATH: ${SOCKET_PATH}\n`);
+
 const app = express();
 const http = require('http').createServer(app);
-const debug = require('debug')('socket.io:server');
 const io = require('socket.io')(http, {
     cors: {
         origin: "https://beatball.xyz",
@@ -34,6 +38,7 @@ const io = require('socket.io')(http, {
         res.end();
     }
 });
+
 io.engine.on('connection_error', (err) => {
     console.log('Connection error:', {
         req: err.req,
@@ -41,9 +46,17 @@ io.engine.on('connection_error', (err) => {
         message: err.message,
         context: err.context
     });
+    debug('connection_error: %O', err);
 });
+
 io.engine.use((req, res, next) => {
     console.log('Socket.IO Request:', {
+        url: req.url,
+        method: req.method,
+        headers: req.headers,
+        query: req.query
+    });
+    debug('Socket.IO Request: %O', {
         url: req.url,
         method: req.method,
         headers: req.headers,
@@ -55,6 +68,7 @@ io.engine.use((req, res, next) => {
 app.get('/debug/socket-path', (req, res) => {
     res.send(`Current socket path: ${SOCKET_PATH}`);
 });
+
 // Trả về để test xem server chạy
 app.get('/', (req, res) => {
     res.send('Physics Server is running!');
@@ -62,7 +76,7 @@ app.get('/', (req, res) => {
 
 // Dùng cho k8s readiness/liveness probe (gọi nội bộ cluster: http://IP:8000/health)
 app.get('/health', (req, res) => {
-	res.sendStatus(200);
+    res.sendStatus(200);
 });
 
 // [ADDED] Cho phép bạn “curl -I https://beatball.xyz/game/game-<roomId>/health”
@@ -70,80 +84,105 @@ app.get('/game/game-:roomId/health', (req, res) => {
     res.sendStatus(200);
 });
 
-// Middleware bắt prefix /game/game-:roomId 
+// Middleware bắt prefix /game/game-:roomId
 app.use('/game/game-:roomId', (req, res, next) => {
     // Gán roomId vào request, nếu cần
     req.roomId = req.params.roomId;
+    debug('Middleware for roomId: %s', req.roomId);
     next();
 });
+
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    debug('Express request: %s %s', req.method, req.url);
     next();
 });
 
 // Add error handling middleware
 app.use((err, req, res, next) => {
     console.error('Express error:', err);
+    debug('Express error: %O', err);
     res.status(500).send('Internal Server Error');
 });
 
 class PhysicsEngine {
     constructor(totalConnection) {
-        // ENGINE SET UP  
+        debug('Constructing PhysicsEngine with totalConnection: %d', totalConnection);
+
+        // ENGINE SET UP
         this.engine = Matter.Engine.create({
-            enableSleeping: false, 
+            enableSleeping: false,
             gravity: {
                 x: 0,
                 y: 0,
                 scale: 0
             },
         });
-        this.world = this.engine.world;        
+        this.world = this.engine.world;
+
+        // Store players here
         this.players = new Map();
-        this.ball = new Ball(this.world, this.engine, io); 
-        this.wall = new Wall(this.world, this.engine); 
-        this.playerReady = 0; 
-        // ----- CELEBRATING / SCOREBOARD ----- 
-        this.gameStarted = false; 
-        this.requiredPlayers = totalConnection; 
+
+        // Initialize Ball, Wall
+        this.ball = new Ball(this.world, this.engine, io);
+        this.wall = new Wall(this.world, this.engine);
+
+        // Player readiness
+        this.playerReady = 0;
+
+        // CELEBRATING / SCOREBOARD
+        this.gameStarted = false;
+        this.requiredPlayers = totalConnection;
         this.scores = {
             left: 0,
             right: 0
-        }; 
-        this.setUpGoalCheckEvent(); 
-        this.isCelebrating = false; 
+        };
+        this.isCelebrating = false;
 
-        // -- SET UP CONNECTION ----- 
-        this.setUpConnection(); 
+        // Set up collision for goals
+        this.setUpGoalCheckEvent();
 
-        // -------- FPS --------- 
-        this.targetInnerFPS = 1000 / 60; 
+        // Set up connections / listeners
+        this.setUpConnection();
+
+        // FPS settings
+        this.targetInnerFPS = 1000 / 60;
         this.lastFrameTime = Date.now();
         this.lastFPSUpdate = Date.now();
-        this.targetOuterFPS = 1000 / 120; 
-        let cur = Date.now(); 
-        let last = Date.now(); 
-        
-        // ------ GAME LOOP ---------
+        this.targetOuterFPS = 1000 / 120;
+        let cur = Date.now();
+        let last = Date.now();
+
+        // GAME LOOP
         const gameLoop = () => {
             const currentTime = Date.now();
-            const delta = currentTime - this.lastFrameTime; 
-            cur = Date.now(); 
+            const delta = currentTime - this.lastFrameTime;
+            cur = Date.now();
+
             if (delta >= this.targetInnerFPS) {
                 this.gameloop();
                 Matter.Engine.update(this.engine, this.targetInnerFPS);
                 io.emit('sendGameState', this.gameState());
+                debug('Emitted gameState');
                 this.lastFrameTime = currentTime - (delta - this.targetInnerFPS);
             }
+
             while (Date.now() - currentTime < this.targetOuterFPS - 1) {
+                // Busy-wait until next game tick
             }
-            last = cur; 
+
+            last = cur;
             setImmediate(gameLoop);
         };
-        gameLoop(); 
+        gameLoop();
     }
 
-    startGame () {
+    /**
+     * startGame
+     * Starts the game after players are ready
+     */
+    startGame() {
+        debug('startGame called');
         this.resetGame();
         const gameInfo = {
             leftTeam: Array.from(this.players.values())
@@ -160,45 +199,59 @@ class PhysicsEngine {
                         .find(entry => entry[1] === p)[0],
                     position: p.body.position
                 })),
-            scores: this.scores, 
+            scores: this.scores,
             timeStamp: Date.now()
         };
-        
+
+        debug('startGame -> Emitting gameStart: %O', gameInfo);
         io.emit('gameStart', gameInfo);
-        
+
         setTimeout(() => {
             this.gameStarted = true;
+            debug('Game started officially');
         }, 3000);
     }
 
-    setUpGoalCheckEvent () {
+    /**
+     * setUpGoalCheckEvent
+     * Sets up an event to check collisions for goals
+     */
+    setUpGoalCheckEvent() {
+        debug('setUpGoalCheckEvent called');
         Events.on(this.engine, 'collisionStart', (event) => {
             event.pairs.forEach((pair) => {
                 const bodyA = pair.bodyA;
                 const bodyB = pair.bodyB;
-                
+
                 // Check va chạm với left goal
                 if ((bodyA.label === 'ball' && bodyB.label === 'leftGoalDetection') ||
                     (bodyB.label === 'ball' && bodyA.label === 'leftGoalDetection')) {
-                    this.handleGoal('right'); 
+                    debug('Goal collision detected: LEFT GOAL');
+                    this.handleGoal('right');
                 }
-                
+
                 // Check va chạm với right goal
                 if ((bodyA.label === 'ball' && bodyB.label === 'rightGoalDetection') ||
                     (bodyB.label === 'ball' && bodyA.label === 'rightGoalDetection')) {
-                    this.handleGoal('left'); 
+                    debug('Goal collision detected: RIGHT GOAL');
+                    this.handleGoal('left');
                 }
             });
-        });        
+        });
     }
 
-	gameState () {
-		const state = {
+    /**
+     * gameState
+     * Returns current game state
+     */
+    gameState() {
+        debug('gameState called');
+        const state = {
             ball: {
                 position: this.ball.body.position,
                 velocity: this.ball.body.velocity,
             },
-            players: {},  
+            players: {},
             timestamp: Date.now()
         };
 
@@ -207,45 +260,67 @@ class PhysicsEngine {
                 position: player.body.position,
                 velocity: player.body.velocity,
                 shooting: player.shooting,
-                isGhostMode: player.isGhostMode, 
+                isGhostMode: player.isGhostMode,
                 lastProcessedInput: player.lastProcessedInput
             };
         });
-        return state; 
-	}
+        debug('gameState -> %O', state);
+        return state;
+    }
 
-	gameloop() {
-        this.ball.update(); 
-	}
+    /**
+     * gameloop
+     * Updates game-related logic each frame
+     */
+    gameloop() {
+        debug('gameloop iteration');
+        this.ball.update();
+    }
 
-    handleGoal (side) {
-        if (this.isCelebrating) return; 
-        this.isCelebrating = true; 
-        this.scores[side]++; 
+    /**
+     * handleGoal
+     * Handles on-goal collision
+     */
+    handleGoal(side) {
+        debug('handleGoal called for side: %s', side);
+        if (this.isCelebrating) {
+            debug('handleGoal ignored: isCelebrating is true');
+            return;
+        }
+        this.isCelebrating = true;
+        this.scores[side]++;
         const goalState = {
-            scorer: "Sita69", 
-            assister: "Sati96", 
-            side: side, 
-            timeStamp: Date.now(),  
-            scores: {  
+            scorer: "Sita69",
+            assister: "Sati96",
+            side: side,
+            timeStamp: Date.now(),
+            scores: {
                 left: this.scores.left,
                 right: this.scores.right
             }
-        }; 
-        io.emit('celebration', goalState)
-        var celebrationTime = CONFIG.gameConfig.celebrationTime; 
-        var countDownResetGame = CONFIG.gameConfig.resetGameCountDown; 
-        var resetGameDelay = celebrationTime + countDownResetGame; 
-        
+        };
+        debug('Emitting celebration: %O', goalState);
+        io.emit('celebration', goalState);
+
+        var celebrationTime = CONFIG.gameConfig.celebrationTime;
+        var countDownResetGame = CONFIG.gameConfig.resetGameCountDown;
+        var resetGameDelay = celebrationTime + countDownResetGame;
+
         setTimeout(() => {
+            debug('Celebration complete, resetting game...');
             this.resetGame();
-            this.isCelebrating = false; 
+            this.isCelebrating = false;
         }, resetGameDelay * 1000);
     }
 
+    /**
+     * getSpawnPosition
+     * Returns spawn position based on side
+     */
     getSpawnPosition(side) {
-        const { totalWidth, totalHeight, pitch, offset_horizontal, nets} = CONFIG;
-        const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;         
+        debug('getSpawnPosition called for side: %s', side);
+        const { totalWidth, totalHeight, pitch, offset_horizontal, nets } = CONFIG;
+        const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
         // Tính toán vị trí dựa trên tỷ lệ so với pitch
         if (side === 'left') {
             return {
@@ -260,19 +335,24 @@ class PhysicsEngine {
         }
     }
 
+    /**
+     * resetGame
+     * Resets ball to center and all players to their initial positions
+     */
     resetGame() {
+        debug('resetGame called');
         // Reset ball to center
         this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
         this.ball.setVelocity(0, 0);
-    
-        const { pitch, offset_horizontal, nets} = CONFIG;
+
+        const { pitch, offset_horizontal, nets } = CONFIG;
         const pitchLeft = offset_horizontal + pitch.borderWidth + nets.borderWidth + nets.width;
         const pitchWidth = pitch.width;
-    
+
         // Separate players by team
         const leftTeam = Array.from(this.players.values()).filter(p => p.side === 'left');
         const rightTeam = Array.from(this.players.values()).filter(p => p.side === 'right');
-    
+
         // Reset left team
         leftTeam.forEach((player, index) => {
             const yOffset = (index + 1) / (leftTeam.length + 1) * pitch.height;
@@ -282,7 +362,7 @@ class PhysicsEngine {
             );
             player.setVelocity(0, 0);
         });
-    
+
         // Reset right team
         rightTeam.forEach((player, index) => {
             const yOffset = (index + 1) / (rightTeam.length + 1) * pitch.height;
@@ -292,21 +372,29 @@ class PhysicsEngine {
             );
             player.setVelocity(0, 0);
         });
+        debug('resetGame completed');
     }
 
-	setUpConnection () {        
-        const {totalWidth, totalHeight} = CONFIG; 
+    /**
+     * setUpConnection
+     * Sets up socket connections and listeners
+     */
+    setUpConnection() {
+        debug('setUpConnection called');
+        const { totalWidth, totalHeight } = CONFIG;
         io.use((socket, next) => {
             const clientId = socket.handshake.auth.clientId;
             if (!clientId) {
+                debug('No clientId provided, rejecting connection');
                 return next(new Error('No client ID'));
             }
             socket.clientId = clientId; // Lưu clientId vào socket
             next();
         });
 
-        io.on('connection', (socket) => {            
+        io.on('connection', (socket) => {
             console.log('Client connected:', socket.clientId);
+            debug('Client connected: %s', socket.clientId);
             console.log('New connection attempt:', {
                 id: socket.id,
                 handshake: {
@@ -316,16 +404,36 @@ class PhysicsEngine {
                 },
                 transport: socket.conn.transport.name
             });
+            debug('New connection attempt: %O', {
+                id: socket.id,
+                handshake: {
+                    headers: socket.handshake.headers,
+                    query: socket.handshake.query,
+                    auth: socket.handshake.auth
+                },
+                transport: socket.conn.transport.name
+            });
+
             socket.on('error', (error) => {
                 console.error('Socket error:', {
                     socketId: socket.id,
                     error: error.message,
                     stack: error.stack
                 });
+                debug('Socket error: %O', {
+                    socketId: socket.id,
+                    error: error.message,
+                    stack: error.stack
+                });
             });
-        
+
             socket.conn.on('upgrade', (transport) => {
                 console.log('Transport upgraded:', {
+                    socketId: socket.id,
+                    from: socket.conn.transport.name,
+                    to: transport.name
+                });
+                debug('Transport upgraded: %O', {
                     socketId: socket.id,
                     from: socket.conn.transport.name,
                     to: transport.name
@@ -333,44 +441,52 @@ class PhysicsEngine {
             });
 
             const clientId = socket.clientId;
+
             socket.on('requestJoin', () => {
+                debug('requestJoin from clientId: %s', clientId);
                 if (this.players.has(clientId)) {
+                    debug('requestJoin ignored, player with clientId already exists: %s', clientId);
                     return;
                 }
-                var assignedSide = 'left'; 
+                var assignedSide = 'left';
 
                 const newPlayer = new Player(this.world, this.engine, io, this);
                 const spawnPosition = this.getSpawnPosition(assignedSide);
-                newPlayer.create(spawnPosition.x, spawnPosition.y); 
-                newPlayer.side = assignedSide; 
+                newPlayer.create(spawnPosition.x, spawnPosition.y);
+                newPlayer.side = assignedSide;
                 this.players.set(clientId, newPlayer);
 
                 socket.emit('approveJoin', {
                     playerId: clientId,
-                    position: newPlayer.body.position, 
+                    position: newPlayer.body.position,
                     scores: this.scores,
                     side: assignedSide
                 });
-                
+                debug('approveJoin emitted to clientId: %s', clientId);
+
                 socket.broadcast.emit('newPlayerJoin', {
                     playerId: clientId,
-                    position: newPlayer.body.position, 
-                    side: assignedSide 
+                    position: newPlayer.body.position,
+                    side: assignedSide
                 });
+                debug('newPlayerJoin broadcast for clientId: %s', clientId);
             });
-            
-            // PLAYER REQUEST 
+
             socket.on('sendInput', (data) => {
                 if (this.gameStarted) {
-                    const clientId = socket.clientId; 
+                    const clientId = socket.clientId;
                     const player = this.players.get(clientId);
                     const input = data.input;
-                    player.update(input, this.ball); 
+                    debug('sendInput from clientId: %s -> %O', clientId, input);
+                    player.update(input, this.ball);
                     player.lastProcessedInput = input.sequence;
+                } else {
+                    debug('sendInput ignored, game not started for clientId: %s', socket.clientId);
                 }
-            }); 
+            });
 
             socket.on('leaveGame', () => {
+                debug('leaveGame from clientId: %s', clientId);
                 if (this.players.has(clientId)) {
                     const player = this.players.get(clientId);
                     Matter.World.remove(this.world, player.body);
@@ -378,41 +494,55 @@ class PhysicsEngine {
                     io.emit('playerLeft', {
                         playerId: clientId
                     });
-                    
                     console.log(`Player ${clientId} left the game`);
+                    debug('playerLeft for clientId: %s', clientId);
                 }
             });
+
             socket.on('ping', () => {
-                socket.emit('pong'); 
-            }); 
+                socket.emit('pong');
+                debug('ping/pong exchanged with clientId: %s', clientId);
+            });
+
             socket.on('ready', () => {
-                this.playerReady++; 
-                process.stdout.write("Physic engine run with 2 allowed connection\n", this.player);
-                process.stdout.write("Number of required players: ", this.requiredPlayers);
+                this.playerReady++;
+                process.stdout.write(`Physic engine run with ${this.requiredPlayers} allowed connection\n`);
+                process.stdout.write(`Number of required players: ${this.requiredPlayers}\n`);
+                debug('ready from clientId: %s -> playerReady count: %d', clientId, this.playerReady);
+
                 if (this.playerReady == this.requiredPlayers) {
-                    this.startGame(); 
+                    debug('All required players are ready, starting game');
+                    this.startGame();
                 }
-            }); 
-            // DEVELOPER MODE 
+            });
+
+            // DEVELOPER MODE
             socket.on('ballMoveUpward', () => {
-                this.ball.setVelocity(0, -5); 
-            }); 
+                debug('ballMoveUpward from clientId: %s', clientId);
+                this.ball.setVelocity(0, -5);
+            });
+
             socket.on('diagionalTestCombo', () => {
-                const OFFSET = 170; 
-                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET);  
-                this.ball.setVelocity(-5, -3); 
-            }); 
+                debug('diagionalTestCombo from clientId: %s', clientId);
+                const OFFSET = 170;
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2 - OFFSET);
+                this.ball.setVelocity(-5, -3);
+            });
+
             socket.on('resetBallToCenter', () => {
-                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-                this.ball.setVelocity(0, 0); 
-            }); 
+                debug('resetBallToCenter from clientId: %s', clientId);
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+                this.ball.setVelocity(0, 0);
+            });
+
             socket.on('requestPutNextToBall', () => {
-                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-                this.ball.setVelocity(0, 0); 
+                debug('requestPutNextToBall from clientId: %s', clientId);
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+                this.ball.setVelocity(0, 0);
                 // Lấy player hiện tại
                 const player = this.players.get(socket.clientId);
                 if (player) {
-                    const OFFSET_X = 50; 
+                    const OFFSET_X = 50;
                     const newPlayerPosition = {
                         x: this.ball.body.position.x - OFFSET_X,
                         y: this.ball.body.position.y
@@ -420,26 +550,29 @@ class PhysicsEngine {
                     player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
                     player.setVelocity(0, 0);
                 }
-            }); 
+            });
+
             socket.on('requestPutDiagionalToBall', () => {
-                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2); 
-                this.ball.setVelocity(0, 0); 
+                debug('requestPutDiagionalToBall from clientId: %s', clientId);
+                this.ball.setPosition(CONFIG.totalWidth / 2, CONFIG.totalHeight / 2);
+                this.ball.setVelocity(0, 0);
                 // Lấy player hiện tại
                 const player = this.players.get(socket.clientId);
                 if (player) {
-                    const OFFSET = 50; 
+                    const OFFSET = 50;
                     const newPlayerPosition = {
                         x: this.ball.body.position.x - OFFSET,
                         y: this.ball.body.position.y - OFFSET
                     };
                     player.setPosition(newPlayerPosition.x, newPlayerPosition.y);
-                    player.setVelocity(0, 0); 
+                    player.setVelocity(0, 0);
                 }
-            }); 
+            });
         });
-	}
+    }
 }
 
+// Initialize physics engine
 const physicsEngine = new PhysicsEngine(2);
 process.stdout.write("Physic engine run with 2 allowed connection\n");
 process.stdout.write(`Environment PORT: ${process.env.PORT}\n`);
@@ -447,4 +580,5 @@ process.stdout.write(`Environment PORT: ${process.env.PORT}\n`);
 const PORT = process.env.PORT || 8000;
 http.listen(PORT, () => {
     console.log(`Physics server running on port ${PORT}`);
+    debug('Physics server running on port %d', PORT);
 });
