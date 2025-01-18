@@ -1,14 +1,13 @@
 class InterpolatedPlayer extends PlayerController {
     constructor(scene, teamConfig) {
         // Pass the team configuration to parent
-        super(scene, {
-            data: {
-                username: teamConfig?.data?.name || "Player",
-                shirtNumber: teamConfig?.data?.shirt || "0",
-                side: teamConfig?.data?.side || "left",
-                team: teamConfig?.data?.team || "blue"
-            }
-        });
+        this.data = {
+            goal: 0,
+            assist: 0,
+            name: info?.data?.name || "Player",
+            shirt: info?.data?.shirt || "0",
+            side: info?.data?.side || "left"
+        };
         
         // Disable input handling
         this.cursors = null;

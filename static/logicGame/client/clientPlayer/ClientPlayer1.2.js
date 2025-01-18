@@ -62,14 +62,12 @@ class PlayerController {
             curveShot: false  // I
         };
 
-        // playerData
         this.data = {
             goal: 0,
             assist: 0,
-            name: info?.data?.username || "Player",
-            shirt: info?.data?.shirtNumber?.toString() || "0",
-            side: info?.data?.side || "left",
-            team: info?.data?.team || "blue"
+            name: info?.data?.name || "Player",
+            shirt: info?.data?.shirt || "0",
+            side: info?.data?.side || "left"
         };
     }
     playAuraAnimation() {

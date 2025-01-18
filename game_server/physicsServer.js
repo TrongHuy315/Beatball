@@ -157,6 +157,19 @@ class PhysicsEngine {
             console.error('Error parsing player data:', error);
         }
 
+        try {
+            const playerDataString = process.env.PLAYER_DATA;
+            debug('Reading PLAYER_DATA from env:', playerDataString);
+            if (playerDataString) {
+                const initialPlayerData = JSON.parse(playerDataString);
+                debug('Parsed PLAYER_DATA:', initialPlayerData);
+            } else {
+                debug('No PLAYER_DATA found in environment variables');
+            }
+        } catch (error) {
+            console.error('Error parsing player data:', error);
+            debug('Error parsing player data: %O', error);
+        }
         
         // FPS settings
         this.targetInnerFPS = 1000 / 60;
@@ -505,7 +518,7 @@ class PhysicsEngine {
             socket.on('requestJoin', () => {
                 const clientId = socket.clientId;
                 const userId = socket.userId;   
-
+            
                 debug('requestJoin from clientId: %s', clientId);
                 if (this.players.has(clientId)) {
                     debug('requestJoin ignored, player with clientId already exists: %s', clientId);
@@ -518,47 +531,31 @@ class PhysicsEngine {
                     socket.emit('game_error', { message: 'Invalid player data' });
                     return;
                 }
-                
-                
-                var assignedSide = 'left';
-
+            
                 const newPlayer = new Player(this.world, this.engine, io, this);
-                const spawnPosition = this.getSpawnPosition(assignedSide);
+                const spawnPosition = this.getSpawnPosition(playerInfo.team);
                 newPlayer.create(spawnPosition.x, spawnPosition.y);
-                newPlayer.side = assignedSide;
+                newPlayer.side = playerInfo.team; // 'left' or 'right'
                 this.players.set(clientId, newPlayer);
-
+            
+                // Simplified data structure
                 socket.emit('approveJoin', {
                     playerId: clientId,
                     position: newPlayer.body.position,
                     scores: this.scores,
                     side: playerInfo.team,
-                    playerData: {
-                        username: playerInfo.username,
-                        team: playerInfo.team,
-                        shirtNumber: playerInfo.shirtNumber
-                    }
+                    name: playerInfo.username,
+                    shirtNumber: playerInfo.shirtNumber
                 });
-
+            
+                // Simplified broadcast data
                 socket.broadcast.emit('newPlayerJoin', {
                     playerId: clientId,
                     position: newPlayer.body.position,
                     side: playerInfo.team,
-                    playerData: {
-                        username: playerInfo.username,
-                        team: playerInfo.team,
-                        shirtNumber: playerInfo.shirtNumber
-                    }
+                    name: playerInfo.username,
+                    shirtNumber: playerInfo.shirtNumber
                 });
-                
-                debug('approveJoin emitted to clientId: %s', clientId);
-
-                socket.broadcast.emit('newPlayerJoin', {
-                    playerId: clientId,
-                    position: newPlayer.body.position,
-                    side: assignedSide
-                });
-                debug('newPlayerJoin broadcast for clientId: %s', clientId);
             });
 
             socket.on('sendInput', (data) => {

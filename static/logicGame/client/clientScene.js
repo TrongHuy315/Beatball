@@ -282,13 +282,12 @@ class ClientScene extends Phaser.Scene {
         this.SOCKET.on('approveJoin', (data) => {
             this.playerId = data.playerId;
             
-            // Create player with complete data
+            // Simplified player config
             const playerConfig = {
                 data: {
-                    name: data.playerData.username,
-                    shirt: data.playerData.shirtNumber.toString(),
-                    side: data.side,
-                    team: data.playerData.team
+                    name: data.name || "Player",
+                    shirt: data.shirtNumber?.toString() || "0",
+                    side: data.side || "left"
                 }
             };
             
@@ -296,13 +295,13 @@ class ClientScene extends Phaser.Scene {
             this.player.playerId = data.playerId;
             this.player.create(data.position.x, data.position.y);
             this.players.set(data.playerId, this.player);
-    
+        
             if (data.scores) {
                 this.gameState.scores = data.scores;
                 this.scoreboard.updateScore('left', data.scores.left);
                 this.scoreboard.updateScore('right', data.scores.right);
             }
-    
+        
             this.SOCKET.emit('ready');
             this.networkManager.initialize(this);
         });
@@ -338,13 +337,12 @@ class ClientScene extends Phaser.Scene {
             if (data.playerId !== this.playerId) {
                 const playerConfig = {
                     data: {
-                        name: data.playerData.username,
-                        shirt: data.playerData.shirtNumber.toString(),
-                        side: data.side,
-                        team: data.playerData.team
+                        name: data.name || "Player",
+                        shirt: data.shirtNumber?.toString() || "0",
+                        side: data.side || "left"
                     }
                 };
-    
+        
                 const newPlayer = new InterpolatedPlayer(this, playerConfig);
                 newPlayer.create(data.position.x, data.position.y);
                 this.players.set(data.playerId, newPlayer);
