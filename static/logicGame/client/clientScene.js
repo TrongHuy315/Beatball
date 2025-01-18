@@ -5,7 +5,7 @@ import { CelebrationManager } from './display/celebration.js';
 import { SoundManager } from './display/soundManager.js';
 import { Scoreboard } from './display/scoreboard.js';
 import { GameStartDisplay} from './display/gameStart.js';
-import { NetworkManager } from './class/networkManager.js';
+import { NetworkManager } from './display/networkManager.js';
 
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 

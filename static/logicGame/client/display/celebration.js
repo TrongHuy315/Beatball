@@ -1,4 +1,4 @@
-import { NetworkManager } from "../class/networkManager";
+import { NetworkManager } from "./networkManager";
 
 export class CelebrationManager {
     constructor(scene) {

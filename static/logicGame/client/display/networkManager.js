@@ -1,4 +1,3 @@
-// NetworkManager.js
 export class NetworkManager {
 	constructor() {
 	}
@@ -95,15 +94,3 @@ export class NetworkManager {
         return this.roundTripTime / 2;
     }
 }
-
-// Server-side time sync handlers
-export const timeSyncHandlers = {
-    setupTimeSyncHandler(socket) {
-        socket.on('timeSync', (data) => {
-            socket.emit('timeSyncResponse', {
-                clientSendTime: data.clientSendTime,
-                serverTime: Date.now()
-            });
-        });
-    }
-};
