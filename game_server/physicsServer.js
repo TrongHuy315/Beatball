@@ -404,6 +404,16 @@ class PhysicsEngine {
                 },
                 transport: socket.conn.transport.name
             });
+
+            socket.on('timeSync', (data) => {
+                socket.emit('timeSyncResponse', {
+                    clientSendTime: data.clientSendTime,
+                    serverTime: Date.now()
+                });
+                debug('Time sync response sent to clientId: %s', clientId);
+            });
+
+            
             debug('New connection attempt: %O', {
                 id: socket.id,
                 handshake: {

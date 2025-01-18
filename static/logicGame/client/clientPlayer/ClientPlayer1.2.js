@@ -32,6 +32,8 @@ class PlayerController {
         this.serverVelocity = {x: 0, y: 0};
         this.sequence = 0; 
         this.lastUpdatetime = performance.now(); 
+
+        this.networkManager = scene.networkManager; 
     }
 
 
@@ -257,13 +259,15 @@ class PlayerController {
 
     // CLIENT PREDICTION 
     processInput() {
-        if (!this.cursors) return;
-        const currentTime = performance.now();
+    if (!this.cursors) return;
+        
+        // Use networkManager time instead of performance.now()
+        const currentTime =  this.scene.networkManager.getServerTime(); 
         const deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-        this.lastUpdateTime = currentTime; // Cập nhật lastUpdateTime sau khi đã tính deltaTime
+        this.lastUpdateTime = currentTime;
 
-        // Giới hạn deltaTime để tránh physics bugs khi lag
-        const cappedDeltaTime = Math.min(deltaTime, 0.1); 
+        // Limit deltaTime to avoid physics glitches
+        const cappedDeltaTime = Math.min(deltaTime, 0.1);
 
         const input = {
             sequence: this.sequence++,
@@ -271,23 +275,24 @@ class PlayerController {
             inputX: 0,
             inputY: 0,
             kick: this.cursors.kick.isDown,
-            timestamp: currentTime 
+            serverTime: currentTime  // Changed from timestamp to serverTime
         };
+        
         if (this.cursors.left.isDown) input.inputX -= 1;
         if (this.cursors.right.isDown) input.inputX += 1;
         if (this.cursors.up.isDown) input.inputY -= 1;
         if (this.cursors.down.isDown) input.inputY += 1;
 
-        // APPLY INPUT 
+        // Apply input locally
         this.applyInput(input);
         
-        // SAVE FOR RECONCILLIATION 
-        if (this.pendingInputs.length > 100) {
-            this.pendingInputs = this.pendingInputs.slice(-100); // avoid memory leak 
-        }
+        // Save input for reconciliation
         this.pendingInputs.push(input);
+        if (this.pendingInputs.length > 100) {
+            this.pendingInputs = this.pendingInputs.slice(-100);
+        }
         
-        // SEND INPUT TO SERVER 
+        // Send to server
         this.sendInputToServer(input);
 
         return input;

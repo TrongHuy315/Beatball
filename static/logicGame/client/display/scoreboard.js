@@ -47,11 +47,12 @@ export class Scoreboard {
         const savedStartTime = localStorage.getItem('gameStartTime');
         // if (savedStartTime) {
         //     this.startTime = parseInt(savedStartTime);
-        //     this.startCountDown(Date.now() - this.startTime);
+        //     this.startCountDown(this.networkManager.getServerTime() - this.startTime);
         // }
         this.onWarningTime = null;  // Thêm dòng này
         this.onTimeUp = null;  
         this.draw();
+        this.networkManager = scene.networkManager; 
 
         this.setWarningTimeCallback(() => {
             this.scene.soundManager.playEndGameSound();
@@ -70,7 +71,7 @@ export class Scoreboard {
     startCountDown(elapsedTime = 0) {
         this.stopCountDown();
         
-        this.startTime = Date.now() - elapsedTime;
+        this.startTime = this.networkManager.getServerTime() - elapsedTime;
         // Lưu startTime vào localStorage
         localStorage.setItem('gameStartTime', this.startTime.toString());
         
@@ -79,7 +80,7 @@ export class Scoreboard {
         const updateClock = () => {
             if (!this.isRunning) return;
 
-            const now = Date.now();
+            const now = this.networkManager.getServerTime();
             const elapsed = now - this.startTime;
             this.currentTime = Math.max(0, this.gameTime - elapsed);
 
@@ -112,12 +113,12 @@ export class Scoreboard {
             const newStartTime = parseInt(e.newValue);
             if (newStartTime !== this.startTime) {
                 this.startTime = newStartTime;
-                this.startCountDown(Date.now() - this.startTime);
+                this.startCountDown(this.networkManager.getServerTime() - this.startTime);
             }
         }
     }
     resetToNewGame() {
-        this.startTime = Date.now();
+        this.startTime = this.networkManager.getServerTime();
         localStorage.setItem('gameStartTime', this.startTime.toString());
         this.currentTime = this.gameTime;
         this.startCountDown();
@@ -136,7 +137,7 @@ export class Scoreboard {
                 const savedStartTime = localStorage.getItem('gameStartTime');
                 if (savedStartTime) {
                     const startTime = parseInt(savedStartTime);
-                    const elapsed = Date.now() - startTime;
+                    const elapsed = this.networkManager.getServerTime - startTime;
                     const remainingMs = Math.max(0, this.gameTime - elapsed);
 
                     if (remainingMs > 0) {
@@ -344,11 +345,11 @@ export class Scoreboard {
         if (this.isAnimating) return;
         this.isAnimating = true;
         
-        const startTime = Date.now();
+        const startTime = this.networkManager.getServerTime();
         const cfg = this.config.animation;
         
         const animate = () => {
-            const elapsed = Date.now() - startTime;
+            const elapsed = this.networkManager.getServerTime() - startTime;
             const progress = Math.min(elapsed / cfg.duration, 1);
             
             this.draw(side === 'left' ? true : false, side === 'right' ? true : false);

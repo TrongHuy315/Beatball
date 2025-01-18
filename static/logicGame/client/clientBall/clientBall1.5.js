@@ -2,12 +2,14 @@ class Ball {
     constructor(scene, config) {
         this.scene = scene;
         this.config = config;
+        this.networkManager = scene.networkManager;
+        this.stateBuffer = [];
+        this.maxBufferSize = 60; // 1 second at 60fps
         this.initialize();
-        this.count_damping = 0; 
-
+        this.count_damping = 0;
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
-        this.stick = false; 
+        this.stick = false;
     }
     startDampingCounter() {
         setInterval(() => {
@@ -138,58 +140,48 @@ class Ball {
         }
     }
     computeClosedFormFastForward(serverState) {
-        // console.log("Ball reconcile with server"); 
-        const currentTime = Date.now();
+        const currentTime = 0; 
+        if (this.scene.networkManager) {
+            currentTime = this.scene.networkManager.getServerTime(); 
+        } else {
+            currentTime = Date.now(); 
+        }
         const deltaTime = (currentTime - serverState.timestamp) / 1000; 
         const FPS = 60;
         const frameTime = 1 / FPS; 
-
-        const frames = Math.floor(deltaTime / frameTime); // Number of frames to fast forward
-        console.log("Number of frames to fast forward: ", frames); 
+    
+        const frames = Math.floor(deltaTime / frameTime); 
+        console.log("Number of frame to forward: ", frames); 
         const dampingFactor = this.config.physics.damping;
-        const v0 = serverState.velocity;  // v0.x, v0.y
-        const p0 = serverState.position;  // p0.x, p0.y
-        // console.log("Number of frams to forward: ", frames); 
-        // Nếu damping = 1 => chuyển động thẳng đều:
-        //   v không đổi
-        //   p = p0 + v0 * frames
+        const v0 = serverState.velocity;  
+        const p0 = serverState.position;  
+    
+        // Keep your original logic for both cases
         if (dampingFactor === 1) {
             const newVelocity = {
                 x: v0.x,
                 y: v0.y
             };
             const newPosition = {
-                x: p0.x + v0.x * frames,
+                x: p0.x + v0.x * frames, // Keep frames-based calculation
                 y: p0.y + v0.y * frames
             };
             return {
                 position: newPosition,
                 velocity: newVelocity
             };
-        } 
-
-        // Ngược lại, nếu damping != 1 => chuyển động giảm tốc theo công thức hình học:
-        //   newVelocity = v0 * d^frames
-        //   displacement = v0 * (1 - d^frames) / (1 - d)
-        //   position = p0 + displacement
-        else {
+        } else {
+            // Your original damping calculation
             const dampingPower = Math.pow(dampingFactor, frames);
-
-            // Tính vận tốc mới sau 'frames' bước
             const newVelocity = {
                 x: v0.x * dampingPower,
                 y: v0.y * dampingPower
             };
-
-            // Tổng quãng đường (theo vector) bóng đi được sau 'frames' bước
-            //   = v0 × (1 - d^frames) / (1 - d)
             const geometricSum = (1 - dampingPower) / (1 - dampingFactor);
-
             const newPosition = {
                 x: p0.x + v0.x * geometricSum,
                 y: p0.y + v0.y * geometricSum
             };
-
             return {
                 position: newPosition,
                 velocity: newVelocity
@@ -198,17 +190,17 @@ class Ball {
     }
 
     handleBallState(ballState) {
-        // console.log("Handle Ball state"); 
         const serverState = {
             position: { x: ballState.position.x, y: ballState.position.y },
             velocity: { x: ballState.velocity.x, y: ballState.velocity.y },
             timestamp: ballState.timestamp
         };
         const newState = this.computeClosedFormFastForward(serverState);
-        // if (newState == null) return; 
-        console.log("Diff in time: (client - server): ", Date.now() - ballState.timestamp); 
+        
+        console.log("Diff in time: (client - server): ", this.scene.networkManager.getServerTime() - ballState.timestamp); 
         console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
         console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
+        
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
     }

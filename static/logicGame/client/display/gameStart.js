@@ -6,7 +6,7 @@ export class GameStartDisplay {
         this.waitingTween = null;
         
         // Tạo unique ID cho mỗi instance
-        this.instanceId = `gamestart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        this.instanceId = `gamestart_${this.scene.networkManager.getServerTime()}_${Math.random().toString(36).substr(2, 9)}`;
         
         // Cleanup khi tab/window đóng
         window.addEventListener('beforeunload', () => this.cleanup());

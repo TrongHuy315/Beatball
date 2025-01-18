@@ -5,11 +5,13 @@ import { CelebrationManager } from './display/celebration.js';
 import { SoundManager } from './display/soundManager.js';
 import { Scoreboard } from './display/scoreboard.js';
 import { GameStartDisplay} from './display/gameStart.js';
+import { NetworkManager } from './class/networkManager.js';
 
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
     constructor() {
         super({ key: 'ClientScene' });
+        this.networkManager = null; 
 
         this.gameSessionData = {
             roomId: null,
@@ -70,6 +72,8 @@ class ClientScene extends Phaser.Scene {
         this.kickSounds = [
         ];
         this.initData(); 
+
+        this.networkManager = new NetworkManager();
     }
     initData() {
         const data = window.gameData;
@@ -289,6 +293,7 @@ class ClientScene extends Phaser.Scene {
             }
             console.log("Player ready"); 
             socket.emit('ready'); 
+            this.networkManager.initialize(this); 
         });
 
 
@@ -306,10 +311,10 @@ class ClientScene extends Phaser.Scene {
             var startedTime = data.timeStamp; 
             var remainderTime = Date.now() - data.timeStamp; 
             var durationCountDown = Math.max(0, remainderTime - 3000);
-            var serverStarTime = 3000 + data.timeStamp; 
+            var serverStartTime = 3000 + data.timeStamp; 
             
             this.gameStartDisplay.showStartCountdown(durationCountDown, () => {
-                var elapsedTime = Date.now() - serverStarTime; 
+                var elapsedTime = Date.now() - serverStartTime; 
                 this.gameStarted = true; 
                 this.scoreboard.resetClock();
                 this.scoreboard.startCountDown(elapsedTime);

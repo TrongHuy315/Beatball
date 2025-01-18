@@ -1,5 +1,6 @@
 class EntityInterpolation {
-    constructor(initialDelay = 100) {
+    constructor(scene, initialDelay = 100) {
+        this.scene = scene; 
         this.stateBuffer = [];
         this.interpolationDelay = initialDelay; // 100ms delay
         this.maxBufferSize = 60;
@@ -67,9 +68,10 @@ class EntityInterpolation {
 }
 
 class GameInterpolator {
-    constructor() {
+    constructor(scene) {
+        this.scene = scene; 
         this.interpolators = new Map(); // Map để lưu interpolator cho từng entity
-        this.lastUpdateTime = Date.now();
+        this.lastUpdateTime = this.scene.networkManager.getServerTime();
     }
     updateInterpolationDelay(networkState) {
         const newDelay = this.calculateOptimalDelay(networkState);
@@ -94,14 +96,14 @@ class GameInterpolator {
         return Math.min(Math.max(optimalDelay, minDelay), maxDelay);
     }
     // Thêm hoặc cập nhật state cho một entity
-    updateEntityState(entityId, position) {
+    updateEntityState(entityId, position, timestamp) {
         if (!this.interpolators.has(entityId)) {
-            this.interpolators.set(entityId, new EntityInterpolation());
+            this.interpolators.set(entityId, new EntityInterpolation(this.scene));
         }
 
         const interpolator = this.interpolators.get(entityId);
         interpolator.addState({
-            timestamp: Date.now(),
+            timestamp: timestamp,
             position: position
         });
     }
@@ -111,7 +113,7 @@ class GameInterpolator {
         const interpolator = this.interpolators.get(entityId);
         if (!interpolator) return null;
 
-        const currentTime = Date.now();
+        const currentTime = this.scene.networkManager.getServerTime();
         return interpolator.getCurrentState(currentTime);
     }
 
@@ -124,10 +126,10 @@ class GameInterpolator {
 class InterpolationManager {
     constructor(scene) {
         this.scene = scene;
-        this.gameInterpolator = new GameInterpolator();
+        this.gameInterpolator = new GameInterpolator(scene);
         this.setupInterpolation();
 
-        this.lastNetworkUpdate = Date.now();
+        this.lastNetworkUpdate = this.scene.networkManager.getServerTime();
         this.networkUpdateInterval = 1000; // Update every second
         this.debug = false;
     }
@@ -137,7 +139,7 @@ class InterpolationManager {
             const players = data.players;
             for (const playerId in players) {
                 if (playerId !== this.scene.playerId) {
-                    this.gameInterpolator.updateEntityState(playerId, players[playerId].position);
+                    this.gameInterpolator.updateEntityState(playerId, players[playerId].position, data.timestamp);
                 }
             }
         });
@@ -145,7 +147,7 @@ class InterpolationManager {
 
     update() {
         // Update interpolation delay based on network conditions
-        const currentTime = Date.now();
+        const currentTime = this.scene.networkManager.getServerTime();
         if (currentTime - this.lastNetworkUpdate >= this.networkUpdateInterval) {
             if (this.scene.perfMonitor) {
                 const networkState = this.scene.perfMonitor.getCurrentNetworkState();
