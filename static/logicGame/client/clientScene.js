@@ -31,7 +31,7 @@ class ClientScene extends Phaser.Scene {
         };
         
         this.player = null;
-        this.ball = null;
+        this.ball = null;   
         this.scoreboard = null;
         this.players = new Map();
         this.playerId; 

@@ -140,7 +140,7 @@ class Ball {
         }
     }
     computeClosedFormFastForward(serverState) {
-        const currentTime = 0; 
+        var currentTime = 0; 
         if (this.scene.networkManager) {
             currentTime = this.scene.networkManager.getServerTime(); 
         } else {
