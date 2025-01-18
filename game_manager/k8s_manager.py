@@ -17,7 +17,7 @@ class K8sGameManager:
         self.project_id = "beatball-physics"
         self.main_ingress_name = "game-ingress"
         
-        self.update_ingress = False
+        self.update_ingress = True
         self.update_frontend = False
         self.update_backend = False
         self.update_namespace = False
@@ -192,7 +192,7 @@ class K8sGameManager:
                                 "paths": [
                                     {
                                         "path": "/game/game-test--11111",
-                                        "pathType": "Prefix",
+                                        "pathType": "ImplementationSpecific",
                                         "backend": {
                                             "service": {
                                                 "name": "default-backend",
@@ -955,7 +955,7 @@ class K8sGameManager:
                 print(f"Error updating configurations after cleanup: {e}")
                 raise
 
-            # 8. Clear all paths from main ingress first if update_ingress is True
+            # 8. Clear all paths from main ingress 
             try:
                 self._clear_ingress_paths()
             except Exception as e:
