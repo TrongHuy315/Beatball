@@ -449,18 +449,28 @@ class K8sGameManager:
             raise
     
     def _add_game_path_to_ingress(self, ingress_path, service_name):
-        """Adds game-specific paths to the shared Ingress with GKE specifics"""
+        """Adds game-specific paths to the shared Ingress"""
         try:
             current_ingress = self.networking_v1.read_namespaced_ingress(
                 name=self.main_ingress_name,
                 namespace=self.namespace
             )
 
-            # Create game-specific path with wildcard
+            # Create required paths for this game service
             new_paths = [
                 {
-                    'path': f"{ingress_path}/*",  # Use GKE wildcard
-                    'pathType': 'ImplementationSpecific',  # Required for GKE
+                    'path': ingress_path,
+                    'pathType': 'Prefix',
+                    'backend': {
+                        'service': {
+                            'name': service_name,
+                            'port': {'number': 8000}
+                        }
+                    }
+                },
+                {
+                    'path': f"{ingress_path}/socket.io",
+                    'pathType': 'Prefix',
                     'backend': {
                         'service': {
                             'name': service_name,
@@ -479,25 +489,22 @@ class K8sGameManager:
             if not rule.http:
                 rule.http = client.V1HTTPIngressRuleValue(paths=[])
 
-            # Get existing paths excluding any that match our new paths
+            # Remove any existing paths that match our new ones
             existing_paths = []
-            path_base = ingress_path.rstrip('/*')
-            
             if rule.http.paths:
                 for existing_path in rule.http.paths:
                     # Keep default backend path
                     if existing_path.path == '/game/game-test--11111':
                         existing_paths.append(existing_path)
                     # Keep paths that don't match our game path
-                    elif not (existing_path.path.startswith(path_base) and
-                            (existing_path.path.endswith('/*') or 
-                            existing_path.path == path_base)):
+                    elif not (existing_path.path == ingress_path or 
+                            existing_path.path == f"{ingress_path}/socket.io"):
                         existing_paths.append(existing_path)
 
             # Add our new paths
             rule.http.paths = existing_paths + new_paths
 
-            # GKE specific annotations
+            # Ensure required annotations are present
             if not current_ingress.metadata.annotations:
                 current_ingress.metadata.annotations = {}
                     
@@ -506,8 +513,9 @@ class K8sGameManager:
                 "kubernetes.io/ingress.global-static-ip-name": "beatball-ip",
                 "networking.gke.io/v1beta1.FrontendConfig": "ingress-frontend-config",
                 "cert-manager.io/cluster-issuer": "letsencrypt-prod",
-                "kubernetes.io/ingress.allow-http": "false",
-                "ingress.gcp.kubernetes.io/pre-shared-cert": "beatball-cert"
+                "ingress.kubernetes.io/backend-protocol": "HTTP",
+                "ingress.kubernetes.io/proxy-read-timeout": "3600",
+                "ingress.kubernetes.io/proxy-send-timeout": "3600"
             })
 
             # Patch the ingress
@@ -528,7 +536,6 @@ class K8sGameManager:
         except Exception as e:
             print(f"Error adding paths to ingress: {e}")
             raise
-
     def _wait_for_pod_ready(self, deployment_name, timeout=120):
         """Đợi cho đến khi pod trong deployment sẵn sàng"""
         import time
