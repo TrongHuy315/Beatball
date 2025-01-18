@@ -853,7 +853,13 @@ class K8sGameManager:
         """Dọn dẹp tất cả resources trong namespace"""
         try:
             print("Cleaning up all resources in namespace...")
-
+            try:
+                print("Clearing all ingress paths...")
+                self._clear_ingress_paths()
+                print("Successfully cleared all ingress paths")
+            except Exception as e:
+                print(f"Error clearing ingress paths: {e}")
+                
             # Clean default backend if enabled
             if self.update_default_backEnd:
                 try:
