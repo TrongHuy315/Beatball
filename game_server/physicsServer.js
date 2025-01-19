@@ -501,7 +501,6 @@ class PhysicsEngine {
                     clientSendTime: data.clientSendTime,
                     serverTime: Date.now()
                 });
-                debug('Time sync response sent to clientId: %s', clientId);
             });
 
 
@@ -613,7 +612,6 @@ class PhysicsEngine {
 
             socket.on('ping', () => {
                 socket.emit('pong');
-                debug('ping/pong exchanged with clientId: %s', clientId);
             });
 
             socket.on('ready', () => {
