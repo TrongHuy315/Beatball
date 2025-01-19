@@ -176,7 +176,9 @@ class ClientScene extends Phaser.Scene {
             const playerInfo = data.players[playerId];
             if (playerId === this.playerId) {
                 const localPlayer = this.players.get(playerId);
+                console.log("local Player Detection"); 
                 if (localPlayer) {
+                    console.log("Local Player Reconcilation"); 
                     localPlayer.serverReconciliation({
                         position: playerInfo.position,
                         velocity: playerInfo.velocity,
@@ -339,7 +341,7 @@ class ClientScene extends Phaser.Scene {
                 this.scoreboard.resetClock();
                 this.scoreboard.startCountDown(elapsedTime);
             }); 
-        });  
+        });     
 
         // ------ PLAYERS UPDATE -------- 
         this.SOCKET.on('newPlayerJoin', (data) => {
