@@ -232,6 +232,13 @@ class PhysicsEngine {
      */
     startGame() {
         this.resetGame();
+        // Debug logging
+        console.log("Current players:", Array.from(this.players.entries()).map(([clientId, player]) => ({
+            clientId,
+            userId: player.userId,
+            side: player.side
+        })));
+        console.log("Player data map:", Array.from(this.playerData.entries()));
         const gameInfo = {
             teams: {
                 blue: Array.from(this.players.values())

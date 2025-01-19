@@ -5,16 +5,16 @@ class InterpolatedPlayer extends PlayerController {
         this.data = {
             goal: 0,
             assist: 0,
-            name: info?.data?.name || "Player",
-            shirt: info?.data?.shirt || "0",
-            side: info?.data?.side || "left"
+            name: info?.name || "Player",     // Remove .data nesting
+            shirt: info?.shirtNumber || "0",  // Changed from shirt to shirtNumber
+            side: info?.side || "left"
         };
         
         // Disable input handling
         this.cursors = null;
 
         // Store playerId if provided
-        this.playerId = teamConfig?.data?.playerId || null;
+        this.playerId = teamConfig?.playerId || null;
     }
 
     // Override createPhysicsBody để set isStatic = true

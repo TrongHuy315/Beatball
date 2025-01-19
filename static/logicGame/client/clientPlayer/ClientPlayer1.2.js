@@ -66,9 +66,9 @@ class PlayerController {
         this.data = {
             goal: 0,
             assist: 0,
-            name: info?.data?.name || "Player",
-            shirt: info?.data?.shirt || "0",
-            side: info?.data?.side || "left"
+            name: info?.name || "Player",     // Remove .data nesting
+            shirt: info?.shirtNumber || "0",  // Changed from shirt to shirtNumber
+            side: info?.side || "left"
         };
     }
     playAuraAnimation() {
@@ -241,7 +241,7 @@ class PlayerController {
             isStatic: false,
             collisionFilter: {
                 category: this.scene.categories.player,
-                mask: ~(categories.inner | categories.ball)  // Va chạm với tất cả trừ inner
+                mask: ~(categories.inner | categories.ball)  
             }
         });
     }
