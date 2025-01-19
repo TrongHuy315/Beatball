@@ -575,7 +575,7 @@ class PhysicsEngine {
                 // Simplified data structure
                 socket.emit('approveJoin', {
                     playerId: clientId,
-                    position: newPlayer.body.position,
+                    position: spawnPosition,
                     scores: this.scores,
                     side: playerInfo.team,
                     name: playerInfo.username,
@@ -584,7 +584,7 @@ class PhysicsEngine {
                 // Store player data for batch sending
                 this.pendingPlayerData.set(clientId, {
                     playerId: clientId,
-                    position: newPlayer.body.position,
+                    position: spawnPosition,
                     side: playerInfo.team,
                     name: playerInfo.username,
                     shirtNumber: playerInfo.shirtNumber
