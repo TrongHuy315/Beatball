@@ -106,9 +106,7 @@ app.use((err, req, res, next) => {
 });
 
 class PhysicsEngine {
-    constructor(totalConnection) {
-        debug('Constructing PhysicsEngine with totalConnection: %d', totalConnection);
-
+    constructor() {
         // ENGINE SET UP
         this.engine = Matter.Engine.create({
             enableSleeping: false,
@@ -132,7 +130,7 @@ class PhysicsEngine {
 
         // CELEBRATING / SCOREBOARD
         this.gameStarted = false;
-        this.requiredPlayers = totalConnection;
+        this.requiredPlayers = 9; 
         this.scores = {
             left: 0,
             right: 0
@@ -149,13 +147,17 @@ class PhysicsEngine {
         this.usedNumbers = new Set();
         try {
             const playerDataString = process.env.PLAYER_DATA;
+            let playerCount = 0;
             if (playerDataString) {
                 const initialPlayerData = JSON.parse(playerDataString);
+                playerCount = initialPlayerData.length;
                 this.initializePlayerData(initialPlayerData);
             }
+            this.requiredPlayers = playerCount;
         } catch (error) {
             console.error('Error parsing player data:', error);
         }
+        console.log("Number of required players: ", this.requiredPlayers); 
 
         try {
             const playerDataString = process.env.PLAYER_DATA;
@@ -189,7 +191,6 @@ class PhysicsEngine {
                 this.gameloop();
                 Matter.Engine.update(this.engine, this.targetInnerFPS);
                 io.emit('sendGameState', this.gameState());
-                debug('Emitted gameState');
                 this.lastFrameTime = currentTime - (delta - this.targetInnerFPS);
             }
 
@@ -200,7 +201,6 @@ class PhysicsEngine {
             last = cur;
             setImmediate(gameLoop);
         };
-        gameLoop();
     }
     generateShirtNumber() {
         const MIN_NUMBER = 1;
@@ -239,7 +239,7 @@ class PhysicsEngine {
                     .map(p => {
                         const playerId = Array.from(this.players.entries())
                             .find(entry => entry[1] === p)[0];
-                        const playerInfo = this.playerData.get(playerId);
+                        const playerInfo = this.playerData.get(p.userId);
                         return {
                             id: playerId,
                             position: p.body.position,
@@ -305,7 +305,6 @@ class PhysicsEngine {
      * Returns current game state
      */
     gameState() {
-        debug('gameState called');
         const state = {
             ball: {
                 position: this.ball.body.position,
@@ -314,7 +313,7 @@ class PhysicsEngine {
             players: {},
             timestamp: Date.now()
         };
-
+    
         this.players.forEach((player, id) => {
             state.players[id] = {
                 position: player.body.position,
@@ -324,7 +323,6 @@ class PhysicsEngine {
                 lastProcessedInput: player.lastProcessedInput
             };
         });
-        debug('gameState -> %O', state);
         return state;
     }
 
@@ -536,6 +534,7 @@ class PhysicsEngine {
                 const spawnPosition = this.getSpawnPosition(playerInfo.team);
                 newPlayer.create(spawnPosition.x, spawnPosition.y);
                 newPlayer.side = playerInfo.team; // 'left' or 'right'
+                newPlayer.userId = userId; 
                 this.players.set(clientId, newPlayer);
             
                 // Simplified data structure
@@ -659,8 +658,7 @@ class PhysicsEngine {
 }
 
 // Initialize physics engine
-const physicsEngine = new PhysicsEngine(2);
-process.stdout.write("Physic engine run with 2 allowed connection\n");
+const physicsEngine = new PhysicsEngine(); 
 process.stdout.write(`Environment PORT: ${process.env.PORT}\n`);
 
 const PORT = process.env.PORT || 8000;
