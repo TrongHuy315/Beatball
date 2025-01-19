@@ -182,6 +182,7 @@ class PlayerController {
             ctx.fill();
             
             if (numberConfig.on) {
+                console.log("Draw shirt number: ", this.data.shirt); 
                 ctx.font = `${numberConfig.fontWeight} 
                 ${numberConfig.fontSize}px ${numberConfig.fontFamily}`;
                 ctx.textAlign = 'center';

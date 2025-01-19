@@ -351,7 +351,7 @@ class ClientScene extends Phaser.Scene {
                 position: data.position,
                 fullData: data  // Log the entire data object
             });
-            
+
             if (data.playerId !== this.playerId) {
                 const playerConfig = {
                     data: {
@@ -440,6 +440,7 @@ const configPhaser = {
             setBounds: true, 
         }
     },
+    disableVisibilityChange: true,
     scene: ClientScene
 };
 
