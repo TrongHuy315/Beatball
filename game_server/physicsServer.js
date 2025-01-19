@@ -201,7 +201,7 @@ class PhysicsEngine {
             last = cur;
             setImmediate(gameLoop);
         };
-
+        gameLoop(); 
         this.pendingPlayerData = new Map();
     }
     generateShirtNumber() {

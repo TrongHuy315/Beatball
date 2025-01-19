@@ -172,15 +172,11 @@ class ClientScene extends Phaser.Scene {
 
     // HANDLE RECEIVED DATA 
     handleGameState(data) {
-        console.log("Handle Game State"); 
         for (const playerId in data.players) {
             const playerInfo = data.players[playerId];
-            console.log("Server PlayerId & Player Player Id: ", playerId, this.playerId); 
             if (playerId === this.playerId) {
                 const localPlayer = this.players.get(playerId);
-                console.log("local Player Detection"); 
                 if (localPlayer) {
-                    console.log("Local Player Reconcilation"); 
                     localPlayer.serverReconciliation({
                         position: playerInfo.position,
                         velocity: playerInfo.velocity,
