@@ -199,7 +199,7 @@ class Ball3 {
 				velocity: { x: 0, y: 0 }, 
 				collisionFilter: {
 					category: categories.predictBall, 
-					mask: ~(categories.ball | categories.nonGraphicBall)
+					mask: ~(categories.ball | categories.nonGraphicBall | categories.predictBall)
 				}
 			}
 		);

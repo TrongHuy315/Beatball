@@ -296,7 +296,7 @@ class Ball {
                 angle: physics.angle,
 				collisionFilter: {
                     category: categories.ball, 
-                    mask: ~(categories.nonGraphicBall | categories.predictBall | categories.player) 
+                    mask: ~(categories.nonGraphicBall | categories.predictBall | categories.player | categories.ball) 
                 }, 
                 isStatic: false,
                 slop: physics.slop, 

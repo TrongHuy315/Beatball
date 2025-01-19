@@ -22,6 +22,15 @@ class InterpolatedPlayer extends PlayerController {
     createPhysicsBody(x, y) {
         const { radius } = CONFIG.player.graphic;
         const physics = CONFIG.player.physics;
+        const categories = {
+            outer: 0x0001,         // 000001
+            inner: 0x0002,         // 000010
+            player: 0x0004,        // 000100
+            ball: 0x0008,          // 001000
+            net: 0x0010,           // 010000
+            nonGraphicBall: 0x0020, // 100000
+            predictBall: 0x0040     // 1000000
+        };
         return this.scene.matter.add.circle(x, y, radius, {
             label: 'player', 
             mass: physics.mass,
@@ -34,7 +43,7 @@ class InterpolatedPlayer extends PlayerController {
             isStatic: true,  // Set static để velocity luôn = 0
             collisionFilter: {
                 category: this.scene.categories.player,
-                mask: ~this.scene.categories.inner
+                mask: ~(this.scene.categories.inner | this.scene.categories.ball)
             }
         });
     }
