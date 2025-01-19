@@ -39,16 +39,6 @@ class InterpolatedPlayer extends PlayerController {
         });
     }
 
-    applyData(data) {
-        this.name = data.name; 
-        this.number = data.number; 
-        this.side = data.side; 
-        this.spawnX = data.spawnX; 
-        this.spawnY = data.spawnY; 
-        this.playerId = data.playerId; 
-        this.create(this.spawnX, this.spawnY); 
-    }
-
     processInput() {
         return null;
     }

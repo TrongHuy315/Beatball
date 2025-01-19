@@ -199,6 +199,7 @@ class PlayerController {
             }
     
             if (nameConfig.on) {
+                console.log("Draw name: ", this.data.name); 
                 ctx.font = `${nameConfig.fontWeight} ${nameConfig.fontSize}px ${nameConfig.fontFamily}`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
