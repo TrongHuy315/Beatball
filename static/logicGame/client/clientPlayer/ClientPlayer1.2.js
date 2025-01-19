@@ -137,7 +137,7 @@ class PlayerController {
         // Get base colors based on side
         const baseColors = this.data.side === 'left' ? {
             fillColor: '#FF4B4B',       // Red fill for left side
-            borderColor: '#FF6B6B',     // Lighter red border
+            borderColor: this.config.graphic.borderColor,     // Lighter red border
             highlightColor: 'rgba(255, 255, 255, 0.3)'
         } : {
             fillColor: this.config.graphic.fillColor,     // Default blue fill
@@ -219,6 +219,15 @@ class PlayerController {
     createPhysicsBody(x, y) {
         const { radius } = CONFIG.player.graphic;
         const physics = CONFIG.player.physics;
+        const categories = {
+            outer: 0x0001,         // 000001
+            inner: 0x0002,         // 000010
+            player: 0x0004,        // 000100
+            ball: 0x0008,          // 001000
+            net: 0x0010,           // 010000
+            nonGraphicBall: 0x0020, // 100000
+            predictBall: 0x0040     // 1000000
+        };
         return this.scene.matter.add.circle(x, y, radius, {
             label: 'player', 
             mass: physics.mass,
@@ -231,7 +240,7 @@ class PlayerController {
             isStatic: false,
             collisionFilter: {
                 category: this.scene.categories.player,
-                mask: ~this.scene.categories.inner  // Va chạm với tất cả trừ inner
+                mask: ~(categories.inner | categories.ball)  // Va chạm với tất cả trừ inner
             }
         });
     }

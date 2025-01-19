@@ -1,5 +1,6 @@
 class InterpolatedPlayer extends PlayerController {
     constructor(scene, teamConfig) {
+        super(scene, teamConfig);
         // Pass the team configuration to parent
         this.data = {
             goal: 0,
