@@ -142,7 +142,7 @@ class ClientScene extends Phaser.Scene {
     startGameLoop() {
         var last; 
         const gameLoop = () => {
-            const currentTime = Date.now();
+            const currentTime = this.networkManager.getServerTime();
             if (currentTime - this.lastFrameTime >= 1000 / this.targetInnerFPS) {
                 this.gameLoop();
                 this.matter.world.step(this.targetFrameTime);            
@@ -272,6 +272,7 @@ class ClientScene extends Phaser.Scene {
         socket.on('connect', () => {
             this.events.emit('socket-ready');
             console.log('Connected with socket ID:', socket.id);
+            this.networkManager.initialize(this);
             socket.emit('requestJoin');
         });
 
@@ -303,7 +304,6 @@ class ClientScene extends Phaser.Scene {
             }
         
             this.SOCKET.emit('ready');
-            this.networkManager.initialize(this);
         });
     
 
@@ -320,12 +320,12 @@ class ClientScene extends Phaser.Scene {
         socket.on('gameStart', (data) => {
             this.gameStartDisplay.hideWaitingScreen();
             var startedTime = data.timeStamp; 
-            var remainderTime = Date.now() - data.timeStamp; 
+            var remainderTime = this.networkManager.getServerTime() - data.timeStamp; 
             var durationCountDown = Math.max(0, remainderTime - 3000);
             var serverStartTime = 3000 + data.timeStamp; 
             
             this.gameStartDisplay.showStartCountdown(durationCountDown, () => {
-                var elapsedTime = Date.now() - serverStartTime; 
+                var elapsedTime = this.networkManager.getServerTime() - serverStartTime; 
                 this.gameStarted = true; 
                 this.scoreboard.resetClock();
                 this.scoreboard.startCountDown(elapsedTime);

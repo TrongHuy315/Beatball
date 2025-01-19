@@ -589,6 +589,7 @@ class K8sGameManager:
 
     def _create_deployment_spec(self, name, room_id, player_data, labels):
         socket_path = f"/game/{name}/socket.io"
+        print("Creating deployment with player data:", json.dumps(player_data, indent=2))
         return {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
@@ -639,7 +640,9 @@ class K8sGameManager:
                                 {"name": "ROOM_ID", "value": str(room_id)},
                                 {"name": "PLAYER_DATA", "value": json.dumps(player_data)},
                                 {"name": "PORT", "value": "8000"},
-                                {"name": "SOCKET_PATH", "value": socket_path}
+                                {"name": "SOCKET_PATH", "value": socket_path},
+                                {"name": "DEBUG", "value": "socket.io:server"},  
+                                {"name": "NODE_ENV", "value": "development"}     
                             ],
                             "resources": {
                                 "requests": {
