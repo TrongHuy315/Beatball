@@ -362,7 +362,6 @@ class PhysicsEngine {
      * Updates game-related logic each frame
      */
     gameloop() {
-        debug('gameloop iteration');
         this.ball.update();
     }
 
@@ -593,12 +592,9 @@ class PhysicsEngine {
                     const clientId = socket.clientId;
                     const player = this.players.get(clientId);
                     const input = data.input;
-                    debug('sendInput from clientId: %s -> %O', clientId, input);
                     player.update(input, this.ball);
                     player.lastProcessedInput = input.sequence;
-                } else {
-                    debug('sendInput ignored, game not started for clientId: %s', socket.clientId);
-                }
+                } 
             });
 
             socket.on('leaveGame', () => {
