@@ -16,8 +16,8 @@ class Player {
         this.goals = 0; 
         this.assists = 0;
         this.points = 0;  
-        this.side = 0; 
         this.userId = null; 
+        this.side = 0; 
         // Ball kick config 
         const { normalKickDistance, normalKickVelocityAdd, normalKickFreezeTime } = CONFIG.player.ballConfig;
         this.normalKickDistance = normalKickDistance;

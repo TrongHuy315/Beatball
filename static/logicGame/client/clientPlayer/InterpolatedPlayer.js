@@ -3,11 +3,11 @@ class InterpolatedPlayer extends PlayerController {
         super(scene, teamConfig);
         // Pass the team configuration to parent
         this.data = {
-            goal: 0,
-            assist: 0,
-            name: info?.name || "Player",     // Remove .data nesting
-            shirt: info?.shirtNumber || "0",  // Changed from shirt to shirtNumber
-            side: info?.side || "left"
+            goals: 0,
+            assists: 0,
+            name: info ? info.data.name : "Player",
+            shirt: info ? info.data.shirtNumber || info.data.shirt || "0" : "0",
+            side: info ? info.data.side : "left"
         };
         
         // Disable input handling
