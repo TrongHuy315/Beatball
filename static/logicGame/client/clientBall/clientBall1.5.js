@@ -19,103 +19,79 @@ class Ball {
         }, 1000);
     }
     setupCollisionHandlers() {
-        this.scene.matter.world.on('beforeupdate', () => {
-            if (this.stick == 0) {
-                this.oldVelocities.set(this.body.id, {
-                    x: this.body.velocity.x,
-                    y: this.body.velocity.y
-                });
-            }
-        });
-
-        // this.scene.matter.world.on('collisionstart', (event) => {
-        //     event.pairs.forEach((pair) => {
-        //         const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-        //                     (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-        //         const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-        //                     (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-        
-        //         if (ball && wall) {
-        //             this.stick++;
-        //             if (this.stick > 1) return;
-        //             const oldVel = this.oldVelocities.get(this.body.id);
-        //             if (!oldVel) return;
-        
-        //             const pushDirection = wall.customType;
-        //             const dampingDirection = 0.5;
-        
-        //             // Lấy vector vận tốc cũ
-        //             let newVelX = oldVel.x;
-        //             let newVelY = oldVel.y;
-        
-        //             switch (pushDirection) {
-        //                 case 'U': // Đẩy lên
-        //                     newVelY = -newVelY; 
-        //                     break; 
-        //                 case 'D': // Đẩy xuống
-        //                     newVelY = -newVelY; // Đảo chiều Y
-        //                     break;
-        //                 case 'L': // Đẩy sang trái 
-        //                     newVelX = -newVelX; 
-        //                     break; 
-        //                 case 'R': // Đẩy sang phải
-        //                     newVelX = -newVelX; // Đảo chiều X
-        //                     break;
-        //             }
-        
-        //             // Áp dụng dampingDirection cho toàn bộ vector
-        //             this.setVelocity(
-        //                 newVelX * dampingDirection,
-        //                 newVelY * dampingDirection
-        //             );
-        //         }
-        //     });
-        // });
-
-        this.scene.matter.world.on('collisionend', (event) => {
-            event.pairs.forEach((pair) => {
-                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-                            (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-
-                if (ball && wall) {
-                    this.stick--;
-                }
-            });
-        });
-
-        this.scene.matter.world.on('collisionactive', (event) => {
-            const oldVel = this.oldVelocities.get(this.body.id);
-            
-            // event.pairs.forEach((pair) => {
-            //     const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-            //                 (pair.bodyB.label === 'ball' ? pair.bodyB : null);
-            //     const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-            //                 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-            //     console.log("Before Trying flipping");
-            //     console.log("Stick: ", this.stick); 
-            //     if (ball && wall && oldVel && this.stick > 0) {
-            //         const currentVel = {x: ball.velocity.x, y: ball.velocity.y};
-            //         const EPSILON = 0.1;
-            //         console.log("Trying flipping"); 
-            //         var ball_restitution = this.config.physics.restitution; 
-            //         var wall_restitution = CONFIG.wall.bounciness; 
-            //         var combinedRestitution = this.config.physics.restitution * CONFIG.wall.bounciness;
-            //         if (Math.abs(currentVel.x) < EPSILON || Math.abs(currentVel.y) < EPSILON) {
-            //             if (Math.abs(currentVel.x) < EPSILON) {
-            //                 console.log("Flip x");
-            //                 this.setVelocity(-oldVel.x * combinedRestitution, currentVel.y); 
-            //             }
-            //             if (Math.abs(currentVel.y) < EPSILON) {
-            //                 console.log("Flip y");
-            //                 this.setVelocity(currentVel.x, -oldVel.y * combinedRestitution); 
-            //             }
-            //         }
-            //     }
-            // });
-        });
-    }
+		this.scene.matter.world.on('beforeupdate', () => {
+			if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
+				this.oldVelocities.set(this.body.id, {
+					x: this.body.velocity.x,
+					y: this.body.velocity.y
+				});
+			}
+		});
+	
+		this.scene.matter.world.on('collisionstart', (event) => {
+			event.pairs.forEach((pair) => {
+				const ball3 = pair.bodyA.label === 'ball' ? pair.bodyA : 
+							  (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+	
+				if (ball3 && wall) {
+					this.stick++;
+					console.log("Colliding with wall"); 
+					if (this.stick > 1) return;
+	
+					const oldVel = this.oldVelocities.get(this.body.id);
+					if (!oldVel) return;
+	
+					const pushDirection = wall.customType;
+					const dampingDirection = 0.38;
+	
+					let newVelX = oldVel.x;
+					let newVelY = oldVel.y;
+	
+					switch (pushDirection) {
+						case 'U':
+							newVelY = -newVelY * dampingDirection;
+							break;
+						case 'D':
+							newVelY = -newVelY * dampingDirection;
+							break;
+						case 'L':
+							newVelX = -newVelX * dampingDirection;
+							break;
+						case 'R':
+							newVelX = -newVelX * dampingDirection;
+							break;
+					}
+					console.log("Old xy: ", oldVel.x, oldVel.y); 
+					console.log("New xy: ", newVelX, newVelY); 
+					this.setVelocity(
+						newVelX,
+						newVelY
+					);
+				}
+			});
+		});
+	
+		this.scene.matter.world.on('collisionend', (event) => {
+			event.pairs.forEach((pair) => {
+				const ball3 = pair.bodyA.label === 'ball' ? pair.bodyA : 
+							  (pair.bodyB.label === 'ball' ? pair.bodyB : null);
+				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+	
+				if (ball3 && wall) {
+					this.stick--; 
+				}
+			});
+		});
+	
+		this.scene.matter.world.on('collisionactive', (event) => {
+			if (this.stick > 0) {
+				// Có thể thêm logic xử lý va chạm liên tục ở đây nếu cần
+			}
+		});
+	}
     logVelocity () {
         console.log("Velocity: ", this.body.velocity.x, this.body.velocity.y); 
     }
