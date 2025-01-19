@@ -685,6 +685,7 @@ class PhysicsEngine {
 // Initialize physics engine
 const physicsEngine = new PhysicsEngine(); 
 process.stdout.write(`Environment PORT: ${process.env.PORT}\n`);
+process.stdout.write(`WTF asdf asodf jaosd fojsaofdisaf j!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);
 
 const PORT = process.env.PORT || 8000;
 http.listen(PORT, () => {
