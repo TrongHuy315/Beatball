@@ -240,11 +240,22 @@ class PhysicsEngine {
                         const playerId = Array.from(this.players.entries())
                             .find(entry => entry[1] === p)[0];
                         const playerInfo = this.playerData.get(p.userId);
+                        
+                        if (!playerInfo) {
+                            console.log(`Warning: No player info found for userId: ${p.userId}`);
+                            return {
+                                id: playerId,
+                                position: p.body.position,
+                                username: "Unknown Player",
+                                shirtNumber: 0
+                            };
+                        }
+    
                         return {
                             id: playerId,
                             position: p.body.position,
-                            username: playerInfo.username,
-                            shirtNumber: playerInfo.shirtNumber
+                            username: playerInfo.username || "Unknown Player",
+                            shirtNumber: playerInfo.shirtNumber || 0
                         };
                     }),
                 red: Array.from(this.players.values())
@@ -252,26 +263,36 @@ class PhysicsEngine {
                     .map(p => {
                         const playerId = Array.from(this.players.entries())
                             .find(entry => entry[1] === p)[0];
-                        const playerInfo = this.playerData.get(playerId);
+                        const playerInfo = this.playerData.get(p.userId);
+                        
+                        if (!playerInfo) {
+                            console.log(`Warning: No player info found for userId: ${p.userId}`);
+                            return {
+                                id: playerId,
+                                position: p.body.position,
+                                username: "Unknown Player",
+                                shirtNumber: 0
+                            };
+                        }
+    
                         return {
                             id: playerId,
                             position: p.body.position,
-                            username: playerInfo.username,
-                            shirtNumber: playerInfo.shirtNumber
+                            username: playerInfo.username || "Unknown Player",
+                            shirtNumber: playerInfo.shirtNumber || 0
                         };
                     })
             },
             scores: this.scores,
             timestamp: Date.now()
         };
-
+    
         io.emit('gameStart', gameInfo);
-
+    
         setTimeout(() => {
             this.gameStarted = true;
         }, 3000);
     }
-
     /**
      * setUpGoalCheckEvent
      * Sets up an event to check collisions for goals
