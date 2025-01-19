@@ -172,6 +172,7 @@ class ClientScene extends Phaser.Scene {
 
     // HANDLE RECEIVED DATA 
     handleGameState(data) {
+        console.log("Handle Game State"); 
         for (const playerId in data.players) {
             const playerInfo = data.players[playerId];
             console.log("Server PlayerId & Player Player Id: ", playerId, this.playerId); 
