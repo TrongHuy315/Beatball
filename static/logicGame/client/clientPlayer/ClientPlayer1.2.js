@@ -82,6 +82,7 @@ class PlayerController {
 
     // PLAYER INITIALIZATION 
     create(x = 200, y = 200) {
+        console.log("Starting to create player with info: ", this.data); 
         this.config = CONFIG.player;
         this.spawnX = x;
         this.spawnY = y;
