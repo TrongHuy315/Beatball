@@ -1,6 +1,6 @@
 class InterpolatedPlayer extends PlayerController {
-    constructor(scene, teamConfig) {
-        super(scene, teamConfig);
+    constructor(scene, info) {
+        super(scene, info);
         // Pass the team configuration to parent
         this.data = {
             goals: 0,
@@ -14,7 +14,7 @@ class InterpolatedPlayer extends PlayerController {
         this.cursors = null;
 
         // Store playerId if provided
-        this.playerId = teamConfig?.playerId || null;
+        this.playerId = info?.playerId || null;
     }
 
     // Override createPhysicsBody để set isStatic = true
