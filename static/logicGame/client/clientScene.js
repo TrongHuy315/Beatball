@@ -281,6 +281,15 @@ class ClientScene extends Phaser.Scene {
         });
 
         this.SOCKET.on('approveJoin', (data) => {
+            console.log('approveJoin received:', {
+                playerId: data.playerId,
+                name: data.name,
+                shirtNumber: data.shirtNumber,
+                side: data.side,
+                position: data.position,
+                fullData: data  // Log the entire data object
+            });
+
             this.playerId = data.playerId;
             
             // Simplified player config
@@ -334,6 +343,15 @@ class ClientScene extends Phaser.Scene {
 
         // ------ PLAYERS UPDATE -------- 
         this.SOCKET.on('newPlayerJoin', (data) => {
+            console.log('newPlayerJoin received:', {
+                playerId: data.playerId,
+                name: data.name,
+                shirtNumber: data.shirtNumber,
+                side: data.side,
+                position: data.position,
+                fullData: data  // Log the entire data object
+            });
+            
             if (data.playerId !== this.playerId) {
                 const playerConfig = {
                     data: {

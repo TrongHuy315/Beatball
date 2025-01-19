@@ -1,5 +1,6 @@
 class InterpolatedPlayer extends PlayerController {
     constructor(scene, info) {
+        console.log('InterpolatedPlayer constructor called with info:', info);
         super(scene, info);
         // Pass the team configuration to parent
         this.data = {
