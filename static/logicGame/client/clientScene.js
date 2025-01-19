@@ -34,7 +34,7 @@ class ClientScene extends Phaser.Scene {
         this.ball = null;   
         this.scoreboard = null;
         this.players = new Map();
-        this.playerId; 
+        this.playerId = null; 
 
         this.gameState = {
             celebrating: false,
@@ -174,6 +174,7 @@ class ClientScene extends Phaser.Scene {
     handleGameState(data) {
         for (const playerId in data.players) {
             const playerInfo = data.players[playerId];
+            console.log("Server PlayerId & Player Player Id: ", playerId, this.playerId); 
             if (playerId === this.playerId) {
                 const localPlayer = this.players.get(playerId);
                 console.log("local Player Detection"); 
