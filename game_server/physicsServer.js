@@ -565,15 +565,6 @@ class PhysicsEngine {
                     return;
                 }
                 
-                // Store player data for batch sending
-                this.pendingPlayerData.set(clientId, {
-                    playerId: clientId,
-                    position: newPlayer.body.position,
-                    side: playerInfo.team,
-                    name: playerInfo.username,
-                    shirtNumber: playerInfo.shirtNumber
-                });
-
                 const newPlayer = new Player(this.world, this.engine, io, this);
                 const spawnPosition = this.getSpawnPosition(playerInfo.team);
                 newPlayer.create(spawnPosition.x, spawnPosition.y);
@@ -590,6 +581,14 @@ class PhysicsEngine {
                     name: playerInfo.username,
                     shirtNumber: playerInfo.shirtNumber
                 }); 
+                // Store player data for batch sending
+                this.pendingPlayerData.set(clientId, {
+                    playerId: clientId,
+                    position: newPlayer.body.position,
+                    side: playerInfo.team,
+                    name: playerInfo.username,
+                    shirtNumber: playerInfo.shirtNumber
+                });
             });
 
             socket.on('sendInput', (data) => {
