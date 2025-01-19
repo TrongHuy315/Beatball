@@ -146,8 +146,11 @@ class PlayerController {
             borderColor: this.config.graphic.borderColor, // Default blue border
             highlightColor: 'rgba(255, 255, 255, 0.3)'
         };
-    
-        if (!this.scene.textures.exists('player')) {
+        // Create unique texture name for each player
+        const textureName = `player_${this.data.side}_${this.data.shirt}`;
+        
+        
+        if (!this.scene.textures.exists(textureName)) {
             console.log("Draw player"); 
             const { borderWidth, radius, numberConfig, nameConfig } = this.config.graphic;
     
@@ -216,10 +219,10 @@ class PlayerController {
             }
     
             // Create texture from canvas
-            this.scene.textures.addCanvas('player', canvas);
+            this.scene.textures.addCanvas(textureName, canvas);
         }
         
-        return this.scene.add.image(0, 0, 'player');
+        return this.scene.add.image(0, 0, textureName);
     }
     createPhysicsBody(x, y) {
         const { radius } = CONFIG.player.graphic;
@@ -323,8 +326,8 @@ class PlayerController {
         ctx.fill();
     
         // Tạo texture
-        const rangeTextureName = `range_${this.config.graphic.numberConfig.value}`;
-        
+        const rangeTextureName = `range_${this.data.side}_${this.data.shirt}`;
+    
         if (!this.scene.textures.exists(rangeTextureName)) {
             this.scene.textures.addCanvas(rangeTextureName, canvas);
         }
@@ -760,7 +763,7 @@ class PlayerController {
         const maxRadius = radius + this.auraAnimation.maxOffset;
         
         // Tạo texture cho aura
-        const auraTextureName = 'aura_effect';
+        const auraTextureName = `aura_effect_${this.data.side}_${this.data.shirt}`;
         if (!this.scene.textures.exists(auraTextureName)) {
             const canvas = document.createElement('canvas');
             const size = maxRadius * 2;

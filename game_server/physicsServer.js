@@ -201,6 +201,8 @@ class PhysicsEngine {
             last = cur;
             setImmediate(gameLoop);
         };
+
+        this.pendingPlayerData = new Map();
     }
     generateShirtNumber() {
         const MIN_NUMBER = 1;
@@ -292,8 +294,12 @@ class PhysicsEngine {
                     })
             },
             scores: this.scores,
-            timestamp: Date.now()
+            timestamp: Date.now(), 
         };
+        this.pendingPlayerData.forEach((playerData) => {
+            io.emit('newPlayerJoin', playerData);
+        });
+        this.pendingPlayerData.clear();
     
         debug('Emitting gameStart with data: %O', gameInfo);
         io.emit('gameStart', gameInfo);
@@ -558,7 +564,16 @@ class PhysicsEngine {
                     socket.emit('game_error', { message: 'Invalid player data' });
                     return;
                 }
-            
+                
+                // Store player data for batch sending
+                this.pendingPlayerData.set(clientId, {
+                    playerId: clientId,
+                    position: newPlayer.body.position,
+                    side: playerInfo.team,
+                    name: playerInfo.username,
+                    shirtNumber: playerInfo.shirtNumber
+                });
+
                 const newPlayer = new Player(this.world, this.engine, io, this);
                 const spawnPosition = this.getSpawnPosition(playerInfo.team);
                 newPlayer.create(spawnPosition.x, spawnPosition.y);
@@ -574,16 +589,7 @@ class PhysicsEngine {
                     side: playerInfo.team,
                     name: playerInfo.username,
                     shirtNumber: playerInfo.shirtNumber
-                });
-            
-                // Simplified broadcast data
-                socket.broadcast.emit('newPlayerJoin', {
-                    playerId: clientId,
-                    position: newPlayer.body.position,
-                    side: playerInfo.team,
-                    name: playerInfo.username,
-                    shirtNumber: playerInfo.shirtNumber
-                });
+                }); 
             });
 
             socket.on('sendInput', (data) => {
