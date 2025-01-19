@@ -232,13 +232,14 @@ class PhysicsEngine {
      */
     startGame() {
         this.resetGame();
-        // Debug logging
-        console.log("Current players:", Array.from(this.players.entries()).map(([clientId, player]) => ({
+        // Debug logging using debug module
+        debug('Player Information: %O', Array.from(this.players.entries()).map(([clientId, player]) => ({
             clientId,
             userId: player.userId,
             side: player.side
         })));
-        console.log("Player data map:", Array.from(this.playerData.entries()));
+        debug('Player Data Map: %O', Array.from(this.playerData.entries()));
+        
         const gameInfo = {
             teams: {
                 blue: Array.from(this.players.values())
@@ -249,7 +250,7 @@ class PhysicsEngine {
                         const playerInfo = this.playerData.get(p.userId);
                         
                         if (!playerInfo) {
-                            console.log(`Warning: No player info found for userId: ${p.userId}`);
+                            debug('Warning: Missing player info for userId: %s', p.userId);
                             return {
                                 id: playerId,
                                 position: p.body.position,
@@ -273,7 +274,7 @@ class PhysicsEngine {
                         const playerInfo = this.playerData.get(p.userId);
                         
                         if (!playerInfo) {
-                            console.log(`Warning: No player info found for userId: ${p.userId}`);
+                            debug('Warning: Missing player info for userId: %s', p.userId);
                             return {
                                 id: playerId,
                                 position: p.body.position,
@@ -294,10 +295,12 @@ class PhysicsEngine {
             timestamp: Date.now()
         };
     
+        debug('Emitting gameStart with data: %O', gameInfo);
         io.emit('gameStart', gameInfo);
     
         setTimeout(() => {
             this.gameStarted = true;
+            debug('Game started: true');
         }, 3000);
     }
     /**
