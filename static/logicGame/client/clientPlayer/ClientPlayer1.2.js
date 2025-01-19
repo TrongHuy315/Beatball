@@ -26,6 +26,7 @@ class PlayerController {
         this.moveType = CONFIG.player.movement.type;
         this.rangeIndicator = null;
         this.wasKicking = false; 
+        this.userId = null; 
         this.maxSpeed = CONFIG.player.movement.maxSpeed; 
 
         // -------------- SET UP CLIENT PREDICTION PROPERTIES ---------
