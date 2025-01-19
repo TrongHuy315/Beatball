@@ -148,6 +148,7 @@ class PlayerController {
         };
     
         if (!this.scene.textures.exists('player')) {
+            console.log("Draw player"); 
             const { borderWidth, radius, numberConfig, nameConfig } = this.config.graphic;
     
             const diameter = (radius * 2);
