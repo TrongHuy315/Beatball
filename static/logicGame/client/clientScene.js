@@ -169,7 +169,7 @@ class ClientScene extends Phaser.Scene {
             this.menuDisplay.update();
         }
         this.ball3.update(); 
-        this.lerpPlayer.update(); 
+        if (this.lerpPlayer) this.lerpPlayer.update(); 
     }
 
     // HANDLE RECEIVED DATA 
