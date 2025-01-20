@@ -357,7 +357,6 @@ class ClientScene extends Phaser.Scene {
         
                 const newPlayer = new InterpolatedPlayer(this, playerConfig);
                 newPlayer.create(data.position.x, data.position.y);
-                newPlayer.graphics.visible = true; 
                 this.players.set(data.playerId, newPlayer);
             }
         });

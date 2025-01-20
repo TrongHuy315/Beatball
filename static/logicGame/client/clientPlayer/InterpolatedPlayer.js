@@ -10,6 +10,7 @@ class InterpolatedPlayer extends PlayerController {
             shirt: info ? info.data.shirtNumber || info.data.shirt || "0" : "0",
             side: info ? info.data.side : "left"
         };
+        this.haveLerp = false; 
         
         // Disable input handling
         this.cursors = null;

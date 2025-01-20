@@ -17,6 +17,7 @@ class PlayerController {
         const playerContainer = document.getElementById('player_container');
         playerContainer.appendChild(this.canvas);
         this.ctx = this.canvas.getContext('2d');
+        this.haveLerp = true; 
 
         // ----------------- SET UP PLAYER PROPERTIES --------------- 
         this.container = null;
@@ -97,7 +98,7 @@ class PlayerController {
             this.body.position.y,
             [this.graphics]
         );
-        this.graphics.visible = false; 
+        this.graphics.visible = !(this.haveLerp); 
         this.scene.matter.add.gameObject(this.container, this.body);
         // this.createPlayerName();
         this.createAuraEffect(); 
@@ -123,7 +124,7 @@ class PlayerController {
             curveShot: Phaser.Input.Keyboard.KeyCodes.I
         });
 
-        this.lerpPlayer = new LerpPlayer(this.scene, this, this.info);
+        if (this.haveLerp) this.lerpPlayer = new LerpPlayer(this.scene, this, this.info);
         return this;
     }
 
