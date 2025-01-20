@@ -202,9 +202,9 @@ class Ball {
         };
         const newState = this.computeClosedFormFastForward(serverState);
         
-        console.log("Diff in time: (client - server): ", this.scene.networkManager.getServerTime() - ballState.timestamp); 
-        console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
-        console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
+        // console.log("Diff in time: (client - server): ", this.scene.networkManager.getServerTime() - ballState.timestamp); 
+        // console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
+        // console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
         
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
@@ -283,13 +283,14 @@ class Ball {
     createPhysicsBody() {
         const { physics } = this.config;
         const categories = {
-            outer: 0x0001,         // 000001
-            inner: 0x0002,         // 000010
-            player: 0x0004,        // 000100
-            ball: 0x0008,          // 001000
-            net: 0x0010,           // 010000
-            nonGraphicBall: 0x0020, // 100000
-            predictBall: 0x0040     // 1000000
+            outer: 0x0001,
+            inner: 0x0002,
+            player: 0x0004,
+            ball: 0x0008,
+            net: 0x0010,
+            nonGraphicBall: 0x0020,
+            predictBall: 0x0040, 
+            lerpPlayer: 0x0080,
         };
         return this.scene.matter.add.circle(
             this.scene.scale.width / 2,
@@ -306,7 +307,7 @@ class Ball {
                 angle: physics.angle,
 				collisionFilter: {
                     category: categories.ball, 
-                    mask: ~(categories.nonGraphicBall | categories.predictBall | categories.player | categories.ball) 
+                    mask: ~(categories.ball | categories.predictBall | categories.player | categories.lerpPlayer),  
                 }, 
                 isStatic: false,
                 slop: physics.slop, 

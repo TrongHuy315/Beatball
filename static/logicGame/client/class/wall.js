@@ -4,6 +4,16 @@ function createWalls(scene) {
     function createRectangle(push, x, y, width, height, direction = null, isInner = false) {
         const {nets} = CONFIG; 
         direction = null; 
+        const categories = {
+            outer: 0x0001,
+            inner: 0x0002,
+            player: 0x0004,
+            ball: 0x0008,
+            net: 0x0010,
+            nonGraphicBall: 0x0020,
+            predictBall: 0x0040, 
+            lerpPlayer: 0x0080,
+        };
         const wallOptions = {
             isStatic: true,
             restitution: wall.bounciness,
@@ -16,8 +26,8 @@ function createWalls(scene) {
             slop: wall.slop, 
             collideWorldBounds: false, 
             collisionFilter: {
-                category: isInner ? scene.categories.inner : scene.categories.outer,
-                mask: isInner ? ~scene.categories.player : 0xFFFFFFFF
+                category: isInner ? categories.inner : categories.outer,
+                mask: isInner ? ~(categories.player | categories.lerpPlayer) : 0xFFFFFFFFFFFFFF
             }
         };
         scene.matter.add.rectangle(x, y, width, height, wallOptions);

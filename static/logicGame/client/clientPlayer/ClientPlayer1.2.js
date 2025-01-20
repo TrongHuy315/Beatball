@@ -253,7 +253,7 @@ class PlayerController {
             isStatic: false,
             collisionFilter: {
                 category: this.scene.categories.player,
-                mask: ~(categories.inner | categories.ball | categories.lerpPlayer)  
+                mask: ~(categories.inner | categories.ball | categories.lerpPlayer | categories.predictBall)  
             }
         });
     }

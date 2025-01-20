@@ -174,14 +174,15 @@ class Ball3 {
         const ballCategory = this.scene.categories.ball;
         const nonGraphicBallCategory = this.scene.categories.nonGraphicBall;
 		const categories = {
-			outer: 0x0001,         // 000001
-			inner: 0x0002,         // 000010
-			player: 0x0004,        // 000100
-			ball: 0x0008,          // 001000
-			net: 0x0010,           // 010000
-			nonGraphicBall: 0x0020, // 100000
-			predictBall: 0x0040     // 1000000
-		};
+            outer: 0x0001,
+            inner: 0x0002,
+            player: 0x0004,
+            ball: 0x0008,
+            net: 0x0010,
+            nonGraphicBall: 0x0020,
+            predictBall: 0x0040, 
+            lerpPlayer: 0x0080,
+        };
         return this.scene.matter.add.circle(
 			this.scene.scale.width / 2,
 			this.scene.scale.height / 2,
@@ -199,7 +200,7 @@ class Ball3 {
 				velocity: { x: 0, y: 0 }, 
 				collisionFilter: {
 					category: categories.predictBall, 
-					mask: ~(categories.ball | categories.nonGraphicBall | categories.predictBall)
+					mask: ~(categories.ball | categories.nonGraphicBall | categories.predictBall | categories.player)
 				}
 			}
 		);
