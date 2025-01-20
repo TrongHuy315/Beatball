@@ -94,7 +94,6 @@ class LerpPlayer {
         );
         this.nameText.setOrigin(0.5);
         this.nameText.setDepth(1);
-        this.nameText.setAlpha(0.6); // Make the name semi-transparent too
         this.container.add(this.nameText);
     }
 

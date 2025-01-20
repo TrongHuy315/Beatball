@@ -100,7 +100,7 @@ class PlayerController {
         );
         this.graphics.visible = !(this.haveLerp); 
         this.scene.matter.add.gameObject(this.container, this.body);
-        if (this.lerpPlayer == false) this.createPlayerName();
+        if (this.haveLerp == false) this.createPlayerName();
         this.createAuraEffect(); 
         if (this.config.graphic.rangeConfig.visible) this.createRangeIndicator();
 
