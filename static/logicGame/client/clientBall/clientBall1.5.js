@@ -122,7 +122,7 @@ class Ball {
         const frameTime = 1 / FPS;
       
         const frames = Math.floor(deltaTime / frameTime);
-        console.log("Number of frames to forward: ", frames);
+        // console.log("Number of frames to forward: ", frames);
       
         const dampingFactor = this.config.physics.damping;
         const v0 = { ...serverState.velocity };
