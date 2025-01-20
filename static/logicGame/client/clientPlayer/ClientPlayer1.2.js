@@ -164,7 +164,7 @@ class PlayerController {
     
             const canvas = document.createElement('canvas');
             canvas.width = diameter;
-            canvas.height = diameter;
+            canvas.height = diameter + nameConfig.offsetY + 50;
             
             const ctx = canvas.getContext('2d');
     
