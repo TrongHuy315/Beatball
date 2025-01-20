@@ -25,14 +25,10 @@ class LerpPlayer {
             [this.graphics]
         );
         this.scene.matter.add.gameObject(this.container, this.body);
-        this.createPlayerName();
-        this.updatePlayerVisibility();
+        this.graphics.visible = true; 
     }
 
     updatePlayerVisibility() {
-        if (this.graphics) {
-            this.graphics.visible = this.scene.visibleLerpPlayer;
-        }
     }
 
     createGraphics() {
