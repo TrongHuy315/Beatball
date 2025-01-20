@@ -119,6 +119,8 @@ class PlayerController {
             pushBall: Phaser.Input.Keyboard.KeyCodes.L,
             curveShot: Phaser.Input.Keyboard.KeyCodes.I
         });
+
+        this.lerpPlayer = new LerpPlayer(this.scene, this, this.data);
         return this;
     }
 
@@ -221,6 +223,7 @@ class PlayerController {
             // Create texture from canvas
             this.scene.textures.addCanvas(textureName, canvas);
         }
+        
         
         return this.scene.add.image(0, 0, textureName);
     }

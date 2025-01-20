@@ -116,50 +116,84 @@ class Ball {
         }
     }
     computeClosedFormFastForward(serverState) {
-        var currentTime = this.scene.networkManager.getServerTime(); 
-        const deltaTime = (currentTime - serverState.timestamp) / 1000; 
+        const currentTime = this.scene.networkManager.getServerTime();
+        const deltaTime = (currentTime - serverState.timestamp) / 1000;
         const FPS = 60;
-        const frameTime = 1 / FPS; 
-    
-        const frames = Math.floor(deltaTime / frameTime); 
-        console.log("Number of frame to forward: ", frames); 
+        const frameTime = 1 / FPS;
+      
+        const frames = Math.floor(deltaTime / frameTime);
+        console.log("Number of frames to forward: ", frames);
+      
         const dampingFactor = this.config.physics.damping;
-        const v0 = serverState.velocity;  
-        const p0 = serverState.position;  
-    
-        // Keep your original logic for both cases
+        const v0 = { ...serverState.velocity };
+        const p0 = { ...serverState.position };
+      
+        // Field dimensions
+        const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
+        const y1 = offset_vertical + pitch.borderWidth;
+        const y2 = y1 + pitch.height;
+        const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
+        const x2 = x1 + pitch.width;
+        const y3 = totalHeight / 2 - nets.height / 2;
+        const y4 = totalHeight / 2 + nets.height / 2;
+      
+        // Precompute whatever factor you need for damping
+        const dampingPower = Math.pow(dampingFactor, 1); // effectively dampingFactor each frame
+      
         if (dampingFactor === 1) {
-            const newVelocity = {
-                x: v0.x,
-                y: v0.y
-            };
-            const newPosition = {
-                x: p0.x + v0.x * frames, // Keep frames-based calculation
-                y: p0.y + v0.y * frames
-            };
-            return {
-                position: newPosition,
-                velocity: newVelocity
-            };
+          // If there's no damping, just iterate frames and do collisions
+          for (let i = 0; i < frames; i++) {
+            // Update position
+            p0.x += v0.x;
+            p0.y += v0.y;
+      
+            // Check collisions in y-direction
+            if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
+              v0.y *= -0.38;
+            }
+            // Check collisions in x-direction (excluding the net area)
+            if (p0.x - this.radius <= x1 || p0.x + this.radius >= x2) {
+              if (p0.y < y3 || p0.y > y4) {
+                v0.x *= -0.38;
+              }
+            }
+          }
+      
+          // Final position & velocity after N frames
+          return {
+            position: { x: p0.x, y: p0.y },
+            velocity: { x: v0.x, y: v0.y }
+          };
         } else {
-            // Your original damping calculation
-            const dampingPower = Math.pow(dampingFactor, frames);
-            const newVelocity = {
-                x: v0.x * dampingPower,
-                y: v0.y * dampingPower
-            };
-            const geometricSum = (1 - dampingPower) / (1 - dampingFactor);
-            const newPosition = {
-                x: p0.x + v0.x * geometricSum,
-                y: p0.y + v0.y * geometricSum
-            };
-            return {
-                position: newPosition,
-                velocity: newVelocity
-            };
+          // If there is damping, apply it each frame after checking collisions
+          for (let i = 0; i < frames; i++) {
+            // Update position
+            p0.x += v0.x;
+            p0.y += v0.y;
+      
+            // Check collisions in y-direction
+            if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
+              v0.y *= -0.38;
+            }
+            // Check collisions in x-direction (excluding the net area)
+            if (p0.x - this.radius <= x1 || p0.x + this.radius >= x2) {
+              if (p0.y < y3 || p0.y > y4) {
+                v0.x *= -0.38;
+              }
+            }
+      
+            // Apply damping after collision checks
+            v0.x *= dampingPower;
+            v0.y *= dampingPower;
+          }
+      
+          // Final position & velocity after N frames with damping
+          return {
+            position: { x: p0.x, y: p0.y },
+            velocity: { x: v0.x, y: v0.y }
+          };
         }
     }
-
     handleBallState(ballState) {
         const serverState = {
             position: { x: ballState.position.x, y: ballState.position.y },
@@ -180,7 +214,7 @@ class Ball {
     createGraphics() {
         const { radius } = this.config.physics;
         const { fillColor, borderColor, borderWidth } = this.config.graphics;
-        
+        this.radius = radius; 
         // Chỉ tạo texture một lần
         if (!this.scene.textures.exists('ball')) {
             const diameter = radius * 2;
