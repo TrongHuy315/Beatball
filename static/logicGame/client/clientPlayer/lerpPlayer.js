@@ -25,6 +25,7 @@ class LerpPlayer {
             [this.graphics]
         );
         this.scene.matter.add.gameObject(this.container, this.body);
+        this.createPlayerName(); 
         this.graphics.visible = true; 
     }
 

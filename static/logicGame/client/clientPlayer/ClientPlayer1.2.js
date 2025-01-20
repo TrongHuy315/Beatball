@@ -100,7 +100,7 @@ class PlayerController {
         );
         this.graphics.visible = !(this.haveLerp); 
         this.scene.matter.add.gameObject(this.container, this.body);
-        // this.createPlayerName();
+        if (this.lerpPlayer == false) this.createPlayerName();
         this.createAuraEffect(); 
         if (this.config.graphic.rangeConfig.visible) this.createRangeIndicator();
 
@@ -164,7 +164,7 @@ class PlayerController {
     
             const canvas = document.createElement('canvas');
             canvas.width = diameter;
-            canvas.height = diameter + nameConfig.offsetY + 50;
+            canvas.height = diameter;
             
             const ctx = canvas.getContext('2d');
     
