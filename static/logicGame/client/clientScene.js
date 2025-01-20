@@ -185,15 +185,6 @@ class ClientScene extends Phaser.Scene {
                     });
                 }
             } 
-            else if (!this.players.has(playerId))
-            {
-                // Sử dụng InterpolatedPlayer cho các player khác
-                const newPlayer = new InterpolatedPlayer(this, {
-                    team: playerInfo.team // hoặc side, tùy theo data từ server
-                });
-                newPlayer.create(playerInfo.position.x, playerInfo.position.y);
-                this.players.set(playerId, newPlayer);
-            }
         }
         for (const [playerId, player] of this.players.entries()) {
             if (!data.players[playerId]) {

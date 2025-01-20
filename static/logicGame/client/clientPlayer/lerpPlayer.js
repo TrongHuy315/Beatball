@@ -41,7 +41,7 @@ class LerpPlayer {
         
         // Create a sprite using the same texture
         const sprite = this.scene.add.image(0, 0, textureName);
-        sprite.setAlpha(0.6); // Make it semi-transparent
+        // sprite.setAlpha(0.6); // Make it semi-transparent
         
         return sprite;
     }
@@ -56,11 +56,12 @@ class LerpPlayer {
             ball: 0x0008,
             net: 0x0010,
             nonGraphicBall: 0x0020,
-            predictBall: 0x0040
+            predictBall: 0x0040, 
+            lerpPlayer: 0x0080,
         };
 
         return this.scene.matter.add.circle(0, 0, radius, {
-            label: 'lerp_player',
+            label: 'lerpPlayer',
             mass: physics.mass,
             restitution: physics.restitution,
             friction: physics.friction,
