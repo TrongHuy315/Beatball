@@ -168,9 +168,14 @@ class Player {
         
         const deltaTime = input.deltaTime;
         if (input.inputX !== 0 || input.inputY !== 0) {
+            // Normalize input just like the client does
+            const inputMagnitude = Math.sqrt(input.inputX * input.inputX + input.inputY * input.inputY);
+            const normalizedInputX = input.inputX / inputMagnitude;
+            const normalizedInputY = input.inputY / inputMagnitude;
+    
             // v = v0 + a*t
-            vx += input.inputX * acceleration * deltaTime;
-            vy += input.inputY * acceleration * deltaTime;
+            vx += normalizedInputX * acceleration * deltaTime;
+            vy += normalizedInputY * acceleration * deltaTime;
     
             // Limit max speed
             const currentSpeed = Math.sqrt(vx * vx + vy * vy);
@@ -180,7 +185,7 @@ class Player {
                 vy *= scale;
             }
         }
-    
+        
         Matter.Body.setVelocity(this.body, { x: vx, y: vy });
     }
 

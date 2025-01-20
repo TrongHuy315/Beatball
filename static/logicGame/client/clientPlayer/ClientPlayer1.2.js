@@ -70,6 +70,8 @@ class PlayerController {
             shirt: info ? info.data.shirtNumber || info.data.shirt || "0" : "0",
             side: info ? info.data.side : "left"
         };
+
+        this.lerpPlayer = null; 
     }
     playAuraAnimation() {
         this.auraAnimation.isPlaying = true;
@@ -95,9 +97,9 @@ class PlayerController {
             this.body.position.y,
             [this.graphics]
         );
-        this.graphics.visible = true; 
+        this.graphics.visible = false; 
         this.scene.matter.add.gameObject(this.container, this.body);
-        this.createPlayerName();
+        // this.createPlayerName();
         this.createAuraEffect(); 
         if (this.config.graphic.rangeConfig.visible) this.createRangeIndicator();
 

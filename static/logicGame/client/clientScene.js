@@ -73,6 +73,7 @@ class ClientScene extends Phaser.Scene {
         ];
         this.initData(); 
 
+        this.lerpPlayer = null; 
         this.networkManager = new networkManager();
     }
     initData() {
@@ -168,6 +169,7 @@ class ClientScene extends Phaser.Scene {
             this.menuDisplay.update();
         }
         this.ball3.update(); 
+        this.lerpPlayer.update(); 
     }
 
     // HANDLE RECEIVED DATA 
@@ -296,7 +298,8 @@ class ClientScene extends Phaser.Scene {
             this.player.playerId = data.playerId;
             this.player.create(data.position.x, data.position.y);
             this.players.set(data.playerId, this.player);
-        
+            this.lerpPlayer = this.player.lerpPlayer; 
+    
             if (data.scores) {
                 this.gameState.scores = data.scores;
                 this.scoreboard.updateScore('left', data.scores.left);
