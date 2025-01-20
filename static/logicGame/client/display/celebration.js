@@ -59,7 +59,7 @@ export class CelebrationManager {
 
     letCelebrate(data) {
         const {gameConfig} = CONFIG;
-        const timeElapsed = this.scene.networkManager.getServertime() - data.timeStamp;
+        const timeElapsed = this.scene.networkManager.getServerTime() - data.timeStamp;
         const remainingCelebrationTime = Math.max(0, gameConfig.celebrationTime * 1000 - timeElapsed);    
         const goalDuration = gameConfig.goalPercent * remainingCelebrationTime;
         const cheerDuration = gameConfig.cheerPercent * remainingCelebrationTime;

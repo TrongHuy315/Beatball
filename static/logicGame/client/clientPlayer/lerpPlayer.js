@@ -66,8 +66,8 @@ class LerpPlayer {
             inertia: physics.inertia,
             isStatic: false,
             collisionFilter: {
-                category: categories.predictBall,
-                mask: ~(categories.player | categories.ball | categories.nonGraphicBall | categories.predictBall)
+                category: categories.lerpPlayer,
+                mask: ~(categories.player | categories.ball | categories.inner)
             }
         });
     }
