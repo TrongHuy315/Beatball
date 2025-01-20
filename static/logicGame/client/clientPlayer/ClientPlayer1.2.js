@@ -2,7 +2,7 @@ class PlayerController {
     constructor(scene, info = null) {
         this.scene = scene;
         this.config = CONFIG.player;
-
+        this.info = info; 
 
         // -------------------- SET UP PLAYER CANVA ----------------  
         this.horizontalOffset = this.config.horizontal;
@@ -121,7 +121,7 @@ class PlayerController {
             curveShot: Phaser.Input.Keyboard.KeyCodes.I
         });
 
-        this.lerpPlayer = new LerpPlayer(this.scene, this, this.data);
+        this.lerpPlayer = new LerpPlayer(this.scene, this, this.info);
         return this;
     }
 
