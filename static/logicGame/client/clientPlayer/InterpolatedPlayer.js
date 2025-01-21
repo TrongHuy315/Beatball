@@ -33,7 +33,7 @@ class InterpolatedPlayer extends PlayerController {
             predictBall: 0x0040     // 1000000
         };
         return this.scene.matter.add.circle(x, y, radius, {
-            label: 'player', 
+            label: 'interpolatePlayer', 
             mass: physics.mass,
             restitution: physics.restitution,
             friction: physics.friction,
