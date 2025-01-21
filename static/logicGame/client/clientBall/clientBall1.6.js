@@ -207,28 +207,47 @@ class Ball3 {
     }
 
     update() {
-        if (!this.authorityBall) return;
-
-        const authorityPos = this.authorityBall.getPosition();
-        const currentPos = this.getPosition();
-        
-        const distance = Phaser.Math.Distance.Between(
-            currentPos.x, currentPos.y,
-            authorityPos.x, authorityPos.y
-        );
-
-        const teleportThreshold = 300; 
-        if (distance > teleportThreshold) {
-            this.setPosition(authorityPos.x, authorityPos.y);
-			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
-        } else {
-			if (this.stick == 0) this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
-            const lerpFactor = 0.009; 
-            const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
-            const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
-            this.setPosition(newX, newY);
-        }
-    }
+		// If there's no authority ball data to sync with, do nothing
+		if (!this.authorityBall) return;
+	
+		const authorityPos = this.authorityBall.getPosition();
+		const authorityVel = this.authorityBall.getVelocity();
+		const currentPos = this.getPosition();
+		const distance = Phaser.Math.Distance.Between(
+			currentPos.x, currentPos.y,
+			authorityPos.x, authorityPos.y
+		);
+	
+		// Teleport if extremely far away (safety net)
+		const teleportThreshold = 300;
+		if (distance > teleportThreshold) {
+			this.setPosition(authorityPos.x, authorityPos.y);
+			this.setVelocity(authorityVel.x, authorityVel.y);
+			return;
+		}
+	
+		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
+		if (this.stick === 0) {
+			this.setVelocity(authorityVel.x, authorityVel.y);
+		}
+	
+		// 2) Compute a dynamic lerp factor based on distance
+		//    If distance is small, use smaller lerp (for smoothness).
+		//    If distance is large, use larger lerp (for quicker correction).
+		const minLerp = 0.01;   // minimum lerp (when near)
+		const maxLerp = 0.2;    // maximum lerp (when far)
+		const maxDistForLerp = 200; // scale factor for how quickly we ramp up to maxLerp
+		// Calculate a ratio from 0..1 based on how far we are (capped at 1)
+		const distRatio = Phaser.Math.Clamp(distance / maxDistForLerp, 0, 1);
+		// Interpolate our “variable” lerpFactor
+		const lerpFactor = minLerp + distRatio * (maxLerp - minLerp);
+	
+		// 3) Lerp to new position
+		//    This retains smoothness up close and aggressively corrects when far
+		const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
+		const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
+		this.setPosition(newX, newY);
+	}
     setPosition(xx, yy) {
         this.scene.matter.body.setPosition(this.body, {x: xx, y: yy});
     }
