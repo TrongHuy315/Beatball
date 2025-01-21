@@ -612,7 +612,6 @@ class K8sGameManager:
                         }
                     },
                     "spec": {
-                        "serviceAccountName": "game-server",
                         "containers": [{
                             "name": "game-server",
                             "image": "beatball/physics-server:latest",
