@@ -38,7 +38,7 @@ class Ball {
 				if (ball3 && wall) {
 					this.stick++;
 					console.log("Colliding with wall"); 
-					if (this.stick > 1) return;
+					// if (this.stick > 1) return;
 	
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
@@ -297,7 +297,7 @@ class Ball {
             this.scene.scale.height / 2,
             physics.radius,
             {
-                label: 'ball3', 
+                label: 'ball', 
                 mass: physics.mass,
                 restitution: physics.restitution,
                 friction: physics.friction,

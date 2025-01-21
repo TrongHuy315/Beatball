@@ -117,7 +117,7 @@ class PhysicsEngine {
             },
         });
         this.world = this.engine.world;
-        this.gameDuration = 120000; 
+        this.gameDuration = 1000000; 
         // Store players here
         this.players = new Map();
 

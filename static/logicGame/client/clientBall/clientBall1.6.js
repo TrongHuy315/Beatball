@@ -47,7 +47,7 @@ class Ball3 {
 				if (ball3 && wall) {
 					this.stick++;
 					console.log("Colliding with wall"); 
-					if (this.stick > 1) return;
+					// if (this.stick > 1) return;
 	
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
@@ -222,8 +222,8 @@ class Ball3 {
             this.setPosition(authorityPos.x, authorityPos.y);
 			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
         } else {
-			this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
-            const lerpFactor = 0.05; 
+			if (this.stick == 0) this.setVelocity(this.authorityBall.body.velocity.x, this.authorityBall.body.velocity.y); 
+            const lerpFactor = 0.009; 
             const newX = currentPos.x + (authorityPos.x - currentPos.x) * lerpFactor;
             const newY = currentPos.y + (authorityPos.y - currentPos.y) * lerpFactor;
             this.setPosition(newX, newY);
