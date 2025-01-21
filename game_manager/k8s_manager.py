@@ -612,6 +612,7 @@ class K8sGameManager:
                         }
                     },
                     "spec": {
+                        "serviceAccountName": "game-server",
                         "containers": [{
                             "name": "game-server",
                             "image": "beatball/physics-server:latest",
@@ -642,7 +643,24 @@ class K8sGameManager:
                                 {"name": "PORT", "value": "8000"},
                                 {"name": "SOCKET_PATH", "value": socket_path},
                                 {"name": "DEBUG", "value": "socket.io:server"},  
-                                {"name": "NODE_ENV", "value": "development"}     
+                                {"name": "NODE_ENV", "value": "development"}, 
+                                {
+                                    "name": "NAMESPACE",
+                                    "valueFrom": {
+                                        "fieldRef": {
+                                            "fieldPath": "metadata.namespace"
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "K8S_TOKEN",
+                                    "valueFrom": {
+                                        "secretRef": {
+                                            "name": "pod-termination-token",
+                                            "key": "token"  
+                                        }
+                                    }
+                                }   
                             ],
                             "resources": {
                                 "requests": {

@@ -353,8 +353,8 @@ class ClientScene extends Phaser.Scene {
         socket.on('gameEnd', (data) => {
             this.gameStarted = false;
             // Show the end game menu with the final game state
-            if (this.endGameMenu) {
-                this.endGameMenu.showEndGameMenu();
+            if (this.endGameScreen) {
+                this.endGameScreen.showEndGameMenu();
             }
         });
 

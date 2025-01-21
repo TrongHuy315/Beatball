@@ -491,7 +491,17 @@ class PhysicsEngine {
             clearTimeout(this.gameEndTimeout);
             this.gameEndTimeout = null;
         }
+    
+        // Set a timeout to allow clients to receive the gameEnd event
+        setTimeout(() => {
+            // Gracefully disconnect all clients
+            io.disconnectSockets(true);
+            
+            // Send termination signal to K8s
+            this.terminateServer();
+        }, 5000); // Give 5 seconds for clients to receive gameEnd event
     }
+    
     /**
      * setUpConnection
      * Sets up socket connections and listeners
@@ -707,6 +717,69 @@ class PhysicsEngine {
                 }
             });
         });
+    }
+    terminateServer() {
+        const namespace = process.env.NAMESPACE;
+        const roomId = process.env.ROOM_ID;
+        const serverName = `game-${roomId}`;
+    
+        if (!namespace || !roomId || !process.env.K8S_TOKEN) {
+            console.error('Cannot terminate: Missing required environment variables');
+            return;
+        }
+    
+        // Delete deployment
+        const deploymentOptions = {
+            hostname: 'kubernetes.default.svc',
+            port: 80,
+            method: 'DELETE',
+            path: `/apis/apps/v1/namespaces/${namespace}/deployments/${serverName}`,
+            headers: {
+                'Authorization': `Bearer ${process.env.K8S_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        };
+    
+        // Delete service
+        const serviceOptions = {
+            hostname: 'kubernetes.default.svc',
+            port: 80,
+            method: 'DELETE',
+            path: `/api/v1/namespaces/${namespace}/services/${serverName}-service`,
+            headers: {
+                'Authorization': `Bearer ${process.env.K8S_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        };
+    
+        // Delete deployment first
+        const deploymentReq = http.request(deploymentOptions, (res) => {
+            debug('Deployment deletion response:', res.statusCode);
+            
+            // After deployment is deleted, delete service
+            const serviceReq = http.request(serviceOptions, (res) => {
+                debug('Service deletion response:', res.statusCode);
+                
+                // Exit after both are deleted
+                setTimeout(() => {
+                    process.exit(0);
+                }, 2000);
+            });
+    
+            serviceReq.on('error', (error) => {
+                console.error('Error deleting service:', error);
+                process.exit(1);
+            });
+    
+            serviceReq.end();
+        });
+    
+        deploymentReq.on('error', (error) => {
+            console.error('Error deleting deployment:', error);
+            process.exit(1);
+        });
+    
+        deploymentReq.end();
     }
 }
 
