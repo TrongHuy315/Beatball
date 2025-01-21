@@ -120,7 +120,7 @@ export class Scoreboard {
     resetToNewGame() {
         this.startTime = this.networkManager.getServerTime();
         localStorage.setItem('gameStartTime', this.startTime.toString());
-        this.currentTime = this.gameTime;
+        this.currentTime = this.gameTime; // This will now use the server-provided duration
         this.startCountDown();
     }
 
@@ -251,6 +251,11 @@ export class Scoreboard {
         }
         
         this.ctx.restore();
+    }
+    setGameDuration(duration) {
+        this.gameTime = duration;
+        this.currentTime = duration;
+        this.draw();
     }
     resetClock() {
         this.currentTime = this.gameTime;

@@ -117,7 +117,7 @@ class PhysicsEngine {
             },
         });
         this.world = this.engine.world;
-
+        this.gameDuration = 120000; 
         // Store players here
         this.players = new Map();
 
@@ -300,12 +300,14 @@ class PhysicsEngine {
             io.emit('newPlayerJoin', playerData);
         });
         this.pendingPlayerData.clear();
-    
+        gameInfo.gameDuration = this.gameDuration;
         debug('Emitting gameStart with data: %O', gameInfo);
         io.emit('gameStart', gameInfo);
-    
         setTimeout(() => {
             this.gameStarted = true;
+            this.gameEndTimeout = setTimeout(() => {
+                this.endGame();
+            }, this.gameDuration);
             debug('Game started: true');
         }, 3000);
     }
@@ -468,7 +470,28 @@ class PhysicsEngine {
         });
         debug('resetGame completed');
     }
-
+    endGame() {
+        this.gameStarted = false;
+        const gameEndState = {
+            scores: this.scores,
+            winner: this.scores.left > this.scores.right ? 'left' : 
+                   this.scores.right > this.scores.left ? 'right' : 'draw',
+            finalScores: {
+                left: this.scores.left,
+                right: this.scores.right
+            },
+            timestamp: Date.now()
+        };
+        
+        debug('Game ended. Final state: %O', gameEndState);
+        io.emit('gameEnd', gameEndState);
+        
+        // Clear any existing timeouts
+        if (this.gameEndTimeout) {
+            clearTimeout(this.gameEndTimeout);
+            this.gameEndTimeout = null;
+        }
+    }
     /**
      * setUpConnection
      * Sets up socket connections and listeners

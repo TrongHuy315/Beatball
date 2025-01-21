@@ -6,6 +6,8 @@ import { SoundManager } from './display/soundManager.js';
 import { Scoreboard } from './display/scoreboard.js';
 import { GameStartDisplay} from './display/gameStart.js';
 import { networkManager } from './class/networkManager.js';
+import { WaitingScreen } from './display/waitingScreen.js';
+import { endGameMenu } from './display/endMenuDisplay.js';
 
 class ClientScene extends Phaser.Scene {
     // SET UP SCENE 
@@ -75,6 +77,10 @@ class ClientScene extends Phaser.Scene {
 
         this.lerpPlayer = null; 
         this.networkManager = new networkManager();
+        this.waitingScreen = new WaitingScreen(this);
+        this.waitingScreen.show();  
+
+        this.endGameScreen = new endGameMenu(this); 
     }
     initData() {
         const data = window.gameData;
@@ -321,19 +327,36 @@ class ClientScene extends Phaser.Scene {
         }); 
 
         socket.on('gameStart', (data) => {
-            this.gameStartDisplay.hideWaitingScreen();
-            var startedTime = data.timeStamp; 
-            var remainderTime = this.networkManager.getServerTime() - data.timeStamp; 
+            // Hide the waiting screen when game starts
+            if (this.waitingScreen) {
+                this.waitingScreen.hide();
+            }
+        
+            // Set the game duration from server
+            if (this.scoreboard && data.gameDuration) {
+                this.scoreboard.setGameDuration(data.gameDuration);
+            }
+        
+            var startedTime = data.timeStamp;
+            var remainderTime = this.networkManager.getServerTime() - data.timeStamp;
             var durationCountDown = Math.max(0, remainderTime - 3000);
-            var serverStartTime = 3000 + data.timeStamp; 
-            
+            var serverStartTime = 3000 + data.timeStamp;
+        
             this.gameStartDisplay.showStartCountdown(durationCountDown, () => {
-                var elapsedTime = this.networkManager.getServerTime() - serverStartTime; 
-                this.gameStarted = true; 
+                var elapsedTime = this.networkManager.getServerTime() - serverStartTime;
+                this.gameStarted = true;
                 this.scoreboard.resetClock();
                 this.scoreboard.startCountDown(elapsedTime);
-            }); 
-        });     
+            });
+        });  
+
+        socket.on('gameEnd', (data) => {
+            this.gameStarted = false;
+            // Show the end game menu with the final game state
+            if (this.endGameMenu) {
+                this.endGameMenu.showEndGameMenu();
+            }
+        });
 
         // ------ PLAYERS UPDATE -------- 
         this.SOCKET.on('newPlayerJoin', (data) => {
