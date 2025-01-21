@@ -644,14 +644,7 @@ class K8sGameManager:
                                 {"name": "SOCKET_PATH", "value": socket_path},
                                 {"name": "DEBUG", "value": "socket.io:server"},  
                                 {"name": "NODE_ENV", "value": "development"}, 
-                                {
-                                    "name": "NAMESPACE",
-                                    "valueFrom": {
-                                        "fieldRef": {
-                                            "fieldPath": "metadata.namespace"
-                                        }
-                                    }
-                                },
+                                {"name": "NAMESPACE", "value": self.namespace},  # Changed this line
                                 {
                                     "name": "K8S_TOKEN",
                                     "valueFrom": {
