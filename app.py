@@ -1141,6 +1141,15 @@ def handle_player_ready(data):
     except Exception as e:
         print(f"Error handling player ready: {e}")
 
+@app.route('/cleanup-game/<room_id>', methods=['POST'])
+def cleanup_game(room_id):
+    server_name = f"game-{room_id}"
+    try:
+        game_manager.cleanup_game_resources(server_name)
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
 @socketio.on('start_game')
 def handle_start_game(data):
     try:

@@ -499,7 +499,7 @@ class PhysicsEngine {
             
             // Send termination signal to K8s
             this.terminateServer();
-        }, 5000); // Give 5 seconds for clients to receive gameEnd event
+        }, 60000); // Give 5 seconds for clients to receive gameEnd event
     }
     
     /**
@@ -719,67 +719,35 @@ class PhysicsEngine {
         });
     }
     terminateServer() {
-        const namespace = process.env.NAMESPACE;
         const roomId = process.env.ROOM_ID;
-        const serverName = `game-${roomId}`;
-    
-        if (!namespace || !roomId || !process.env.K8S_TOKEN) {
-            console.error('Cannot terminate: Missing required environment variables');
-            return;
-        }
-    
-        // Delete deployment
-        const deploymentOptions = {
-            hostname: 'kubernetes.default.svc',
-            port: 80,
-            method: 'DELETE',
-            path: `/apis/apps/v1/namespaces/${namespace}/deployments/${serverName}`,
+        
+        // Make HTTP request to your k8s manager endpoint
+        const options = {
+            hostname: 'beatball.onrender.com',
+            port: 443, // Using HTTPS
+            path: `/cleanup-game/${roomId}`,
+            method: 'POST',
             headers: {
-                'Authorization': `Bearer ${process.env.K8S_TOKEN}`,
                 'Content-Type': 'application/json'
             }
         };
     
-        // Delete service
-        const serviceOptions = {
-            hostname: 'kubernetes.default.svc',
-            port: 80,
-            method: 'DELETE',
-            path: `/api/v1/namespaces/${namespace}/services/${serverName}-service`,
-            headers: {
-                'Authorization': `Bearer ${process.env.K8S_TOKEN}`,
-                'Content-Type': 'application/json'
-            }
-        };
-    
-        // Delete deployment first
-        const deploymentReq = http.request(deploymentOptions, (res) => {
-            debug('Deployment deletion response:', res.statusCode);
+        const https = require('https'); // Use HTTPS
+        const req = https.request(options, (res) => {
+            debug('Cleanup request sent, status:', res.statusCode);
             
-            // After deployment is deleted, delete service
-            const serviceReq = http.request(serviceOptions, (res) => {
-                debug('Service deletion response:', res.statusCode);
-                
-                // Exit after both are deleted
-                setTimeout(() => {
-                    process.exit(0);
-                }, 2000);
-            });
-    
-            serviceReq.on('error', (error) => {
-                console.error('Error deleting service:', error);
-                process.exit(1);
-            });
-    
-            serviceReq.end();
+            // Exit process after cleanup request
+            setTimeout(() => {
+                process.exit(0);
+            }, 2000);
         });
     
-        deploymentReq.on('error', (error) => {
-            console.error('Error deleting deployment:', error);
+        req.on('error', (error) => {
+            console.error('Error requesting cleanup:', error);
             process.exit(1);
         });
     
-        deploymentReq.end();
+        req.end();
     }
 }
 

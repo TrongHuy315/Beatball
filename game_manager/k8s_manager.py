@@ -644,16 +644,7 @@ class K8sGameManager:
                                 {"name": "SOCKET_PATH", "value": socket_path},
                                 {"name": "DEBUG", "value": "socket.io:server"},  
                                 {"name": "NODE_ENV", "value": "development"}, 
-                                {"name": "NAMESPACE", "value": self.namespace},  # Changed this line
-                                {
-                                    "name": "K8S_TOKEN",
-                                    "valueFrom": {
-                                        "secretRef": {
-                                            "name": "pod-termination-token",
-                                            "key": "token"  
-                                        }
-                                    }
-                                }   
+                                {"name": "NAMESPACE", "value": self.namespace}, 
                             ],
                             "resources": {
                                 "requests": {
