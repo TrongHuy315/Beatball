@@ -140,7 +140,7 @@ class ClientScene extends Phaser.Scene {
 
         this.perfMonitor = new PerfMonitor(this); 
 
-        this.interpolators = new InterpolationManager(this);
+        this.interpolators = null; 
 
         this.celebrationManager = new CelebrationManager(this);
 
@@ -272,6 +272,7 @@ class ClientScene extends Phaser.Scene {
             this.events.emit('socket-ready');
             console.log('Connected with socket ID:', socket.id);
             this.networkManager.initialize(this);
+            this.interpolators = new InterpolationManager(this); 
             socket.emit('requestJoin');
         });
 
@@ -368,20 +369,19 @@ class ClientScene extends Phaser.Scene {
                 position: data.position,
                 fullData: data  // Log the entire data object
             });
-
-            if (data.playerId !== this.playerId) {
-                const playerConfig = {
-                    data: {
-                        name: data.name || "Player",
-                        shirt: data.shirtNumber?.toString() || "0",
-                        side: data.side || "left"
-                    }
-                };
+            // if (data.playerId !== this.playerId) {
+            //     const playerConfig = {
+            //         data: {
+            //             name: data.name || "Player",
+            //             shirt: data.shirtNumber?.toString() || "0",
+            //             side: data.side || "left"
+            //         }
+            //     };
         
-                const newPlayer = new InterpolatedPlayer(this, playerConfig);
-                newPlayer.create(data.position.x, data.position.y);
-                this.players.set(data.playerId, newPlayer);
-            }
+            //     const newPlayer = new InterpolatedPlayer(this, playerConfig);
+            //     newPlayer.create(data.position.x, data.position.y);
+            //     this.players.set(data.playerId, newPlayer);
+            // }
         });
         // ------- SCORE UPDATE ------- 
         socket.on('scoreUpdate', (data) => {
