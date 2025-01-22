@@ -24,16 +24,18 @@ class InterpolatedPlayer extends PlayerController {
         const { radius } = CONFIG.player.graphic;
         const physics = CONFIG.player.physics;
         const categories = {
-            outer: 0x0001,         // 000001
-            inner: 0x0002,         // 000010
-            player: 0x0004,        // 000100
-            ball: 0x0008,          // 001000
-            net: 0x0010,           // 010000
-            nonGraphicBall: 0x0020, // 100000
-            predictBall: 0x0040     // 1000000
+            outer: 0x0001,
+            inner: 0x0002,
+            player: 0x0004,
+            ball: 0x0008,
+            net: 0x0010,
+            nonGraphicBall: 0x0020,
+            predictBall: 0x0040,
+            lerpPlayer: 0x0080,
+            interpolatePlayer: 0x0100,
         };
         return this.scene.matter.add.circle(x, y, radius, {
-            label: 'interpolatePlayer', 
+            label: 'interpolatePlayer',
             mass: physics.mass,
             restitution: physics.restitution,
             friction: physics.friction,
@@ -41,10 +43,10 @@ class InterpolatedPlayer extends PlayerController {
             frictionStatic: physics.frictionStatic,
             inertia: physics.inertia,
             slop: physics.slop,
-            isStatic: true,  // Set static để velocity luôn = 0
+            isStatic: true,  // Static to ensure velocity is always 0
             collisionFilter: {
-                category: this.scene.categories.player,
-                mask: ~(this.scene.categories.inner | this.scene.categories.ball)
+                category: categories.interpolatePlayer, // Using the new interpolatePlayer category
+                mask: ~(categories.inner | categories.ball | categories.player) // Added player to mask
             }
         });
     }
