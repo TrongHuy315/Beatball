@@ -164,7 +164,7 @@ class Ball3 {
 		}
 		
 		// Sử dụng texture 'ball3'
-		const ball = this.scene.add.image(0, 0, 'ball3');
+		const ball = this.scene.add.image(0, 0, 'ball3');	
 		
 		return ball;
 	}
