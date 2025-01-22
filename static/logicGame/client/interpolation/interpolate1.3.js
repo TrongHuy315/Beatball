@@ -1,37 +1,55 @@
-/**********************************************************
- * LERP INTERPOLATION - NO BUFFER, NO DELAY
- * Just always move toward the latest server state
- **********************************************************/
-
 class LatestStateInterpolator {
     constructor(scene) {
         this.scene = scene;
-        // Store the latest reported server position for each entity { entityId -> { x, y } }
-        this.latestPositions = new Map();
+        // Store the latest server states with timestamp
+        this.latestStates = new Map(); // entityId -> { position, velocity, timestamp }
     }
 
-    /**
-     * Update or store the latest position for an entity
-     */
-    updateEntityState(entityId, position) {
-        this.latestPositions.set(entityId, {
-            x: position.x,
-            y: position.y
+    updateEntityState(entityId, position, velocity, timestamp) {
+        this.latestStates.set(entityId, {
+            position: { x: position.x, y: position.y },
+            velocity: { x: velocity.x, y: velocity.y },
+            timestamp: timestamp
         });
     }
 
-    /**
-     * Retrieve the latest position the server sent for a given entity
-     */
-    getLatestPosition(entityId) {
-        return this.latestPositions.get(entityId) || null;
+    getLatestState(entityId) {
+        return this.latestStates.get(entityId) || null;
     }
 
-    /**
-     * Remove an entity (e.g. if the player leaves)
-     */
     removeEntity(entityId) {
-        this.latestPositions.delete(entityId);
+        this.latestStates.delete(entityId);
+    }
+
+    computePredictedState(serverState) {
+        const currentTime = this.scene.networkManager.getServerTime();
+        const deltaTime = (currentTime - serverState.timestamp) / 1000;
+        const FPS = 60;
+        const frameTime = 1 / FPS;
+        const frames = Math.floor(deltaTime / frameTime);
+
+        const dampingFactor = 0.96; // Player damping factor
+        const dampingPower = Math.pow(dampingFactor, 1);
+
+        // Start with the server state
+        let position = { ...serverState.position };
+        let velocity = { ...serverState.velocity };
+
+        // Forward simulate the frames
+        for (let i = 0; i < frames; i++) {
+            // Update position based on velocity
+            position.x += velocity.x;
+            position.y += velocity.y;
+
+            // Apply velocity damping
+            velocity.x *= dampingPower;
+            velocity.y *= dampingPower;
+        }
+
+        return {
+            position,
+            velocity
+        };
     }
 }
 
@@ -40,30 +58,33 @@ class InterpolationManager {
         this.scene = scene;
         this.gameInterpolator = new LatestStateInterpolator(scene);
 
-        // This factor governs how quickly we LERP:
-        //  0.0 = no movement, 1.0 = instantly snap to server position
-        //  Something like 0.15-0.25 often feels okay
-        this.lerpFactor = 0.15;
+        // Lerp configuration
+        this.minLerp = 0.01;   // minimum lerp (when near)
+        this.maxLerp = 0.2;    // maximum lerp (when far)
+        this.maxDistForLerp = 200; // distance threshold for max lerp
+        this.teleportThreshold = 300; // distance threshold for teleporting
 
-        // Hook up socket events
         this.setupSocketEvents();
     }
 
     setupSocketEvents() {
-        // Listen for "sendGameState" from server
         this.scene.SOCKET.on('sendGameState', (data) => {
             const players = data.players;
-            // Update for each remote player
+            const timestamp = this.scene.networkManager.getServerTime(); // You might want to use server timestamp if available
+
             for (const playerId in players) {
                 if (playerId !== this.scene.playerId) {
-                    // This is the newly reported server position
-                    const position = players[playerId].position;
-                    this.gameInterpolator.updateEntityState(playerId, position);
+                    const playerData = players[playerId];
+                    this.gameInterpolator.updateEntityState(
+                        playerId,
+                        playerData.position,
+                        playerData.velocity,
+                        timestamp
+                    );
                 }
             }
         });
 
-        // If new players join:
         this.scene.SOCKET.on('newPlayerJoin', (data) => {
             if (data.playerId !== this.scene.playerId) {
                 const playerConfig = {
@@ -73,54 +94,57 @@ class InterpolationManager {
                         side: data.side || "left"
                     }
                 };
-                // Create the local representation of that remote player
+                
                 const newPlayer = new InterpolatedPlayer(this.scene, playerConfig);
                 newPlayer.create(data.position.x, data.position.y);
                 this.scene.players.set(data.playerId, newPlayer);
 
-                // Record their initial position
-                this.gameInterpolator.updateEntityState(data.playerId, data.position);
+                this.gameInterpolator.updateEntityState(
+                    data.playerId,
+                    data.position,
+                    data.velocity || { x: 0, y: 0 },
+                    this.scene.networkManager.getServerTime()
+                );
             }
         });
     }
 
-    /**
-     * Call this every frame (e.g. in your Phaser update() loop).
-     * We move remote players' positions toward the latest known server position.
-     */
     update() {
-        // For each remote player, LERP to the stored “latest” position
         for (const [playerId, player] of this.scene.players.entries()) {
-            // Skip local (your own) player
             if (playerId === this.scene.playerId) continue;
 
-            // Get the latest server position
-            const targetPos = this.gameInterpolator.getLatestPosition(playerId);
-            if (targetPos && player.body) {
-                // Current position
-                const oldX = player.body.position.x;
-                const oldY = player.body.position.y;
+            const serverState = this.gameInterpolator.getLatestState(playerId);
+            if (!serverState || !player.body) continue;
 
-                // Lerp to the new position
-                const newX = oldX + this.lerpFactor * (targetPos.x - oldX);
-                const newY = oldY + this.lerpFactor * (targetPos.y - oldY);
+            // Get predicted state based on server state
+            const predictedState = this.gameInterpolator.computePredictedState(serverState);
+            const currentPos = player.getPosition();
 
-                // Update the sprite/body
-                player.setPosition(newX, newY);
+            // Calculate distance to predicted position
+            const distance = Phaser.Math.Distance.Between(
+                currentPos.x, currentPos.y,
+                predictedState.position.x, predictedState.position.y
+            );
+
+            // Teleport if too far
+            if (distance > this.teleportThreshold) {
+                player.setPosition(predictedState.position.x, predictedState.position.y);
+                return;
             }
+
+            // Calculate dynamic lerp factor
+            const distRatio = Phaser.Math.Clamp(distance / this.maxDistForLerp, 0, 1);
+            const lerpFactor = this.minLerp + distRatio * (this.maxLerp - this.minLerp);
+
+            // Lerp to predicted position
+            const newX = currentPos.x + (predictedState.position.x - currentPos.x) * lerpFactor;
+            const newY = currentPos.y + (predictedState.position.y - currentPos.y) * lerpFactor;
+            player.setPosition(newX, newY);
         }
     }
 
-    /**
-     * Cleanly remove a player from interpolation and your local store
-     */
     removePlayer(playerId) {
         this.gameInterpolator.removeEntity(playerId);
         this.scene.players.delete(playerId);
     }
 }
-
-// export {
-//     LatestStateInterpolator,
-//     InterpolationManager
-// };
