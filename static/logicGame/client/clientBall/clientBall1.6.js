@@ -265,7 +265,7 @@ class Ball3 {
 		//    If distance is large, use larger lerp (for quicker correction).
 		const minLerp = 0.01;   // minimum lerp (when near)
 		const maxLerp = 0.2;    // maximum lerp (when far)
-		const maxDistForLerp = 200; // scale factor for how quickly we ramp up to maxLerp
+		const maxDistForLerp = 150; // scale factor for how quickly we ramp up to maxLerp
 		// Calculate a ratio from 0..1 based on how far we are (capped at 1)
 		const distRatio = Phaser.Math.Clamp(distance / maxDistForLerp, 0, 1);
 		// Interpolate our “variable” lerpFactor
