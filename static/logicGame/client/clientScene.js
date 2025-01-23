@@ -116,7 +116,7 @@ class ClientScene extends Phaser.Scene {
         this.ball = new Ball(this, CONFIG.ball);
         this.ball3 = new Ball3(this, CONFIG.ball);
         this.ball3.authorityBall = this.ball; // Truyền ball làm authority ball
-
+        this.ball.lerpBall = this.ball3; 
         // ---- SCOREBOARD ----
         this.scoreboard.draw();
 

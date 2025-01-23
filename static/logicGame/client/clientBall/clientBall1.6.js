@@ -237,7 +237,11 @@ class Ball3 {
 			}
 		);
     }
-
+	dampingBall () {
+		var xx = this.body.velocity.x * this.damping; 
+        var yy = this.body.velocity.y * this.damping; 
+        this.setVelocity(xx, yy); 
+	}
     update() {
 		// If there's no authority ball data to sync with, do nothing
 		if (!this.authorityBall) return;

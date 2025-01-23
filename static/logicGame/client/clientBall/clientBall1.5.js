@@ -13,6 +13,7 @@ class Ball {
         this.avoidLerp = 0; 
         this.radius = 0; 
         this.avoidLerpTime = 1; // in second 
+        this.lerpBall = null; 
         this.performAvoidLerp = 0; 
     }
     startDampingCounter() {
@@ -377,6 +378,7 @@ class Ball {
     update() {
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
+        this.lerpBall.dampingBall(); 
         this.setVelocity(xx, yy); 
     }
     logVelocity () {
