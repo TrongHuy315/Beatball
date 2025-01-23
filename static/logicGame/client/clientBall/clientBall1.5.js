@@ -173,12 +173,22 @@ class Ball {
       
             // Check collisions in y-direction
             if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
+              if (p0.y - this.radius <= y1) {
+                p0.y = y1 + this.radius; 
+              } else {
+                p0.y = y2 - this.radius; 
+              }
               v0.y *= -0.38;
             }
             // Check collisions in x-direction (excluding the net area)
             if (p0.x - this.radius <= x1 || p0.x + this.radius >= x2) {
               if (p0.y < y3 || p0.y > y4) {
                 v0.x *= -0.38;
+                if (p0.x - this.radius <= x1) {
+                    p0.x = x1 + this.radius; 
+                } else {
+                    p0.x = x2 - this.radius; 
+                }
               }
             }
       

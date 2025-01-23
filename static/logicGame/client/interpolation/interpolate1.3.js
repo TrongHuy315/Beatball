@@ -41,9 +41,9 @@ class LatestStateInterpolator {
             position.x += velocity.x;
             position.y += velocity.y;
 
-            // Apply velocity damping
-            velocity.x *= dampingPower;
-            velocity.y *= dampingPower;
+            // // Apply velocity damping
+            // velocity.x *= dampingPower;
+            // velocity.y *= dampingPower;
         }
 
         return {
