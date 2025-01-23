@@ -8,7 +8,7 @@ class Ball3 {
         this.stick = false;
         this.avoidLerp = 0;
         this.performAvoidLerp = 0;
-        this.avoidLerpTime = 1/6; // in second
+        this.avoidLerpTime = 1; // in second
         this.initialize();
     }
 	isCollideWithWall() {
@@ -61,7 +61,7 @@ class Ball3 {
 					y: this.body.velocity.y
 				});
 			}
-            if (this.isCollideWithWall() == false && this.performAvoidLerp > 0) {
+            if (this.performAvoidLerp > 0) {
                 this.performAvoidLerp -= 1; 
                 this.avoidLerp++; 
                 
