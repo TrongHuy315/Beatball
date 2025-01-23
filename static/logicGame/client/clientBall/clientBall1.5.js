@@ -57,6 +57,7 @@ class Ball {
                 
                 setTimeout(() => {
                     this.avoidLerp -= 1; 
+                    console.log("Avoid Lerp of predict Ball: ", this.avoidLerp);  
                 }, this.avoidLerpTime * 1000);
             }
 		});

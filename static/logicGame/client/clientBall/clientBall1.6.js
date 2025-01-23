@@ -66,7 +66,8 @@ class Ball3 {
                 this.avoidLerp++; 
                 
                 setTimeout(() => {
-                    this.avoidLerp -= 1; 
+                    this.avoidLerp -= 1;
+					console.log("Avoid Lerp of Lerping Ball: ", this.avoidLerp);  
                 }, this.avoidLerpTime * 1000);
             }
 		});
