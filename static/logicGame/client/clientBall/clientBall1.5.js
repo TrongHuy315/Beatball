@@ -13,7 +13,7 @@ class Ball {
         this.avoidLerp = 0; 
         this.radius = 0; 
         this.avoidLerpTime = 1/6; // in second 
-        this.performVoidLerp = 0; 
+        this.performAvoidLerp = 0; 
     }
     startDampingCounter() {
         setInterval(() => {
@@ -52,7 +52,7 @@ class Ball {
 				});
 			}
             if (this.isCollideWithWall() == false && this.performAvoidLerp > 0) {
-                this.performAVoidLerp -= 1; 
+                this.performAvoidLerp -= 1; 
                 this.avoidLerp++; 
                 
                 setTimeout(() => {

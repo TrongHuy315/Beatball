@@ -62,7 +62,7 @@ class Ball3 {
 				});
 			}
             if (this.isCollideWithWall() == false && this.performAvoidLerp > 0) {
-                this.performAVoidLerp -= 1; 
+                this.performAvoidLerp -= 1; 
                 this.avoidLerp++; 
                 
                 setTimeout(() => {
