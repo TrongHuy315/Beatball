@@ -10,6 +10,10 @@ class Ball {
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
         this.stick = false;
+        this.avoidLerp = 0; 
+        this.radius = 0; 
+        this.avoidLerpTime = 1/6; // in second 
+        this.performVoidLerp = 0; 
     }
     startDampingCounter() {
         setInterval(() => {
@@ -17,6 +21,27 @@ class Ball {
             this.lastSecondDampingCount = this.count_damping;
             console.log("Damping calls per second:", this.dampingPerSecond);
         }, 1000);
+    }
+    isCollideWithWall () {
+        const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
+        const y1 = offset_vertical + pitch.borderWidth;
+        const y2 = y1 + pitch.height;
+        const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
+        const x2 = x1 + pitch.width;
+        var offset = 0.05; 
+        if (this.getPosition().x - this.radius - x1 <= offset) {
+            return true; 
+        }
+        if (x2 - (this.getPosition().x + this.radius) <= offset) {
+            return true; 
+        }
+        if (this.getPosition().y - this.radius - y1 <= offset) {
+            return true; 
+        }  
+        if (y2 - (this.getPosition().y + this.radius) <= offset) {
+            return true; 
+        }
+        return false; 
     }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
@@ -26,6 +51,14 @@ class Ball {
 					y: this.body.velocity.y
 				});
 			}
+            if (this.isCollideWithWall() == false && this.performAvoidLerp > 0) {
+                this.performAVoidLerp -= 1; 
+                this.avoidLerp++; 
+                
+                setTimeout(() => {
+                    this.avoidLerp -= 1; 
+                }, this.avoidLerpTime * 1000);
+            }
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
@@ -36,6 +69,7 @@ class Ball {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
+                    this.performAvoidLerp += 1; 
 					this.stick++;
 					console.log("Colliding with wall"); 
 					// if (this.stick > 1) return;

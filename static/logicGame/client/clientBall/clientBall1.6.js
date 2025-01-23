@@ -4,9 +4,35 @@ class Ball3 {
         this.config = config;
         this.frameRemainder = 0; 
         this.authorityBall = scene.authorityBall; 
-		this.oldVelocities = new Map(); // Khởi tạo map để lưu vận tốc cũ
+        this.oldVelocities = new Map();
+        this.stick = false;
+        this.avoidLerp = 0;
+        this.performAvoidLerp = 0;
+        this.avoidLerpTime = 1/6; // in second
         this.initialize();
     }
+	isCollideWithWall() {
+        const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
+        const y1 = offset_vertical + pitch.borderWidth;
+        const y2 = y1 + pitch.height;
+        const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
+        const x2 = x1 + pitch.width;
+        var offset = 0.05;
+        if (this.getPosition().x - this.config.physics.radius - x1 <= offset) {
+            return true;
+        }
+        if (x2 - (this.getPosition().x + this.config.physics.radius) <= offset) {
+            return true;
+        }
+        if (this.getPosition().y - this.config.physics.radius - y1 <= offset) {
+            return true;
+        }
+        if (y2 - (this.getPosition().y + this.config.physics.radius) <= offset) {
+            return true;
+        }
+        return false;
+    }
+
 	updateBallVisibility() {
         if (this.graphics) {
             this.graphics.visible = this.scene.visibleLerpBall;
@@ -35,52 +61,57 @@ class Ball3 {
 					y: this.body.velocity.y
 				});
 			}
+            if (this.isCollideWithWall() == false && this.performAvoidLerp > 0) {
+                this.performAVoidLerp -= 1; 
+                this.avoidLerp++; 
+                
+                setTimeout(() => {
+                    this.avoidLerp -= 1; 
+                }, this.avoidLerpTime * 1000);
+            }
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
-			event.pairs.forEach((pair) => {
-				const ball3 = pair.bodyA.label === 'ball3' ? pair.bodyA : 
-							  (pair.bodyB.label === 'ball3' ? pair.bodyB : null);
-				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-	
-				if (ball3 && wall) {
-					this.stick++;
-					console.log("Colliding with wall"); 
-					// if (this.stick > 1) return;
-	
-					const oldVel = this.oldVelocities.get(this.body.id);
-					if (!oldVel) return;
-	
-					const pushDirection = wall.customType;
-					const dampingDirection = 0.38;
-	
-					let newVelX = oldVel.x;
-					let newVelY = oldVel.y;
-	
-					switch (pushDirection) {
-						case 'U':
-							newVelY = -newVelY * dampingDirection;
-							break;
-						case 'D':
-							newVelY = -newVelY * dampingDirection;
-							break;
-						case 'L':
-							newVelX = -newVelX * dampingDirection;
-							break;
-						case 'R':
-							newVelX = -newVelX * dampingDirection;
-							break;
-					}
-					console.log("Old xy: ", oldVel.x, oldVel.y); 
-					console.log("New xy: ", newVelX, newVelY); 
-					this.setVelocity(
-						newVelX,
-						newVelY
-					);
-				}
-			});
-		});
+            event.pairs.forEach((pair) => {
+                const ball3 = pair.bodyA.label === 'ball3' ? pair.bodyA : 
+                             (pair.bodyB.label === 'ball3' ? pair.bodyB : null);
+                const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+                            (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+
+                if (ball3 && wall) {
+                    this.performAvoidLerp++;
+                    this.stick++;
+                    console.log("Colliding with wall");
+
+                    const oldVel = this.oldVelocities.get(this.body.id);
+                    if (!oldVel) return;
+
+                    const pushDirection = wall.customType;
+                    const dampingDirection = 0.38;
+
+                    let newVelX = oldVel.x;
+                    let newVelY = oldVel.y;
+
+                    switch (pushDirection) {
+                        case 'U':
+                            newVelY = -newVelY * dampingDirection;
+                            break;
+                        case 'D':
+                            newVelY = -newVelY * dampingDirection;
+                            break;
+                        case 'L':
+                            newVelX = -newVelX * dampingDirection;
+                            break;
+                        case 'R':
+                            newVelX = -newVelX * dampingDirection;
+                            break;
+                    }
+                    console.log("Old xy: ", oldVel.x, oldVel.y);
+                    console.log("New xy: ", newVelX, newVelY);
+                    this.setVelocity(newVelX, newVelY);
+                }
+            });
+        });
 	
 		this.scene.matter.world.on('collisionend', (event) => {
 			event.pairs.forEach((pair) => {
@@ -225,11 +256,9 @@ class Ball3 {
 			this.setVelocity(authorityVel.x, authorityVel.y);
 			return;
 		}
-	
+		if (this.avoidLerp > 0 || this.authorityBall.avoidLerp > 0) return; 
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
-		if (this.stick === 0) {
-			this.setVelocity(authorityVel.x, authorityVel.y);
-		}
+		this.setVelocity(authorityVel.x, authorityVel.y);
 	
 		// 2) Compute a dynamic lerp factor based on distance
 		//    If distance is small, use smaller lerp (for smoothness).
