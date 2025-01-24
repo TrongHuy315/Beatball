@@ -60,7 +60,7 @@ class Ball {
             Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
             Math.pow(pos.y - this.lastCollidePosition.y, 2)
         );   
-        return distance <= 5;
+        return distance <= 20;
     }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
