@@ -72,6 +72,7 @@ class Ball3 {
 				if (this.isCollideWithWall() == false) {
 					if (this.collideWall == true) {
 						if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
+						console.log("Combo: ", this.authorityBall.combo); 
 						this.collideWall = false; 
 					}
 				}
