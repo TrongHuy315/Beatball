@@ -218,9 +218,11 @@ class Ball {
             if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
               if (p0.y - this.radius <= y1) {
                 this.opsAvoidLerp(); 
-                p0.y = y1 + this.radius; 
+                p0.y = y1 + this.radius;
+                this.collideWall = true;  
               } else {
                 this.opsAvoidLerp(); 
+                this.collideWall = true; 
                 p0.y = y2 - this.radius; 
               }
               v0.y *= -0.38;
@@ -231,10 +233,12 @@ class Ball {
                 v0.x *= -0.38;
                 if (p0.x - this.radius <= x1) {
                     this.opsAvoidLerp(); 
-                    p0.x = x1 + this.radius; 
+                    p0.x = x1 + this.radius;
+                    this.collideWall = true;  
                 } else {
                     this.opsAvoidLerp(); 
                     p0.x = x2 - this.radius; 
+                    this.collideWall = true; 
                 }
               }
             }
