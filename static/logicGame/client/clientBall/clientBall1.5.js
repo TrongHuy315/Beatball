@@ -66,11 +66,11 @@ class Ball {
 	
 				if (ball3 && wall) {
                     this.opsAvoidLerp(); 
-					this.stick++;
+                    this.combo++; 
                     this.collideWall = true; 
+					this.stick++;
 					console.log("Colliding with wall"); 
 					// if (this.stick > 1) return;
-	
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
 	
@@ -112,6 +112,7 @@ class Ball {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
+                    this.combo++; 
 					this.stick--; 
 				}
 			});
@@ -384,12 +385,6 @@ class Ball {
                 x: this.body.velocity.x,
                 y: this.body.velocity.y
             });
-        }
-        if (this.isCollideWithWall() == false) {
-            if (this.collideWall == true) {
-                this.combo++; 
-                this.collideWall = false; 
-            }
         }
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 

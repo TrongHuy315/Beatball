@@ -8,7 +8,6 @@ class Ball3 {
         this.stick = false;
         this.avoidLerp = 0;
         this.avoidLerpTime = 1; // in second
-		this.combo = 0; 
         this.initialize();
 		this.collideWall = false; 
     }
@@ -74,9 +73,10 @@ class Ball3 {
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 
                 if (ball3 && wall) {
+					this.authorityBall.combo--; 
                     this.opsAvoidLerp(); 
                     this.stick++;
-                    console.log("Colliding with wall");
+                    console.log("Lerp Ball colliding with wall");
 					this.collideWall = true; 
                     const oldVel = this.oldVelocities.get(this.body.id);
                     if (!oldVel) return;
@@ -116,6 +116,7 @@ class Ball3 {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
+					this.authorityBall.combo--; 
 					this.stick--; 
 				}
 			});
@@ -307,7 +308,7 @@ class Ball3 {
                 this.graphics.destroy();
                 this.graphics = null;
             }
-            this.container.destroy();
+            this.container.destroy(); 
             this.container = null;
         }
 
