@@ -90,8 +90,9 @@ class Ball {
 					};
 			
 					if (this.ignoreCollidePosition(collidePos)) {
-						return;
-					}
+                        console.log("Ignoring collision client Ball - too close to last one");
+                        return;
+                    }
 					
 					this.lastCollidePosition = collidePos;
                  
