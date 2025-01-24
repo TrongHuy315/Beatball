@@ -107,7 +107,8 @@ class Ball3 {
 					
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
-					if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
+					this.authorityBall.combo--; 
+					console.log("Combo: ", this.authorityBall.combo); 
 					const dampingDirection = 0.38;
 					let newVelX = oldVel.x;
 					let newVelY = oldVel.y;
@@ -136,7 +137,6 @@ class Ball3 {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
-					this.authorityBall.combo--; 
 					this.stick--; 
 				}
 			});
@@ -263,13 +263,6 @@ class Ball3 {
 				x: this.body.velocity.x,
 				y: this.body.velocity.y
 			});
-		}
-		if (this.isCollideWithWall() == false) {
-			if (this.collideWall == true) {
-				if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
-				console.log("Combo: ", this.authorityBall.combo); 
-				this.collideWall = false; 
-			}
 		}
 		// If there's no authority ball data to sync with, do nothing
 		if (!this.authorityBall) return;

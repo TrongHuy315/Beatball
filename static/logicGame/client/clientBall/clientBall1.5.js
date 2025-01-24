@@ -74,7 +74,7 @@ class Ball {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 
                 
-                if (ball && player && pair.collision.supports.length > 0) {
+                if (ball && wall && pair.collision.supports.length > 0) {
                     // Calculate average position from supports
                     const avgPos = pair.collision.supports.reduce((acc, point) => {
                         return {x: acc.x + point.x, y: acc.y + point.y};
@@ -145,7 +145,6 @@ class Ball {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
-                    if (this.combo == 1) this.combo++; 
 					this.stick--; 
 				}
 			});
