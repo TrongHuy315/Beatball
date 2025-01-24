@@ -9,8 +9,18 @@ class Ball3 {
         this.avoidLerp = 0;
         this.avoidLerpTime = 1; // in second
         this.initialize();
+		this.combo = 0; 
 		this.collideWall = false; 
+		this.lastCollidePosition = null;
     }
+	ignoreCollidePosition(pos) {
+		if (this.lastCollidePosition == null) return false;
+		const distance = Math.sqrt(
+			Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
+			Math.pow(pos.y - this.lastCollidePosition.y, 2)
+		);   
+		return distance <= 2;
+	}
 	isCollideWithWall() {
         const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
         const y1 = offset_vertical + pitch.borderWidth;
@@ -72,39 +82,49 @@ class Ball3 {
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 
-                if (ball3 && wall) {
-					this.authorityBall.combo--; 
-                    this.opsAvoidLerp(); 
-                    this.stick++;
-                    console.log("Lerp Ball colliding with wall");
-					this.collideWall = true; 
-                    const oldVel = this.oldVelocities.get(this.body.id);
-                    if (!oldVel) return;
-
-                    const pushDirection = wall.customType;
-                    const dampingDirection = 0.38;
-
-                    let newVelX = oldVel.x;
-                    let newVelY = oldVel.y;
-
-                    switch (pushDirection) {
-                        case 'U':
-                            newVelY = -newVelY * dampingDirection;
-                            break;
-                        case 'D':
-                            newVelY = -newVelY * dampingDirection;
-                            break;
-                        case 'L':
-                            newVelX = -newVelX * dampingDirection;
-                            break;
-                        case 'R':
-                            newVelX = -newVelX * dampingDirection;
-                            break;
-                    }
-                    console.log("Old xy: ", oldVel.x, oldVel.y);
-                    console.log("New xy: ", newVelX, newVelY);
-                    this.setVelocity(newVelX, newVelY);
-                }
+				if (ball3 && wall) {
+					// Calculate average collision position
+					if (pair.collision.supports.length > 0) {
+						const avgPos = pair.collision.supports.reduce((acc, point) => {
+							return {x: acc.x + point.x, y: acc.y + point.y};
+						}, {x: 0, y: 0});
+						
+						const collidePos = {
+							x: avgPos.x / pair.collision.supports.length,
+							y: avgPos.y / pair.collision.supports.length
+						};
+				
+						if (this.ignoreCollidePosition(collidePos)) {
+							return;
+						}
+						
+						this.lastCollidePosition = collidePos;
+					}
+				
+					this.stick++;
+					this.collideWall = true;
+					this.opsAvoidLerp();
+					
+					const oldVel = this.oldVelocities.get(this.body.id);
+					if (!oldVel) return;
+					if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
+					const dampingDirection = 0.38;
+					let newVelX = oldVel.x;
+					let newVelY = oldVel.y;
+				
+					switch (wall.customType) {
+						case 'U':
+						case 'D':
+							newVelY = -newVelY * dampingDirection;
+							break;
+						case 'L':
+						case 'R':
+							newVelX = -newVelX * dampingDirection;
+							break;
+					}
+				
+					this.setVelocity(newVelX, newVelY);
+				}
             });
         });
 	

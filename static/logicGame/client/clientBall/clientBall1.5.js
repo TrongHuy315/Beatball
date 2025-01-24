@@ -15,6 +15,7 @@ class Ball {
         this.avoidLerpTime = 1/6; // in second 
         this.lerpBall = null; 
         this.collideWall = false; 
+        this.lastCollidePosition = null;
         this.combo = 0; 
     }
     startDampingCounter() {
@@ -53,54 +54,86 @@ class Ball {
             console.log("Avoid Lerp of predict Ball: ", this.avoidLerp);  
         }, this.avoidLerpTime * 1000);
     }
+    ignoreCollidePosition(pos) {
+        if (this.lastCollidePosition == null) return false;
+        const distance = Math.sqrt(
+            Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
+            Math.pow(pos.y - this.lastCollidePosition.y, 2)
+        );   
+        return distance <= 2;
+    }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
 			event.pairs.forEach((pair) => {
-				const ball3 = pair.bodyA.label === 'ball' ? pair.bodyA : 
+				const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
 							  (pair.bodyB.label === 'ball' ? pair.bodyB : null);
 				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
-	
-				if (ball3 && wall) {
-                    this.opsAvoidLerp(); 
-                    this.combo++; 
-                    this.collideWall = true; 
-					this.stick++;
-					console.log("Colliding with wall"); 
-					// if (this.stick > 1) return;
-					const oldVel = this.oldVelocities.get(this.body.id);
-					if (!oldVel) return;
-	
-					const pushDirection = wall.customType;
-					const dampingDirection = 0.38;
-	
-					let newVelX = oldVel.x;
-					let newVelY = oldVel.y;
-	
-					switch (pushDirection) {
-						case 'U':
-							newVelY = -newVelY * dampingDirection;
-							break;
-						case 'D':
-							newVelY = -newVelY * dampingDirection;
-							break;
-						case 'L':
-							newVelX = -newVelX * dampingDirection;
-							break;
-						case 'R':
-							newVelX = -newVelX * dampingDirection;
-							break;
-					}
-					console.log("Old xy: ", oldVel.x, oldVel.y); 
-					console.log("New xy: ", newVelX, newVelY); 
-					this.setVelocity(
-						newVelX,
-						newVelY
-					);
-				}
+                
+                
+                if (ball && player && pair.collision.supports.length > 0) {
+                    // Calculate average position from supports
+                    const avgPos = pair.collision.supports.reduce((acc, point) => {
+                        return {x: acc.x + point.x, y: acc.y + point.y};
+                    }, {x: 0, y: 0});
+                    
+                    this.lastCollidePosition = {
+                        x: avgPos.x / pair.collision.supports.length,
+                        y: avgPos.y / pair.collision.supports.length
+                    };
+                    console.log("Collision at:", this.lastCollidePosition);
+                }
+
+				if (ball && wall) {
+                    // Calculate average collision position
+                    if (pair.collision.supports.length > 0) {
+                        const avgPos = pair.collision.supports.reduce((acc, point) => {
+                            return {x: acc.x + point.x, y: acc.y + point.y};
+                        }, {x: 0, y: 0});
+                        
+                        const collidePos = {
+                            x: avgPos.x / pair.collision.supports.length,
+                            y: avgPos.y / pair.collision.supports.length
+                        };
+                 
+                        // Skip if collision point is too close to last one
+                        if (this.ignoreCollidePosition(collidePos)) {
+                            return;
+                        }
+                        
+                        this.lastCollidePosition = collidePos;
+                    }
+                 
+                    this.stick++;
+                    this.collideWall = true;
+                    this.opsAvoidLerp();
+                    this.combo++;
+                    
+                    const oldVel = this.oldVelocities.get(this.body.id);
+                    if (!oldVel) return;
+                 
+                    const dampingDirection = 0.38;
+                    let newVelX = oldVel.x;
+                    let newVelY = oldVel.y;
+                 
+                    switch (wall.customType) {
+                        case 'U':
+                        case 'D':
+                            newVelY = -newVelY * dampingDirection;
+                            break;
+                        case 'L':
+                        case 'R':
+                            newVelX = -newVelX * dampingDirection;
+                            break;
+                    }
+                 
+                    console.log("Old velocity:", oldVel.x, oldVel.y);
+                    console.log("New velocity:", newVelX, newVelY);
+                    this.setVelocity(newVelX, newVelY);
+                 }
 			});
 		});
 	
@@ -112,7 +145,7 @@ class Ball {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
-                    this.combo++; 
+                    if (this.combo == 1) this.combo++; 
 					this.stick--; 
 				}
 			});
@@ -202,37 +235,7 @@ class Ball {
             // Update position
             p0.x += v0.x;
             p0.y += v0.y;
-      
-            // Check collisions in y-direction
-            if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
-              if (p0.y - this.radius <= y1) {
-                this.opsAvoidLerp(); 
-                p0.y = y1 + this.radius;
-                this.collideWall = true;  
-              } else {
-                this.opsAvoidLerp(); 
-                this.collideWall = true; 
-                p0.y = y2 - this.radius; 
-              }
-              v0.y *= -0.38;
-            }
-            // Check collisions in x-direction (excluding the net area)
-            if (p0.x - this.radius <= x1 || p0.x + this.radius >= x2) {
-              if (p0.y < y3 || p0.y > y4) {
-                v0.x *= -0.38;
-                if (p0.x - this.radius <= x1) {
-                    this.opsAvoidLerp(); 
-                    p0.x = x1 + this.radius;
-                    this.collideWall = true;  
-                } else {
-                    this.opsAvoidLerp(); 
-                    p0.x = x2 - this.radius; 
-                    this.collideWall = true; 
-                }
-              }
-            }
-      
-            // Apply damping after collision checks
+            
             v0.x *= dampingPower;
             v0.y *= dampingPower;
           }
