@@ -8,7 +8,9 @@ class Ball3 {
         this.stick = false;
         this.avoidLerp = 0;
         this.avoidLerpTime = 1; // in second
+		this.combo = 0; 
         this.initialize();
+		this.collideWall = false; 
     }
 	isCollideWithWall() {
         const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
@@ -67,6 +69,12 @@ class Ball3 {
 					x: this.body.velocity.x,
 					y: this.body.velocity.y
 				});
+				if (this.isCollideWithWall() == false) {
+					if (this.collideWall == true) {
+						if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
+						this.collideWall = false; 
+					}
+				}
 			}
 		});
 	
@@ -81,7 +89,7 @@ class Ball3 {
                     this.opsAvoidLerp(); 
                     this.stick++;
                     console.log("Colliding with wall");
-
+					this.collideWall = true; 
                     const oldVel = this.oldVelocities.get(this.body.id);
                     if (!oldVel) return;
 
@@ -259,7 +267,10 @@ class Ball3 {
 			this.setVelocity(authorityVel.x, authorityVel.y);
 			return;
 		}
-		if (this.avoidLerp > 0 || this.authorityBall.avoidLerp > 0) return; 
+		// if (this.avoidLerp > 0 || this.authorityBall.avoidLerp > 0) return; 
+		if (this.authorityBall.combo == 0) {
+			return; 
+		}
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	

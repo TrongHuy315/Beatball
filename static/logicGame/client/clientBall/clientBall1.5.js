@@ -14,6 +14,8 @@ class Ball {
         this.radius = 0; 
         this.avoidLerpTime = 1/6; // in second 
         this.lerpBall = null; 
+        this.collideWall = false; 
+        this.combo = 0; 
     }
     startDampingCounter() {
         setInterval(() => {
@@ -59,6 +61,12 @@ class Ball {
 					y: this.body.velocity.y
 				});
 			}
+            if (this.isCollideWithWall() == false) {
+                if (this.collideWall == true) {
+                    this.combo++; 
+                    this.collideWall = false; 
+                }
+            }
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
@@ -71,6 +79,7 @@ class Ball {
 				if (ball3 && wall) {
                     this.opsAvoidLerp(); 
 					this.stick++;
+                    this.collideWall = true; 
 					console.log("Colliding with wall"); 
 					// if (this.stick > 1) return;
 	
