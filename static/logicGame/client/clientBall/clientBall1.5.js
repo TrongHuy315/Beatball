@@ -55,18 +55,6 @@ class Ball {
     }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
-			if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
-				this.oldVelocities.set(this.body.id, {
-					x: this.body.velocity.x,
-					y: this.body.velocity.y
-				});
-			}
-            if (this.isCollideWithWall() == false) {
-                if (this.collideWall == true) {
-                    this.combo++; 
-                    this.collideWall = false; 
-                }
-            }
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
@@ -391,6 +379,18 @@ class Ball {
         console.log('===================\n');
     }
     update() {
+        if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
+            this.oldVelocities.set(this.body.id, {
+                x: this.body.velocity.x,
+                y: this.body.velocity.y
+            });
+        }
+        if (this.isCollideWithWall() == false) {
+            if (this.collideWall == true) {
+                this.combo++; 
+                this.collideWall = false; 
+            }
+        }
         var xx = this.body.velocity.x * this.damping; 
         var yy = this.body.velocity.y * this.damping; 
         this.lerpBall.dampingBall(); 

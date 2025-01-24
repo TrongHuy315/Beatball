@@ -64,19 +64,6 @@ class Ball3 {
 	}
 	setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
-			if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
-				this.oldVelocities.set(this.body.id, {
-					x: this.body.velocity.x,
-					y: this.body.velocity.y
-				});
-				if (this.isCollideWithWall() == false) {
-					if (this.collideWall == true) {
-						if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
-						console.log("Combo: ", this.authorityBall.combo); 
-						this.collideWall = false; 
-					}
-				}
-			}
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
@@ -250,6 +237,19 @@ class Ball3 {
         this.setVelocity(xx, yy); 
 	}
     update() {
+		if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
+			this.oldVelocities.set(this.body.id, {
+				x: this.body.velocity.x,
+				y: this.body.velocity.y
+			});
+		}
+		if (this.isCollideWithWall() == false) {
+			if (this.collideWall == true) {
+				if (this.authorityBall.combo > 0) this.authorityBall.combo--; 
+				console.log("Combo: ", this.authorityBall.combo); 
+				this.collideWall = false; 
+			}
+		}
 		// If there's no authority ball data to sync with, do nothing
 		if (!this.authorityBall) return;
 	
