@@ -19,7 +19,7 @@ class Ball3 {
 			Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
 			Math.pow(pos.y - this.lastCollidePosition.y, 2)
 		);   
-		return distance <= 2;
+		return distance <= 5;
 	}
 	isCollideWithWall() {
         const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;

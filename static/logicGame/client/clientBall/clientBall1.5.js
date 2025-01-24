@@ -223,6 +223,18 @@ class Ball {
             p0.x += v0.x;
             p0.y += v0.y;
             
+            if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
+                return null; 
+                v0.y *= -0.38;
+            }
+            // Check collisions in x-direction (excluding the net area)
+            if (p0.x - this.radius <= x1 || p0.x + this.radius >= x2) {
+                if (p0.y < y3 || p0.y > y4) {
+                    return null; 
+                    v0.x *= -0.38;
+                }
+            }
+
             v0.x *= dampingPower;
             v0.y *= dampingPower;
           }
@@ -241,7 +253,7 @@ class Ball {
             timestamp: ballState.timestamp
         };
         const newState = this.computeClosedFormFastForward(serverState);
-        
+        if (newState == null) return; 
         // console.log("Diff in time: (client - server): ", this.scene.networkManager.getServerTime() - ballState.timestamp); 
         // console.log("Position Comparison(Server, client): ", ballState.position, this.body.position); 
         // console.log("Velocity Comparison(Server, client): ", ballState.velocity, this.body.velocity); 
