@@ -12,9 +12,8 @@ class Ball {
         this.stick = false;
         this.avoidLerp = 0; 
         this.radius = 0; 
-        this.avoidLerpTime = 1; // in second 
+        this.avoidLerpTime = 1/6; // in second 
         this.lerpBall = null; 
-        this.performAvoidLerp = 0; 
     }
     startDampingCounter() {
         setInterval(() => {
@@ -44,6 +43,14 @@ class Ball {
         }
         return false; 
     }
+    opsAvoidLerp() {
+        this.avoidLerp++; 
+                
+        setTimeout(() => {
+            this.avoidLerp -= 1; 
+            console.log("Avoid Lerp of predict Ball: ", this.avoidLerp);  
+        }, this.avoidLerpTime * 1000);
+    }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
 			if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
@@ -52,15 +59,6 @@ class Ball {
 					y: this.body.velocity.y
 				});
 			}
-            if (this.performAvoidLerp > 0) {
-                this.performAvoidLerp -= 1; 
-                this.avoidLerp++; 
-                
-                setTimeout(() => {
-                    this.avoidLerp -= 1; 
-                    console.log("Avoid Lerp of predict Ball: ", this.avoidLerp);  
-                }, this.avoidLerpTime * 1000);
-            }
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
@@ -71,7 +69,7 @@ class Ball {
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
 				if (ball3 && wall) {
-                    this.performAvoidLerp += 1; 
+                    this.opsAvoidLerp(); 
 					this.stick++;
 					console.log("Colliding with wall"); 
 					// if (this.stick > 1) return;
@@ -210,8 +208,10 @@ class Ball {
             // Check collisions in y-direction
             if (p0.y - this.radius <= y1 || p0.y + this.radius >= y2) {
               if (p0.y - this.radius <= y1) {
+                this.opsAvoidLerp(); 
                 p0.y = y1 + this.radius; 
               } else {
+                this.opsAvoidLerp(); 
                 p0.y = y2 - this.radius; 
               }
               v0.y *= -0.38;
@@ -221,8 +221,10 @@ class Ball {
               if (p0.y < y3 || p0.y > y4) {
                 v0.x *= -0.38;
                 if (p0.x - this.radius <= x1) {
+                    this.opsAvoidLerp(); 
                     p0.x = x1 + this.radius; 
                 } else {
+                    this.opsAvoidLerp(); 
                     p0.x = x2 - this.radius; 
                 }
               }

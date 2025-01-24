@@ -151,7 +151,6 @@ class ClientScene extends Phaser.Scene {
         var cur; 
         const gameLoop = () => {
             const currentTime = this.networkManager.getServerTime();
-            console.log("Delta Time: ", Date.now() - last); 
             if (currentTime - this.lastFrameTime >= 1000 / this.targetInnerFPS) {    
                 this.lastFrameTime = currentTime - (currentTime - this.lastFrameTime - 1000 / this.targetInnerFPS); 
             }

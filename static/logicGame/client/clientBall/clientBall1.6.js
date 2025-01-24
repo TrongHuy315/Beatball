@@ -7,7 +7,6 @@ class Ball3 {
         this.oldVelocities = new Map();
         this.stick = false;
         this.avoidLerp = 0;
-        this.performAvoidLerp = 0;
         this.avoidLerpTime = 1; // in second
         this.initialize();
     }
@@ -53,6 +52,14 @@ class Ball3 {
 		this.setupCollisionHandlers(); 
 		this.updateBallVisibility(); 
     }
+	opsAvoidLerp () {
+		this.avoidLerp++; 
+                
+		setTimeout(() => {
+			this.avoidLerp -= 1;
+			console.log("Avoid Lerp of Lerping Ball: ", this.avoidLerp);  
+		}, this.avoidLerpTime * 1000);
+	}
 	setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
 			if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
@@ -61,15 +68,6 @@ class Ball3 {
 					y: this.body.velocity.y
 				});
 			}
-            if (this.performAvoidLerp > 0) {
-                this.performAvoidLerp -= 1; 
-                this.avoidLerp++; 
-                
-                setTimeout(() => {
-                    this.avoidLerp -= 1;
-					console.log("Avoid Lerp of Lerping Ball: ", this.avoidLerp);  
-                }, this.avoidLerpTime * 1000);
-            }
 		});
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
@@ -80,7 +78,7 @@ class Ball3 {
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 
                 if (ball3 && wall) {
-                    this.performAvoidLerp++;
+                    this.opsAvoidLerp(); 
                     this.stick++;
                     console.log("Colliding with wall");
 
