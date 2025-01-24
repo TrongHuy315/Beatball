@@ -84,22 +84,24 @@ class Ball3 {
 
 				if (ball3 && wall) {
 					const validPoints = pair.collision.supports.filter(point => 
-                        point && typeof point.x === 'number' && typeof point.y === 'number'
-                    );
-        
-                    if (validPoints.length > 0) {
-                        const avgPos = validPoints.reduce((acc, point) => ({
-                            x: acc.x + point.x,
-                            y: acc.y + point.y
-                        }), {x: 0, y: 0});
-                        
-                        this.lastCollidePosition = {
-                            x: avgPos.x / validPoints.length,
-                            y: avgPos.y / validPoints.length
-                        };
-                        console.log("Collision at:", this.lastCollidePosition);
-                    }
-                
+						point && typeof point.x === 'number' && typeof point.y === 'number'
+					);
+				
+					const avgPos = validPoints.reduce((acc, point) => ({
+						x: acc.x + point.x,
+						y: acc.y + point.y
+					}), {x: 0, y: 0});
+					
+					const collidePos = {
+						x: avgPos.x / validPoints.length,
+						y: avgPos.y / validPoints.length
+					};
+			
+					if (this.ignoreCollidePosition(collidePos)) {
+						return;
+					}
+					
+					this.lastCollidePosition = collidePos;
 				
 					this.stick++;
 					this.collideWall = true;
