@@ -73,9 +73,8 @@ class Ball {
 				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 
-                
-                if (ball && wall && pair.collision && pair.collision.supports && pair.collision.supports.length > 0) {
-                    // Filter out any points without valid coordinates
+
+				if (ball && wall) {
                     const validPoints = pair.collision.supports.filter(point => 
                         point && typeof point.x === 'number' && typeof point.y === 'number'
                     );
@@ -92,28 +91,7 @@ class Ball {
                         };
                         console.log("Collision at:", this.lastCollidePosition);
                     }
-                }
-
-				if (ball && wall) {
-                    // Calculate average collision position
-                    if (pair.collision.supports.length > 0) {
-                        const avgPos = pair.collision.supports.reduce((acc, point) => {
-                            return {x: acc.x + point.x, y: acc.y + point.y};
-                        }, {x: 0, y: 0});
-                        
-                        const collidePos = {
-                            x: avgPos.x / pair.collision.supports.length,
-                            y: avgPos.y / pair.collision.supports.length
-                        };
-                 
-                        // Skip if collision point is too close to last one
-                        if (this.ignoreCollidePosition(collidePos)) {
-                            return;
-                        }
-                        
-                        this.lastCollidePosition = collidePos;
-                    }
-                 
+                
                     this.stick++;
                     this.collideWall = true;
                     this.opsAvoidLerp();
