@@ -269,7 +269,7 @@ class Ball3 {
 			return;
 		}
 		// if (this.avoidLerp > 0 || this.authorityBall.avoidLerp > 0) return; 
-		if (this.authorityBall.combo == 0) {
+		if (this.authorityBall.combo > 0) {
 			return; 
 		}
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
