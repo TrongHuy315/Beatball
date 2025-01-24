@@ -100,7 +100,7 @@ class Ball3 {
 					if (this.ignoreCollidePosition(collidePos)) {
 						return;
 					}
-					
+					console.log("Lerp Ball Collide With Wall"); 
 					this.lastCollidePosition = collidePos;
 				
 					this.stick++;

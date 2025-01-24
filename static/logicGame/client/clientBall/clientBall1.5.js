@@ -60,7 +60,7 @@ class Ball {
             Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
             Math.pow(pos.y - this.lastCollidePosition.y, 2)
         );   
-        return distance <= 2;
+        return distance <= 5;
     }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
@@ -106,7 +106,7 @@ class Ball {
                     const dampingDirection = 0.38;
                     let newVelX = oldVel.x;
                     let newVelY = oldVel.y;
-                 
+                    
                     switch (wall.customType) {
                         case 'U':
                         case 'D':
@@ -117,7 +117,7 @@ class Ball {
                             newVelX = -newVelX * dampingDirection;
                             break;
                     }
-                 
+                    console.log("Client Ball Collide with Wall: "); 
                     console.log("Old velocity:", oldVel.x, oldVel.y);
                     console.log("New velocity:", newVelX, newVelY);
                     this.setVelocity(newVelX, newVelY);
