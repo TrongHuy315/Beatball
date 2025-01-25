@@ -119,6 +119,7 @@ class Ball {
                             break;
                     }
                     console.log("Client Ball Collide with Wall: "); 
+                    console.log("Point of collision: ", avgPos); 
                     console.log("Old velocity:", oldVel.x, oldVel.y);
                     console.log("New velocity:", newVelX, newVelY);
                     this.setVelocity(newVelX, newVelY);
