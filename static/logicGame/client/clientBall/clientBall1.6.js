@@ -306,6 +306,7 @@ class Ball3 {
 			return; 
 		}
 		if (this.isWallChangeVelocity()) return; 
+		console.log("Last Set Velocity: ", this.authorityVel.velocity); 
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	
