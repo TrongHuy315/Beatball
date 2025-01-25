@@ -91,7 +91,8 @@ class Ball3 {
 						x: acc.x + point.x,
 						y: acc.y + point.y
 					}), {x: 0, y: 0});
-					
+					this.stick++;
+
 					const collidePos = {
 						x: avgPos.x / validPoints.length,
 						y: avgPos.y / validPoints.length
@@ -104,7 +105,6 @@ class Ball3 {
 					console.log("Lerp Ball Collide With Wall"); 
 					this.lastCollidePosition = collidePos;
 				
-					this.stick++;
 					this.collideWall = true;
 					this.opsAvoidLerp();
 					

@@ -88,7 +88,8 @@ class Ball {
 						x: avgPos.x / validPoints.length,
 						y: avgPos.y / validPoints.length
 					};
-			
+                    this.stick++;
+
 					if (this.ignoreCollidePosition(collidePos)) {
                         console.log("Ignoring collision client Ball - too close to last one");
                         return;
@@ -96,7 +97,6 @@ class Ball {
 					
 					this.lastCollidePosition = collidePos;
                  
-                    this.stick++;
                     this.collideWall = true;
                     this.opsAvoidLerp();
                     this.combo++;
