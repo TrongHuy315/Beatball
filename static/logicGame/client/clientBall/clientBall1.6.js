@@ -42,7 +42,23 @@ class Ball3 {
         }
         return false;
     }
-
+	isWallChangeVelocity() {
+		const oldVel = this.getVelocity();
+		const currentVel = this.authorityBall.getVelocity();
+		const epsilon = 0.1;
+		
+		const xChangedDirection = oldVel.x * currentVel.x < 0;
+		const yChangedDirection = oldVel.y * currentVel.y < 0;
+		
+		if (xChangedDirection !== yChangedDirection) {
+			if (xChangedDirection) {
+				return Math.abs(Math.abs(oldVel.x) - Math.abs(currentVel.x)) < epsilon;
+			} else {
+				return Math.abs(Math.abs(oldVel.y) - Math.abs(currentVel.y)) < epsilon;
+			}
+		}
+		return false;
+	}
 	updateBallVisibility() {
         if (this.graphics) {
             this.graphics.visible = this.scene.visibleLerpBall;
@@ -289,6 +305,7 @@ class Ball3 {
 		if (this.authorityBall.combo > 0) {
 			return; 
 		}
+		if (this.isWallChangeVelocity()) return; 
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	
