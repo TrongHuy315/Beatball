@@ -9,7 +9,7 @@ class Ball {
         this.count_damping = 0;
         this.dampingPerSecond = 0;
         this.lastSecondDampingCount = 0;
-        this.stick = false;
+        this.stick = 0;
         this.avoidLerp = 0; 
         this.radius = 0; 
         this.avoidLerpTime = 1/6; // in second 

@@ -5,7 +5,7 @@ class Ball3 {
         this.frameRemainder = 0; 
         this.authorityBall = null;
         this.oldVelocities = new Map();
-        this.stick = false;
+        this.stick = 0;
         this.avoidLerp = 0;
         this.avoidLerpTime = 1; // in second
         this.initialize();
