@@ -104,6 +104,7 @@ class Ball {
                     console.log("Valid points after filter:", validPoints, Date.now());
 					
 					const collidePos = this.calculateCollisionPoint(validPoints);
+                    console.log("Collision Position: ", collidePos); 
                     this.stick++;
 
 					if (this.ignoreCollidePosition(collidePos)) {

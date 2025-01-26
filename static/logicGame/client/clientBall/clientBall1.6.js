@@ -126,11 +126,13 @@ class Ball3 {
 				
 					const collidePos = this.calculateCollisionPoint(validPoints);
     			 	this.stick++; 
-			
+					console.log("Collision Position: ", collidePos); 
+
 					if (this.ignoreCollidePosition(collidePos)) {
                         console.log("Ignoring collision Lerp Ball - too close to last one");
                         return;
                     }
+					
 					console.log("Lerp Ball Collide With Wall"); 
 					this.lastCollidePosition = collidePos;
 				
