@@ -105,12 +105,19 @@ class Ball {
                 
                 
 				if (ball && wall) {
+                    
                     console.log("Current stick value:", this.stick);
                     console.log("Current ball velocity:", this.body.velocity);
                     console.log("Stored old velocities:", this.oldVelocities);
-                    const validPoints = pair.collision.supports.filter(point => 
-						point && typeof point.x === 'number' && typeof point.y === 'number'
-					);
+                    const collisionPoints = pair.collision.supports.map(point => ({
+                        x: point.x,
+                        y: point.y
+                    }));
+                    
+                    const validPoints = collisionPoints.filter(point => 
+                        point && typeof point.x === 'number' && typeof point.y === 'number'
+                    );
+    
                     console.log("Raw collision points:", pair.collision.supports, Date.now());
                     console.log("Valid points after filter:", validPoints, Date.now());
 					

@@ -131,9 +131,15 @@ class Ball3 {
 					console.log("Current stick value:", this.stick);
 					console.log("Current ball velocity:", this.body.velocity);
 					console.log("Stored old velocities:", this.oldVelocities);
-					const validPoints = pair.collision.supports.filter(point => 
+					const collisionPoints = pair.collision.supports.map(point => ({
+						x: point.x,
+						y: point.y
+					}));
+					
+					const validPoints = collisionPoints.filter(point => 
 						point && typeof point.x === 'number' && typeof point.y === 'number'
 					);
+	
 				
 					const collidePos = this.calculateCollisionPoint(validPoints);
     			 	this.stick++; 
