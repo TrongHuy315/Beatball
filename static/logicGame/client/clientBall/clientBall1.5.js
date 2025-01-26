@@ -73,12 +73,16 @@ class Ball {
 				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
 							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 
-
+                
 				if (ball && wall) {
+                    console.log("Current stick value:", this.stick);
+                    console.log("Current ball velocity:", this.body.velocity);
+                    console.log("Stored old velocities:", this.oldVelocities);
                     const validPoints = pair.collision.supports.filter(point => 
 						point && typeof point.x === 'number' && typeof point.y === 'number'
 					);
-				
+                    console.log("Raw collision points:", pair.collision.supports, Date.now());
+                    console.log("Valid points after filter:", validPoints, Date.now());
 					const avgPos = validPoints.reduce((acc, point) => ({
 						x: acc.x + point.x,
 						y: acc.y + point.y

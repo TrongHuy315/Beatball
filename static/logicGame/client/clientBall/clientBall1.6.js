@@ -3,13 +3,12 @@ class Ball3 {
         this.scene = scene;
         this.config = config;
         this.frameRemainder = 0; 
-        this.authorityBall = scene.authorityBall; 
+        this.authorityBall = null;
         this.oldVelocities = new Map();
         this.stick = false;
         this.avoidLerp = 0;
         this.avoidLerpTime = 1; // in second
         this.initialize();
-		this.combo = 0; 
 		this.collideWall = false; 
 		this.lastCollidePosition = null;
     }
@@ -99,6 +98,9 @@ class Ball3 {
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 
 				if (ball3 && wall) {
+					console.log("Current stick value:", this.stick);
+					console.log("Current ball velocity:", this.body.velocity);
+					console.log("Stored old velocities:", this.oldVelocities);
 					const validPoints = pair.collision.supports.filter(point => 
 						point && typeof point.x === 'number' && typeof point.y === 'number'
 					);

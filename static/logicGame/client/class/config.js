@@ -211,7 +211,7 @@ window.CONFIG = {
         wall_distance: 2, 
         wall_thickness: 40, 
 		bounciness: 1, 
-		friction: 1, 
+		friction: 0, 
         world_bound_offset: 0, 
 	}, 
 };
