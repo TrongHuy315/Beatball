@@ -62,6 +62,25 @@ class Ball {
         );   
         return distance <= 20;
     }
+    calculateCollisionPoint(validPoints) {
+        if (!validPoints || validPoints.length === 0) {
+            return null;
+        }
+        
+        let sumX = 0;
+        let sumY = 0;
+        const pointCount = validPoints.length;
+    
+        for (let i = 0; i < pointCount; i++) {
+            sumX += validPoints[i].x;
+            sumY += validPoints[i].y;
+        }
+    
+        return {
+            x: sumX / pointCount,
+            y: sumY / pointCount
+        };
+    }
     setupCollisionHandlers() {
 		this.scene.matter.world.on('beforeupdate', () => {
 		});
@@ -83,15 +102,8 @@ class Ball {
 					);
                     console.log("Raw collision points:", pair.collision.supports, Date.now());
                     console.log("Valid points after filter:", validPoints, Date.now());
-					const avgPos = validPoints.reduce((acc, point) => ({
-						x: acc.x + point.x,
-						y: acc.y + point.y
-					}), {x: 0, y: 0});
 					
-					const collidePos = {
-						x: avgPos.x / validPoints.length,
-						y: avgPos.y / validPoints.length
-					};
+					const collidePos = this.calculateCollisionPoint(validPoints);
                     this.stick++;
 
 					if (this.ignoreCollidePosition(collidePos)) {
@@ -123,7 +135,6 @@ class Ball {
                             break;
                     }
                     console.log("Client Ball Collide with Wall: "); 
-                    console.log("Point of collision: ", avgPos); 
                     console.log("Old velocity:", oldVel.x, oldVel.y);
                     console.log("New velocity:", newVelX, newVelY);
                     this.setVelocity(newVelX, newVelY);

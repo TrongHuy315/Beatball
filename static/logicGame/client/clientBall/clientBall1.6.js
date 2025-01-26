@@ -20,6 +20,25 @@ class Ball3 {
 		);   
 		return distance <= 20;
 	}
+	calculateCollisionPoint(validPoints) {
+		if (!validPoints || validPoints.length === 0) {
+			return null;
+		}
+		
+		let sumX = 0;
+		let sumY = 0;
+		const pointCount = validPoints.length;
+	
+		for (let i = 0; i < pointCount; i++) {
+			sumX += validPoints[i].x;
+			sumY += validPoints[i].y;
+		}
+	
+		return {
+			x: sumX / pointCount,
+			y: sumY / pointCount
+		};
+	}
 	isCollideWithWall() {
         const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
         const y1 = offset_vertical + pitch.borderWidth;
@@ -105,16 +124,8 @@ class Ball3 {
 						point && typeof point.x === 'number' && typeof point.y === 'number'
 					);
 				
-					const avgPos = validPoints.reduce((acc, point) => ({
-						x: acc.x + point.x,
-						y: acc.y + point.y
-					}), {x: 0, y: 0});
-					this.stick++;
-
-					const collidePos = {
-						x: avgPos.x / validPoints.length,
-						y: avgPos.y / validPoints.length
-					};
+					const collidePos = this.calculateCollisionPoint(validPoints);
+    			 	this.stick++; 
 			
 					if (this.ignoreCollidePosition(collidePos)) {
                         console.log("Ignoring collision Lerp Ball - too close to last one");
