@@ -25,31 +25,30 @@ class Ball3 {
 			return null;
 		}
 		
+		// Calculate each sum separately and log each addition
 		let sumX = 0;
 		let sumY = 0;
-		const pointCount = validPoints.length;
-	
-		for (let i = 0; i < pointCount; i++) {
-			sumX += validPoints[i].x;
-			sumY += validPoints[i].y;
-		}
-	
-		// Let's add debugging
-		console.log("Calculation details:", {
-			points: validPoints,
-			sumX,
-			sumY,
-			count: pointCount,
-			result: {
-				x: sumX / pointCount,
-				y: sumY / pointCount
-			}
+		
+		validPoints.forEach((point, i) => {
+			console.log(`Adding point ${i}:`, point.x, point.y);
+			sumX += point.x;
+			sumY += point.y;
+			console.log(`Running sums - X: ${sumX}, Y: ${sumY}`);
 		});
 	
-		return {
-			x: sumX / pointCount,
-			y: sumY / pointCount
+		const result = {
+			x: sumX / validPoints.length,
+			y: sumY / validPoints.length
 		};
+	
+		console.log("Final calculation:", {
+			sumX,
+			sumY,
+			count: validPoints.length,
+			result
+		});
+	
+		return result;
 	}
 	isCollideWithWall() {
         const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
