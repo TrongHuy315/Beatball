@@ -128,24 +128,24 @@ class Ball3 {
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 
 				if (ball3 && wall) {
+					// First log everything
 					console.log("Current stick value:", this.stick);
 					console.log("Current ball velocity:", this.body.velocity);
 					console.log("Stored old velocities:", this.oldVelocities);
-					// First filter out null points
-					const validPoints = pair.collision.supports.filter(point => 
-						point && typeof point.x === 'number' && typeof point.y === 'number'
-					);
+					console.log("Raw collision points:", pair.collision.supports);
 
-					// Then clone the valid points
-					const collisionPoints = validPoints.map(point => ({
-						x: point.x,
-						y: point.y
-					}));
+					// Get collision information
+					const points = pair.collision.supports;
+					console.log("Points directly:", points.map(p => `(${p.x}, ${p.y})`));
 
-					console.log("Raw collision points:", pair.collision.supports, Date.now());
-					console.log("Valid points after filter:", collisionPoints, Date.now());
+					// Create a simple array of points
+					const validPoints = points
+						.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number')
+						.map(p => ({x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100}));
 					
-					const collidePos = this.calculateCollisionPoint(collisionPoints);
+					console.log("Validated and rounded points:", validPoints);
+					
+					const collidePos = this.calculateCollisionPoint(validPoints);
 					
     			 	this.stick++; 
 					console.log("Collision Position: ", collidePos); 
