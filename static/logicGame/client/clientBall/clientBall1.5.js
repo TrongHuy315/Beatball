@@ -76,6 +76,18 @@ class Ball {
             sumY += validPoints[i].y;
         }
     
+        // Let's add debugging
+        console.log("Calculation details:", {
+            points: validPoints,
+            sumX,
+            sumY,
+            count: pointCount,
+            result: {
+                x: sumX / pointCount,
+                y: sumY / pointCount
+            }
+        });
+    
         return {
             x: sumX / pointCount,
             y: sumY / pointCount
