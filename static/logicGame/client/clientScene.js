@@ -396,6 +396,7 @@ class ClientScene extends Phaser.Scene {
             this.showGoalCelebration(data.team);
         });
         socket.on('celebration', (data) => {
+            this.ball.combo = 0; 
             this.celebrationManager.letCelebrate(data);
         }); 
         socket.on('sendScoreboardState', (data) => {
