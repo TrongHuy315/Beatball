@@ -164,15 +164,15 @@ class Ball3 {
 							};
 							break;
 					}
-					this.lastCollidePosition = collidePos;
 					console.log("Collision Position: ", collidePos);
 					this.stick++;
-		
+					
 					if (this.ignoreCollidePosition(collidePos)) {
-						console.log("Ignoring collision client Ball - too close to last one");
+						this.lastCollidePosition = collidePos;
+						console.log("Ignoring collision lerp Ball - too close to last one");
 						return;
 					}
-		
+					this.lastCollidePosition = collidePos;
 					this.collideWall = true;
 					this.opsAvoidLerp();
 					this.combo++;
