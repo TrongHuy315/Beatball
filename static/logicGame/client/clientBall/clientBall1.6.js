@@ -122,8 +122,8 @@ class Ball3 {
 	
 		this.scene.matter.world.on('collisionstart', (event) => {
 			event.pairs.forEach((pair) => {
-				const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
-							(pair.bodyB.label === 'ball' ? pair.bodyB : null);
+				const ball = pair.bodyA.label === 'ball3' ? pair.bodyA : 
+							(pair.bodyB.label === 'ball3' ? pair.bodyB : null);
 				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
 							(pair.bodyB.label === 'wall' ? pair.bodyB : null);
 				
