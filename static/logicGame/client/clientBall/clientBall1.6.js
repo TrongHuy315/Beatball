@@ -175,7 +175,7 @@ class Ball3 {
 					this.lastCollidePosition = collidePos;
 					this.collideWall = true;
 					this.opsAvoidLerp();
-					this.combo++;
+					this.authorityBall.combo--; 
 					
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
@@ -195,7 +195,7 @@ class Ball3 {
 							break;
 					}
 		
-					console.log("Client Ball Collide with Wall: "); 
+					console.log("Lerp Ball Collide with Wall: "); 
 					console.log("Old velocity:", oldVel.x, oldVel.y);
 					console.log("New velocity:", newVelX, newVelY);
 					this.setVelocity(newVelX, newVelY);
