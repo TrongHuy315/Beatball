@@ -179,7 +179,7 @@ class Ball3 {
 					this.collideWall = true;
 					this.opsAvoidLerp();
 					this.authorityBall.combo--; 
-					
+					console.log("AuthorityBall Combo: ", this.authorityBall.combo); 
 					const oldVel = this.oldVelocities.get(this.body.id);
 					if (!oldVel) return;
 		
