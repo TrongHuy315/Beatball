@@ -11,6 +11,7 @@ class Ball3 {
         this.initialize();
 		this.collideWall = false; 
 		this.lastCollidePosition = null;
+		this.lastTimeCollide = Date.now(); 
     }
 	ignoreCollidePosition(pos) {
 		if (this.lastCollidePosition == null) return false;
@@ -18,7 +19,7 @@ class Ball3 {
 			Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
 			Math.pow(pos.y - this.lastCollidePosition.y, 2)
 		);   
-		return distance <= 20;
+		return distance <= 10;
 	}
 	calculateCollisionPoint(validPoints) {
 		if (!validPoints || validPoints.length === 0) {
@@ -129,6 +130,7 @@ class Ball3 {
 				
 				if (ball && wall) {
 					console.log("Current stick value:", this.stick);
+					console.log("Last Collision Delta Time: ", Date.now() - this.lastTimeCollide);
 					console.log("Current ball velocity:", this.body.velocity);
 					console.log("Stored old velocities:", this.oldVelocities);
 					const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
@@ -136,6 +138,7 @@ class Ball3 {
 					const y2 = y1 + pitch.height;
 					const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
 					const x2 = x1 + pitch.width;
+					this.lastTimeCollide = Date.now(); 
 					// Calculate collision point based on ball position and wall type
 					let collidePos;
 					switch (wall.customType) {

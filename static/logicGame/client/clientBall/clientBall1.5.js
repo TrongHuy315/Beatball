@@ -15,7 +15,7 @@
             this.avoidLerpTime = 1/6; // in second 
             this.lerpBall = null; 
             this.collideWall = false; 
-            this.lastCollidePosition = null;
+            this.lastTimeCollide = Date.now(); 
             this.combo = 0; 
         }
         startDampingCounter() {
@@ -60,7 +60,7 @@
                 Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
                 Math.pow(pos.y - this.lastCollidePosition.y, 2)
             );   
-            return distance <= 20;
+            return distance <= 10;
         }
         calculateCollisionPoint(validPoints) {
             if (!validPoints || validPoints.length === 0) {
@@ -107,6 +107,8 @@
                         console.log("Current stick value:", this.stick);
                         console.log("Current ball velocity:", this.body.velocity);
                         console.log("Stored old velocities:", this.oldVelocities);
+                        console.log("Last Collision Delta Time: ", Date.now() - this.lastTimeCollide);
+                        this.lastTimeCollide = Date.now(); 
                         const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
                         const y1 = offset_vertical + pitch.borderWidth;
                         const y2 = y1 + pitch.height;

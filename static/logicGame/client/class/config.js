@@ -178,7 +178,7 @@ window.CONFIG = {
 	ball: {
         physics: {
             damping: 0.99, 
-            mass: 1,
+            mass: 5,
             restitution: 1,      // độ nảy 0.5
             friction: 0,        // ma sát với vật thể khác
             frictionAir: 0.00,    // ma sát không khí
