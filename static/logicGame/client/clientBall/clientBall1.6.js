@@ -11,7 +11,6 @@ class Ball3 {
         this.initialize();
 		this.collideWall = false; 
 		this.lastCollidePosition = null;
-		this.lastTimeCollide = Date.now(); 
     }
 	ignoreCollidePosition(pos) {
 		if (this.lastCollidePosition == null) return false;
@@ -121,103 +120,101 @@ class Ball3 {
 		this.scene.matter.world.on('beforeupdate', () => {
 		});
 	
-		// this.scene.matter.world.on('collisionstart', (event) => {
-		// 	event.pairs.forEach((pair) => {
-		// 		const ball = pair.bodyA.label === 'ball3' ? pair.bodyA : 
-		// 					(pair.bodyB.label === 'ball3' ? pair.bodyB : null);
-		// 		const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-		// 					(pair.bodyB.label === 'wall' ? pair.bodyB : null);
+		this.scene.matter.world.on('collisionstart', (event) => {
+			event.pairs.forEach((pair) => {
+				const ball = pair.bodyA.label === 'ball3' ? pair.bodyA : 
+							(pair.bodyB.label === 'ball3' ? pair.bodyB : null);
+				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+							(pair.bodyB.label === 'wall' ? pair.bodyB : null);
 				
-		// 		if (ball && wall) {
-		// 			console.log("Current stick value:", this.stick);
-		// 			console.log("Last Collision Delta Time: ", Date.now() - this.lastTimeCollide);
-		// 			console.log("Current ball velocity:", this.body.velocity);
-		// 			console.log("Stored old velocities:", this.oldVelocities);
-		// 			const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
-		// 			const y1 = offset_vertical + pitch.borderWidth;
-		// 			const y2 = y1 + pitch.height;
-		// 			const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
-		// 			const x2 = x1 + pitch.width;
-		// 			this.lastTimeCollide = Date.now(); 
-		// 			// Calculate collision point based on ball position and wall type
-		// 			let collidePos;
-		// 			switch (wall.customType) {
-		// 				case 'U':
-		// 					collidePos = {
-		// 						x: ball.position.x,
-		// 						y: y2, 
-		// 					};
-		// 					break;
-		// 				case 'D':
-		// 					collidePos = {
-		// 						x: ball.position.x,
-		// 						y: y1, 
-		// 					};
-		// 					break;
-		// 				case 'L':
-		// 					collidePos = {
-		// 						x: x2, 
-		// 						y: ball.position.y
-		// 					};
-		// 					break;
-		// 				case 'R':
-		// 					collidePos = {
-		// 						x: x1,
-		// 						y: ball.position.y
-		// 					};
-		// 					break;
-		// 			}
-		// 			console.log("Collision Position: ", collidePos);
-		// 			this.stick++;
+				if (ball && wall) {
+					console.log("Current stick value:", this.stick);
+					console.log("Current ball velocity:", this.body.velocity);
+					console.log("Stored old velocities:", this.oldVelocities);
+					const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
+					const y1 = offset_vertical + pitch.borderWidth;
+					const y2 = y1 + pitch.height;
+					const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
+					const x2 = x1 + pitch.width;
+					// Calculate collision point based on ball position and wall type
+					let collidePos;
+					switch (wall.customType) {
+						case 'U':
+							collidePos = {
+								x: ball.position.x,
+								y: y2, 
+							};
+							break;
+						case 'D':
+							collidePos = {
+								x: ball.position.x,
+								y: y1, 
+							};
+							break;
+						case 'L':
+							collidePos = {
+								x: x2, 
+								y: ball.position.y
+							};
+							break;
+						case 'R':
+							collidePos = {
+								x: x1,
+								y: ball.position.y
+							};
+							break;
+					}
+					console.log("Collision Position: ", collidePos);
+					this.stick++;
 					
-		// 			if (this.ignoreCollidePosition(collidePos)) {
-		// 				this.lastCollidePosition = collidePos;
-		// 				console.log("Ignoring collision lerp Ball - too close to last one");
-		// 				return;
-		// 			}
-		// 			this.lastCollidePosition = collidePos;
-		// 			this.collideWall = true;
-		// 			this.opsAvoidLerp();
-		// 			this.authorityBall.combo--; 
-		// 			console.log("AuthorityBall Combo: ", this.authorityBall.combo); 
-		// 			const oldVel = this.oldVelocities.get(this.body.id);
-		// 			if (!oldVel) return;
-		
-		// 			const dampingDirection = 0.38;
-		// 			let newVelX = oldVel.x;
-		// 			let newVelY = oldVel.y;
+					if (this.ignoreCollidePosition(collidePos)) {
+						this.lastCollidePosition = collidePos;
+						console.log("Ignoring collision lerp Ball - too close to last one");
+						return;
+					}
+					this.lastCollidePosition = collidePos;
+					this.collideWall = true;
+					this.opsAvoidLerp();
+					this.authorityBall.combo--; 
 					
-		// 			switch (wall.customType) {
-		// 				case 'U':
-		// 				case 'D':
-		// 					newVelY = -newVelY * dampingDirection;
-		// 					break;
-		// 				case 'L':
-		// 				case 'R':
-		// 					newVelX = -newVelX * dampingDirection;
-		// 					break;
-		// 			}
+					const oldVel = this.oldVelocities.get(this.body.id);
+					if (!oldVel) return;
 		
-		// 			console.log("Lerp Ball Collide with Wall: "); 
-		// 			console.log("Old velocity:", oldVel.x, oldVel.y);
-		// 			console.log("New velocity:", newVelX, newVelY);
-		// 			this.setVelocity(newVelX, newVelY);
-		// 		}
-		// 	});
-		// });
+					const dampingDirection = 0.38;
+					let newVelX = oldVel.x;
+					let newVelY = oldVel.y;
+					
+					switch (wall.customType) {
+						case 'U':
+						case 'D':
+							newVelY = -newVelY * dampingDirection;
+							break;
+						case 'L':
+						case 'R':
+							newVelX = -newVelX * dampingDirection;
+							break;
+					}
+		
+					console.log("Lerp Ball Collide with Wall: "); 
+					console.log("Old velocity:", oldVel.x, oldVel.y);
+					console.log("New velocity:", newVelX, newVelY);
+					this.setVelocity(newVelX, newVelY);
+				}
+			});
+		});
 	
-		// this.scene.matter.world.on('collisionend', (event) => {
-		// 	event.pairs.forEach((pair) => {
-		// 		const ball3 = pair.bodyA.label === 'ball3' ? pair.bodyA : 
-		// 					  (pair.bodyB.label === 'ball3' ? pair.bodyB : null);
-		// 		const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-		// 					 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+		this.scene.matter.world.on('collisionend', (event) => {
+			event.pairs.forEach((pair) => {
+				const ball3 = pair.bodyA.label === 'ball3' ? pair.bodyA : 
+							  (pair.bodyB.label === 'ball3' ? pair.bodyB : null);
+				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
-		// 		if (ball3 && wall) {
-		// 			this.stick--; 
-		// 		}
-		// 	});
-		// });
+				if (ball3 && wall) {
+					this.stick--; 
+				}
+			});
+		});
 	
 		this.scene.matter.world.on('collisionactive', (event) => {
 			if (this.stick > 0) {
@@ -360,11 +357,14 @@ class Ball3 {
 			return;
 		}
 		// if (this.avoidLerp > 0 || this.authorityBall.avoidLerp > 0) return; 
-		// if (this.authorityBall.combo > 0) {
-		// 	return; 
-		// }
-		// if (this.isWallChangeVelocity()) return; 
-		// if (authorityVel.x != this.getVelocity().x || authorityVel.y != this.getVelocity().y) console.log("Last Set Velocity: ", authorityVel); 
+		if (this.authorityBall.combo > 0) {
+			return; 
+		}
+		if (this.isWallChangeVelocity()) return; 
+		if (authorityVel.x != this.getVelocity().x || authorityVel.y != this.getVelocity().y) {
+			console.log("Last Set Velocity: ", authorityVel); 
+			this.authorityBall.printStoredCurrentVelocityDiff(); 
+		}
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	
@@ -373,7 +373,7 @@ class Ball3 {
 		//    If distance is large, use larger lerp (for quicker correction).
 		const minLerp = 0.01;   // minimum lerp (when near)
 		const maxLerp = 0.2;    // maximum lerp (when far)
-		const maxDistForLerp = 100; // scale factor for how quickly we ramp up to maxLerp
+		const maxDistForLerp = 150; // scale factor for how quickly we ramp up to maxLerp
 		// Calculate a ratio from 0..1 based on how far we are (capped at 1)
 		const distRatio = Phaser.Math.Clamp(distance / maxDistForLerp, 0, 1);
 		// Interpolate our “variable” lerpFactor
