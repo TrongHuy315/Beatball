@@ -116,35 +116,40 @@
                         const x2 = x1 + pitch.width;
                         // Calculate collision point based on ball position and wall type
                         let collidePos;
+                        let deltaY = 0; 
+                        let deltaX = 0; 
                         switch (wall.customType) {
                             case 'U':
                                 collidePos = {
                                     x: ball.position.x,
                                     y: y2, 
                                 };
+                                deltaY = -this.radius 
                                 break;
                             case 'D':
                                 collidePos = {
                                     x: ball.position.x,
                                     y: y1, 
                                 };
+                                deltaY = this.radius
                                 break;
                             case 'L':
                                 collidePos = {
                                     x: x2, 
                                     y: ball.position.y
                                 };
+                                deltaX = this.radius; 
                                 break;
                             case 'R':
                                 collidePos = {
                                     x: x1,
                                     y: ball.position.y
                                 };
+                                deltaX = -this.radius
                                 break;
                         }
                         console.log("Collision Position: ", collidePos);
                         this.stick++;
-            
                         if (this.ignoreCollidePosition(collidePos)) {
                             this.lastCollidePosition = collidePos;
                             console.log("Ignoring collision client Ball - too close to last one");
@@ -153,7 +158,7 @@
                         this.lastCollidePosition = collidePos;
                         this.collideWall = true;
                         this.opsAvoidLerp();
-                        this.combo++;
+                        // this.combo++;
                         
                         const oldVel = this.oldVelocities.get(this.body.id);
                         if (!oldVel) return;
@@ -177,6 +182,8 @@
                         console.log("Old velocity:", oldVel.x, oldVel.y);
                         console.log("New velocity:", newVelX, newVelY);
                         this.setVelocity(newVelX, newVelY);
+                        this.lerpBall.setVelocity(newVelX, newVelY); 
+                        this.lerpBall.setPosition(collidePos.x + deltaX, collidePos.y + deltaY); 
                     }
                 });
             });

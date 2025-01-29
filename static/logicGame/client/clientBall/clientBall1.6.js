@@ -360,11 +360,11 @@ class Ball3 {
 			return;
 		}
 		// if (this.avoidLerp > 0 || this.authorityBall.avoidLerp > 0) return; 
-		if (this.authorityBall.combo > 0) {
-			return; 
-		}
-		if (this.isWallChangeVelocity()) return; 
-		if (authorityVel.x != this.getVelocity().x || authorityVel.y != this.getVelocity().y) console.log("Last Set Velocity: ", authorityVel); 
+		// if (this.authorityBall.combo > 0) {
+		// 	return; 
+		// }
+		// if (this.isWallChangeVelocity()) return; 
+		// if (authorityVel.x != this.getVelocity().x || authorityVel.y != this.getVelocity().y) console.log("Last Set Velocity: ", authorityVel); 
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	
@@ -373,7 +373,7 @@ class Ball3 {
 		//    If distance is large, use larger lerp (for quicker correction).
 		const minLerp = 0.01;   // minimum lerp (when near)
 		const maxLerp = 0.2;    // maximum lerp (when far)
-		const maxDistForLerp = 150; // scale factor for how quickly we ramp up to maxLerp
+		const maxDistForLerp = 100; // scale factor for how quickly we ramp up to maxLerp
 		// Calculate a ratio from 0..1 based on how far we are (capped at 1)
 		const distRatio = Phaser.Math.Clamp(distance / maxDistForLerp, 0, 1);
 		// Interpolate our “variable” lerpFactor
