@@ -206,18 +206,18 @@ class Ball3 {
 		// 	});
 		// });
 	
-		this.scene.matter.world.on('collisionend', (event) => {
-			event.pairs.forEach((pair) => {
-				const ball3 = pair.bodyA.label === 'ball3' ? pair.bodyA : 
-							  (pair.bodyB.label === 'ball3' ? pair.bodyB : null);
-				const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
-							 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+		// this.scene.matter.world.on('collisionend', (event) => {
+		// 	event.pairs.forEach((pair) => {
+		// 		const ball3 = pair.bodyA.label === 'ball3' ? pair.bodyA : 
+		// 					  (pair.bodyB.label === 'ball3' ? pair.bodyB : null);
+		// 		const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
+		// 					 (pair.bodyB.label === 'wall' ? pair.bodyB : null);
 	
-				if (ball3 && wall) {
-					this.stick--; 
-				}
-			});
-		});
+		// 		if (ball3 && wall) {
+		// 			this.stick--; 
+		// 		}
+		// 	});
+		// });
 	
 		this.scene.matter.world.on('collisionactive', (event) => {
 			if (this.stick > 0) {
