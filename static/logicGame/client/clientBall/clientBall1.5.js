@@ -35,7 +35,7 @@ class Ball {
         if (this.getPosition().x - this.radius - x1 <= offset) {
             return true; 
         }
-        if (x2 - (this.getPosition().x + this.radius) <= offset) {
+        if (x2 - (this.getPosition().x + this.radius) <= offset) {              
             return true; 
         }
         if (this.getPosition().y - this.radius - y1 <= offset) {
@@ -181,12 +181,12 @@ class Ball {
     
         this.scene.matter.world.on('collisionend', (event) => {
             event.pairs.forEach((pair) => {
-                const ball3 = pair.bodyA.label === 'ball' ? pair.bodyA : 
+                const ball = pair.bodyA.label === 'ball' ? pair.bodyA : 
                             (pair.bodyB.label === 'ball' ? pair.bodyB : null);
                 const wall = pair.bodyA.label === 'wall' ? pair.bodyA : 
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
     
-                if (ball3 && wall) {
+                if (ball && wall) {
                     this.stick--; 
                 }
             });

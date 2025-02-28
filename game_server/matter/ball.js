@@ -11,7 +11,16 @@ class Ball {
         this.damping = this.config.physics.damping;
         this.stick = 0; 
         this.oldVelocities = new Map();
+        this.lastCollidePosition = null; // Add this line
         this.initialize();
+    }
+    ignoreCollidePosition(pos) {
+        if (this.lastCollidePosition == null) return false;
+        const distance = Math.sqrt(
+            Math.pow(pos.x - this.lastCollidePosition.x, 2) + 
+            Math.pow(pos.y - this.lastCollidePosition.y, 2)
+        );   
+        return distance <= 10;
     }
 
     initialize() {
@@ -85,35 +94,72 @@ class Ball {
                         (pair.bodyB.label === 'wall' ? pair.bodyB : null);
     
             if (ball && wall) {
+                // Calculate collision position based on wall type
+                let collidePos;
+                const pushDirection = wall.customType;
+                
+                // Get the field dimensions from CONFIG
+                const { totalWidth, totalHeight } = CONFIG;
+                const y1 = CONFIG.offset_vertical + CONFIG.pitch.borderWidth;
+                const y2 = y1 + CONFIG.pitch.height;
+                const x1 = CONFIG.offset_horizontal + CONFIG.nets.borderWidth + CONFIG.pitch.borderWidth + CONFIG.nets.width;
+                const x2 = x1 + CONFIG.pitch.width;
+    
+                switch (pushDirection) {
+                    case 'U':
+                        collidePos = {
+                            x: ball.position.x,
+                            y: y2
+                        };
+                        break;
+                    case 'D':
+                        collidePos = {
+                            x: ball.position.x,
+                            y: y1
+                        };
+                        break;
+                    case 'L':
+                        collidePos = {
+                            x: x2,
+                            y: ball.position.y
+                        };
+                        break;
+                    case 'R':
+                        collidePos = {
+                            x: x1,
+                            y: ball.position.y
+                        };
+                        break;
+                }
+    
+                // Check if we should ignore this collision
+                if (this.ignoreCollidePosition(collidePos)) {
+                    this.lastCollidePosition = collidePos;
+                    return;
+                }
+    
+                this.lastCollidePosition = collidePos;
                 this.stick++;
-                // if (this.stick > 1) return;
+    
                 const oldVel = this.oldVelocities.get(this.body.id);
                 if (!oldVel) return;
     
-                const pushDirection = wall.customType;
                 const dampingDirection = 0.38;
                 let newVelX = ball.velocity.x;
                 let newVelY = ball.velocity.y;
     
                 switch (pushDirection) {
-                    case 'U': // Đẩy lên
-                        newVelY = -newVelY * dampingDirection; 
-                        break; 
-                    case 'D': // Đẩy xuống
-                        newVelY = -newVelY * dampingDirection; // Đảo chiều Y
+                    case 'U':
+                    case 'D':
+                        newVelY = -newVelY * dampingDirection;
                         break;
-                    case 'L': // Đẩy sang trái 
-                        newVelX = -newVelX * dampingDirection; 
-                        break; 
-                    case 'R': // Đẩy sang phải
-                        newVelX = -newVelX * dampingDirection; // Đảo chiều X
+                    case 'L':
+                    case 'R':
+                        newVelX = -newVelX * dampingDirection;
                         break;
                 }
     
-                this.setVelocity(
-                    newVelX,
-                    newVelY
-                );
+                this.setVelocity(newVelX, newVelY);
                 this.sendBallState();
             }
         });
