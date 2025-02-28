@@ -331,24 +331,27 @@ class Ball3 {
         var yy = this.body.velocity.y * this.damping; 
         this.setVelocity(xx, yy); 
 	}
-	willCollideWithWall () {
+	
+	willCollideWithWall() {
 		const { totalWidth, totalHeight, offset_horizontal, offset_vertical, pitch, nets } = CONFIG;
-        const y1 = offset_vertical + pitch.borderWidth;
-        const y2 = y1 + pitch.height;
-        const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
-        const x2 = x1 + pitch.width;
-		var step = 3;
-		var pos = this.getPosition(); 
-		var vel = this.getVelocity();  
-		for (var i = 0;i < step;i++) {
-			pos.x = pos.x + vel.x; 
-			pos.y = pos.y + vel.y; 
+		const y1 = offset_vertical + pitch.borderWidth;
+		const y2 = y1 + pitch.height;
+		const x1 = offset_horizontal + nets.borderWidth + pitch.borderWidth + nets.width;
+		const x2 = x1 + pitch.width;
+		const step = 3;
+		let pos = { ...this.getPosition() }; // Clone position
+		let vel = this.getVelocity();
+	
+		for (let i = 0; i < step; i++) {
+			pos.x += vel.x;
+			pos.y += vel.y;
 			if (pos.x > x2 || pos.x < x1 || pos.y < y1 || pos.y > y2) {
-				return true; 
+				return true;
 			}
-		}	
-		return false; 
+		}
+		return false;
 	}
+
     update() {
 		if (this.stick === 0 && Math.min(Math.abs(this.body.velocity.x), Math.abs(this.body.velocity.y)) > 0) {
 			this.oldVelocities.set(this.body.id, {
@@ -383,7 +386,7 @@ class Ball3 {
 		// 	console.log("Last Set Velocity: ", authorityVel); 
 		// 	this.authorityBall.printStoredCurrentVelocityDiff(); 
 		// }
-		// if (this.willCollideWithWall()) return; 
+		if (this.willCollideWithWall()) return; 
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	
