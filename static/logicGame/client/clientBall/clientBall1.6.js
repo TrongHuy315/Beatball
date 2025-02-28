@@ -383,7 +383,7 @@ class Ball3 {
 		// 	console.log("Last Set Velocity: ", authorityVel); 
 		// 	this.authorityBall.printStoredCurrentVelocityDiff(); 
 		// }
-		if (this.willCollideWithWall()) return; 
+		// if (this.willCollideWithWall()) return; 
 		// 1) Always match velocity if not 'sticking' (i.e. no wall collisions)
 		this.setVelocity(authorityVel.x, authorityVel.y);
 	
