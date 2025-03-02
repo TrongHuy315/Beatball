@@ -287,7 +287,6 @@ class Ball {
             }
             }
         }
-    
         // Final position & velocity after N frames
         return {
             position: { x: p0.x, y: p0.y },
@@ -338,7 +337,6 @@ class Ball {
         this.setPosition(newState.position.x, newState.position.y);
         this.setVelocity(newState.velocity.x, newState.velocity.y);
     }
-
     
     createGraphics() {
         const { radius } = this.config.physics;
@@ -498,7 +496,6 @@ class Ball {
         this.setVelocity(0, 0);
         this.damping = this.config.physics.damping; 
     }
-    
     setVelocity(x, y) {
         this.scene.matter.setVelocity(this.body, x, y);
     }

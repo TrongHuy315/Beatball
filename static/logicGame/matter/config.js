@@ -126,7 +126,7 @@ CONFIG = {
         
         // ------------- PHYSICS -----------------
         physics: {
-            mass: 4,
+            mass: 1.5,
             density: 0.001, 
             inertia: Infinity,     
 

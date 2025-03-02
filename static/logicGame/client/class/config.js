@@ -142,7 +142,7 @@ window.CONFIG = {
         
         // ------------- PHYSICS -----------------
         physics: {
-            mass: 2,
+            mass: 1.5,
             density: 0.001, 
             inertia: Infinity,     
 
