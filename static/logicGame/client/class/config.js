@@ -142,7 +142,7 @@ window.CONFIG = {
         
         // ------------- PHYSICS -----------------
         physics: {
-            mass: 100,
+            mass: 2,
             density: 0.001, 
             inertia: Infinity,     
 
@@ -156,7 +156,7 @@ window.CONFIG = {
             
             label: 'player', 
 
-            chamfer: { radius: 1 }, // Bo tròn góc nhẹ để va chạm mượt hơn
+            // chamfer: { radius: 1 }, // Bo tròn góc nhẹ để va chạm mượt hơn
 
         },
         
@@ -178,7 +178,7 @@ window.CONFIG = {
 	ball: {
         physics: {
             damping: 0.99, 
-            mass: 20,
+            mass: 1,
             restitution: 1,      // độ nảy 0.5
             friction: 0,        // ma sát với vật thể khác
             frictionAir: 0.00,    // ma sát không khí
