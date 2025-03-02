@@ -16,6 +16,7 @@ class Ball {
         this.lerpBall = null; 
         this.collideWall = false; 
         this.lastCollidePosition = null;
+        this.lastCollideTime = Date.now(); 
         this.combo = 0; 
     }
     startDampingCounter() {
@@ -104,6 +105,8 @@ class Ball {
                             (pair.bodyB.label === 'wall' ? pair.bodyB : null);
                 
                 if (ball && wall) {
+                    console.log("Delta Time between collision (Predict Ball): ", Date.now() - this.lastCollideTime); 
+                    this.lastCollideTime = Date.now(); 
                     console.log("Current stick value:", this.stick);
                     console.log("Current ball velocity:", this.body.velocity);
                     console.log("Stored old velocities:", this.oldVelocities);
@@ -143,11 +146,11 @@ class Ball {
                     console.log("Collision Position: ", collidePos);
                     this.stick++;
         
-                    if (this.ignoreCollidePosition(collidePos)) {
-                        this.lastCollidePosition = collidePos;
-                        console.log("Ignoring collision client Ball - too close to last one");
-                        return;
-                    }
+                    // if (this.ignoreCollidePosition(collidePos)) {
+                    //     this.lastCollidePosition = collidePos;
+                    //     console.log("Ignoring collision client Ball - too close to last one");
+                    //     return;
+                    // }
                     this.lastCollidePosition = collidePos;
                     this.collideWall = true;
                     this.opsAvoidLerp();
@@ -308,7 +311,7 @@ class Ball {
                     v0.x *= -0.38;
                 }
             }
-
+            
             v0.x *= dampingPower;
             v0.y *= dampingPower;
         }

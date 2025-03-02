@@ -11,6 +11,7 @@ class Ball3 {
         this.initialize();
 		this.collideWall = false; 
 		this.lastCollidePosition = null;
+		this.lastCollideTime = Date.now(); 
     }
 	ignoreCollidePosition(pos) {
 		if (this.lastCollidePosition == null) return false;
@@ -128,6 +129,8 @@ class Ball3 {
 							(pair.bodyB.label === 'wall' ? pair.bodyB : null);
 				
 				if (ball && wall) {
+					console.log("Delta Time between collision (Lerp Ball): ", Date.now() - this.lastCollideTime); 
+                    this.lastCollideTime = Date.now(); 
 					console.log("Current stick value:", this.stick);
 					console.log("Current ball velocity:", this.body.velocity);
 					console.log("Stored old velocities:", this.oldVelocities);
