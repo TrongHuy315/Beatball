@@ -126,7 +126,7 @@ CONFIG = {
         
         // ------------- PHYSICS -----------------
         physics: {
-            mass: 4,
+            mass: 20,
             density: 0.001, 
             inertia: Infinity,     
 
@@ -162,11 +162,11 @@ CONFIG = {
 	ball: {
         physics: {
             damping: 0.99, 
-            mass: 5,
+            mass: 40,
             restitution: 1,      // độ nảy
             friction: 0,        // ma sát với vật thể khác
             frictionAir: 0.00,    // ma sát không khí
-            radius: 11,            // bán kính vật lý và đồ họa
+            radius: 11,            // bán kính vật lý và đồ họa 
             inertia: Infinity,            // không cho phép xoay
             angle: 0,              // góc cố định
             frictionStatic: 0, 
